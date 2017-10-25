@@ -3,7 +3,7 @@
 Localization::Localization(std::string node_name, ros::NodeHandle &nh):node_name_(node_name), nh_(&nh)
 {
     std::string sens_top_name = "sensors_sim";
-    ros::Subscriber sens_sub = nh_->subscribe(sens_top_name, 10, &Localization::sensorsCB, this);
+    ros::Subscriber sens_sub = nh_->subscribe(sens_top_name, 30, &Localization::sensorsCB, this);
 
     // MAIN LOOP
     init();
@@ -54,7 +54,7 @@ void Localization::sensorsCB(const ekf_general::sensors_read::Ptr& sensor_msg){
 
 void Localization::init(){
     // Initial estimate of the state
-    readMapFile("/home/nacho/Documents/PhDCourses/AppliedEstimation/Lab1_EKF/DataSets/map_o3.txt");
+    readMapFile("/home/nacho/Documents/PhDCourses/AppliedEstimation/Lab1_EKF/DataSets/map_pent_big_10.txt");
     mu_ = boost::numeric::ublas::zero_vector<double>(3);
     sigma_ = boost::numeric::ublas::identity_matrix<double>(3) * 0.0000000001;
     delta_m_ = 0.999;
@@ -78,8 +78,8 @@ void Localization::computeOdom(){
     double R_R = R_L;
 
     // Update incremental variables
-    t_now_ = sensor_in_->acq_time;
-    double delta_t = t_now_ - t_prev_;
+    double t_now = sensor_in_->acq_time;
+    double delta_t = t_now - t_prev_;
     int delta_enc_R = sensor_in_->encoders.at(0) - encoders_prev_(0);
     int delta_enc_L = sensor_in_->encoders.at(1) - encoders_prev_(1);
     // TODO_NACHO: encoders left and right pos in the vector??
@@ -88,11 +88,14 @@ void Localization::computeOdom(){
     double omega_t = omega_R_t*R_R - omega_L_t*R_L/B;
     double vel_t = omega_R_t*R_R + omega_L_t*R_L/2;
 
+    std::cout << "Odom computed" << std::endl;
     u_t_(0) = vel_t*delta_t*std::cos(mu_(2));
     u_t_(1) = vel_t*delta_t*std::sin(mu_(2));
     u_t_(2) = angleLimit(omega_t*delta_t);
-
+    std::cout << u_t_ << std::endl;
+    std::cout << mu_ << std::endl;
     t_prev_ += delta_t;
+    std::cout << t_now << std::endl;
 }
 
 void Localization::predictionStep(){
@@ -110,7 +113,7 @@ void Localization::predictionStep(){
 
 }
 
-void Localization::dataAssociation(){
+void Localization::dataAssociation(std::vector<LandmarkML*> &ml_t_list){
     // TODO_NACHO: add upper loop for every ith observation per measurement
     int num_observs = sensor_in_->n;
     boost::numeric::ublas::vector<double> z_i(2);
@@ -123,46 +126,50 @@ void Localization::dataAssociation(){
 
     // Main ML loop
     unsigned int j = 0;
+    std::vector<LandmarkML*> ml_i_list;
     // For each observation z_i at time t
     for(auto z_i_j: z_t){
         // For each possible landmark j in M
         for(auto landmark_j: map_){
-            predictMeasurementModel(j, landmark_j, z_i_j);
+            predictMeasurementModel(j, landmark_j, z_i_j, ml_i_list);
             j++;
         }
         // Select the association with the ML
         // TODO_NACHO:
-        std::cout << "Measurements predicted" << std::endl;
-        std::cout << ml_i_list_.size() << std::endl;
-        std::sort(ml_i_list_.begin(), ml_i_list_.end(), sortLandmarksML);
-        ml_t_list_.push_back(ml_i_list_.front());
+//        std::cout << "Measurements predicted" << std::endl;
+//        std::cout << ml_i_list.size() << std::endl;
+        std::sort(ml_i_list.begin(), ml_i_list.end(), sortLandmarksML);
+        ml_t_list.push_back(ml_i_list.front());
         // Clear rest of objects from aux list i
-        ml_i_list_.clear();
+        ml_i_list.clear();
     }
 }
 
 void Localization::predictMeasurementModel(unsigned int &j,
                                       const boost::numeric::ublas::vector<int>& landmark_j,
-                                      boost::numeric::ublas::vector<double>& z_i){
+                                      boost::numeric::ublas::vector<double>& z_i,
+                                      std::vector<LandmarkML*> &ml_i_list){
     // Predicted z_hat_t_j
+    LandmarkML *landmark_j_ptr;
     boost::numeric::ublas::vector<double> z_hat (2);
     z_hat(0) = std::sqrt(std::pow((landmark_j(0) - mu_hat_(0)),2) + std::pow((landmark_j(1) - mu_hat_(1)),2));
     z_hat(1) = std::atan2(landmark_j(1) - mu_hat_(1), landmark_j(0) - mu_hat_(0)) - mu_hat_(2);
     // Jacobian of h for t, j and M
-    landmark_j_ptr_ = new LandmarkML(j, landmark_j);
-    landmark_j_ptr_->computeH(z_hat, mu_hat_);
-    landmark_j_ptr_->computeS(sigma_, Q_);
+    landmark_j_ptr = new LandmarkML(j, landmark_j);
+    landmark_j_ptr->computeH(z_hat, mu_hat_);
+    landmark_j_ptr->computeS(sigma_, Q_);
     // TODO_NACHO: implement z_i as a smart pointer?
-    landmark_j_ptr_->computeNu(z_hat, z_i);
-    landmark_j_ptr_->computeLikelihood();
+    landmark_j_ptr->computeNu(z_hat, z_i);
+    landmark_j_ptr->computeLikelihood();
     // Outlier detection based on Mahalanobis distance (z_i, z_j_hat)
     // TODO_NACHO: correct outlier rejection!!!!!
-    if(landmark_j_ptr_->d_m_(0) > lambda_M_){
-        std::cout << "Adding landmark association" << std::endl;
-        ml_i_list_.push_back(landmark_j_ptr_);
+//    std::cout << landmark_j_ptr->d_m_(0) << std::endl;
+    if(landmark_j_ptr->d_m_(0) < lambda_M_){
+//        std::cout << "Adding landmark association" << std::endl;
+        ml_i_list.push_back(landmark_j_ptr);
     }
     else{
-        std::cout << "Landmark association outlier" << std::endl;
+//        std::cout << "Landmark association outlier" << std::endl;
     }
 }
 
@@ -172,12 +179,15 @@ bool sortLandmarksML(LandmarkML *ml_1, LandmarkML *ml_2){
 }
 
 void Localization::sequentialUpdate(){
+    boost::numeric::ublas::matrix<double> K;
+
 
 }
 
 void Localization::ekfLocalize(){
 
-    ros::Rate rate(1.0);
+    std::vector<LandmarkML*> observs_list_t;
+    ros::Rate rate(10);
     while(ros::ok()){
         ros::spinOnce();
         if(!msgs_queue_.empty()){
@@ -185,14 +195,15 @@ void Localization::ekfLocalize(){
             sensor_in_ = msgs_queue_.front();
             ROS_INFO("Sensors readings handled");
             computeOdom();
-            ROS_INFO("Odometry computed");
-            predictionStep();
-            ROS_INFO("Prediction step carried out");
-            dataAssociation();
-            ROS_INFO("Data association finished");
-            sequentialUpdate();
-            ROS_INFO("Sequential update acomplished");
-            ml_t_list_.clear();
+//            ROS_INFO("Odometry computed");
+//            predictionStep();
+//            ROS_INFO("Prediction step carried out");
+//            dataAssociation(observs_list_t);
+//            ROS_INFO("Data association finished");
+//            sequentialUpdate();
+//            ROS_INFO("Sequential update acomplished");
+//            observs_list_t.clear();
+            msgs_queue_.pop();
         }
         else{
             ROS_INFO("Still waiting for some good, nice sensor readings...");
