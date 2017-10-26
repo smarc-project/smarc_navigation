@@ -32,20 +32,19 @@ void LandmarkML::computeNu(const boost::numeric::ublas::vector<double> &z_hat_i,
 
 // TODO_NACHO: NORMALIZE Gaussian pdf!!!!!!
 void LandmarkML::computeLikelihood(){
-    S_inverted_ = boost::numeric::ublas::matrix<double> (S_.size2(), S_.size1());
+    S_inverted_ = boost::numeric::ublas::matrix<double> (S_.size1(), S_.size2());
     bool inverted = matrices::InvertMatrix(S_, S_inverted_);
     if(!inverted){
         std::cout << "Error inverting S" << std::endl;
         return;
     }
     // Compute Mahalanobis distance (z_i, z_hat_j)
-    d_m_ = boost::numeric::ublas::element_prod(
-                boost::numeric::ublas::prod(boost::numeric::ublas::trans(nu_), S_inverted_),
-                nu_);
+    boost::numeric::ublas::vector<double> aux = boost::numeric::ublas::prod(boost::numeric::ublas::trans(nu_), S_inverted_);
+    d_m_ = boost::numeric::ublas::inner_prod(boost::numeric::ublas::trans(aux), nu_);
     // Calculate the determinant on the first member of the distribution
     boost::numeric::ublas::matrix<double> mat_aux = M_PI_2 * S_;
     double det_mat = matrices::matDeterminant(mat_aux);
     // Likelihood
-    psi_ = (1 / (std::sqrt(det_mat))) * std::exp(-0.5 * d_m_(0));
+    psi_ = (1 / (std::sqrt(det_mat))) * std::exp(-0.5 * d_m_);
 }
 

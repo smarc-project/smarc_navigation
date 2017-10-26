@@ -29,10 +29,6 @@
 #include <iostream>
 #include <cctype>
 
-
-
-
-
 #define M_PI2 M_PI*2
 
 namespace matrices{
@@ -67,9 +63,6 @@ namespace matrices{
         int res = lu_factorize(A,pm);
         if( res != 0 )
             return false;
-        // Backsubstitute to get the inverse
-//        std::cout << A.size1() << std::endl;
-//        std::cout << inverse.size1() << std::endl;
         inverse.assign(identity_matrix<T>(A.size1()));
         lu_substitute(A, pm, inverse);
         return true;
@@ -119,7 +112,7 @@ public:
     void computeNu(const boost::numeric::ublas::vector<double> &z_hat_i, const boost::numeric::ublas::vector<double> &z_i);
     void computeLikelihood();
     double psi_;
-    boost::numeric::ublas::vector<double> d_m_;
+    double d_m_;
     boost::numeric::ublas::matrix<double> H_;
     boost::numeric::ublas::matrix<double> S_;
     boost::numeric::ublas::matrix<double> S_inverted_;
