@@ -87,8 +87,8 @@ void Localization::computeOdom(){
     double t_now = sensor_in_->acq_time;
     double delta_t = t_now - t_prev_;
     // TODO_NACHO: encoders left and right pos in the vector??
-    int delta_enc_L = sensor_in_->encoders.at(0) - encoders_prev_(0);
-    int delta_enc_R = sensor_in_->encoders.at(1) - encoders_prev_(1);
+    int delta_enc_L = sensor_in_->encoders.at(1) - encoders_prev_(1);
+    int delta_enc_R = sensor_in_->encoders.at(0) - encoders_prev_(0);
     double omega_R_t = 2*M_PI*(delta_enc_R)/(E_T*delta_t);
     double omega_L_t = 2*M_PI*(delta_enc_L)/(E_T*delta_t);
     double omega_t = (omega_R_t*R_R - omega_L_t*R_L)/B;
@@ -99,8 +99,8 @@ void Localization::computeOdom(){
     u_t_(2) = omega_t*delta_t;
 
     t_prev_ += delta_t;
-    encoders_prev_(0) += delta_enc_L;
-    encoders_prev_(1) += delta_enc_R;
+    encoders_prev_(1) += delta_enc_L;
+    encoders_prev_(0) += delta_enc_R;
 
 }
 
@@ -206,12 +206,12 @@ void Localization::sequentialUpdate(std::vector<LandmarkML *> &observ_list){
         K_t_i = prod(K_t_i, observ_i->S_inverted_);
         // Update mu and sigma
         mu_hat_ = mu_hat_ + prod(K_t_i, observ_i->nu_);
-        mu_hat_(2) = angleLimit(mu_hat_(2));
         aux_mat = (I  - prod(K_t_i, observ_i->H_));
         sigma_hat_ = prod(aux_mat, sigma_hat_);
     }
     // Store state estimates for time t
     mu_ = mu_hat_;
+    mu_(2) = angleLimit(mu_(2));
     sigma_ = sigma_hat_;
     std::cout << "mu_" << std::endl;
     std::cout << mu_hat_ << std::endl;
@@ -223,7 +223,7 @@ void Localization::sequentialUpdate(std::vector<LandmarkML *> &observ_list){
 void Localization::ekfLocalize(){
 
     std::vector<LandmarkML*> observs_list_t;
-    ros::Rate rate(1);
+    ros::Rate rate(5);
     ROS_INFO("Initialized");
     ROS_INFO("-------------------------");
     int cnt = 0;
@@ -247,10 +247,10 @@ void Localization::ekfLocalize(){
             msgs_queue_.pop();
 
             std::cout << "number of loops:" << cnt++ << std::endl;
-            if(cnt==100){
-                loop = false;
-                break;
-            }
+//            if(cnt==100){
+//                loop = false;
+//                break;
+//            }
         }
         else{
             ROS_INFO("Still waiting for some good, nice sensor readings...");

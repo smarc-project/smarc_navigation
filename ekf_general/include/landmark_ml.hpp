@@ -29,7 +29,7 @@
 #include <iostream>
 #include <cctype>
 
-#define M_PI2 M_PI*2
+#define M_PI2 M_PI*2.0
 
 namespace matrices{
     // Functions to operate boost matrices
