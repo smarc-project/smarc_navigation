@@ -23,6 +23,9 @@ void Localization::split(const std::string &s, char delim, std::vector<std::stri
 }
 
 double Localization::angleLimit (double angle){ // keep angle within [0;2*pi)
+//        double a;
+//        a = std::fmod(angle + M_PI,  M_PI2);
+//        return a -= M_PI;
         while (angle >= M_PI2)
             angle -= M_PI2;
         while (angle < 0)
@@ -67,7 +70,7 @@ void Localization::init(){
     lambda_M_ = boost::math::quantile(chi2_dist, delta_m_);
 
     R_ = boost::numeric::ublas::identity_matrix<double> (3, 3) * 0.0001;
-    Q_ = boost::numeric::ublas::identity_matrix<double> (2, 2) * 0.0001; //TODO_NACHO: tune covariances
+    Q_ = boost::numeric::ublas::identity_matrix<double> (2, 2) * 0.0001; //TODO_NACHO: tune noise models
 
     // Initialize control variables
     t_prev_ = 0;
@@ -99,9 +102,8 @@ void Localization::computeOdom(){
     u_t_(2) = omega_t*delta_t;
 
     t_prev_ += delta_t;
-    encoders_prev_(1) += delta_enc_L;
-    encoders_prev_(0) += delta_enc_R;
-
+    encoders_prev_(1) = sensor_in_->encoders.at(1);
+    encoders_prev_(0) = sensor_in_->encoders.at(0);
 }
 
 void Localization::predictionStep(){
@@ -138,11 +140,11 @@ void Localization::predictMeasurementModel(unsigned int &j,
 
     // TODO_NACHO: tune outlier rejection!!!
     // Outlier detection based on Mahalanobis distance (z_i, z_j_hat)
-//    std::cout << "Likelihood of landmark j=" << landmark_j_ptr->landmark_id_ << std::endl;
-//    std::cout << landmark_j_ptr->d_m_ << std::endl;
+    std::cout << "Likelihood of landmark j=" << landmark_j_ptr->landmark_id_ << std::endl;
+    std::cout << landmark_j_ptr->d_m_ << std::endl;
     if(landmark_j_ptr->d_m_ < lambda_M_){
-//        std::cout << "Adding landmark j=" << landmark_j_ptr->landmark_id_ << std::endl;
-//        std::cout << landmark_j_ptr->d_m_ << std::endl;
+        std::cout << "Adding landmark j=" << landmark_j_ptr->landmark_id_ << std::endl;
+        std::cout << landmark_j_ptr->d_m_ << std::endl;
         ml_i_list.push_back(landmark_j_ptr);
     }
 }
@@ -153,7 +155,7 @@ void Localization::dataAssociation(std::vector<LandmarkML*> &ml_t_list){
     std::vector<boost::numeric::ublas::vector<double>> z_t;
     for(int i=0; i<num_observs; ++i){
         z_i(0) = sensor_in_->ranges.at(i);
-        z_i(1) = sensor_in_->bearings.at(i);
+        z_i(1) = angleLimit(sensor_in_->bearings.at(i));
         z_t.push_back(z_i);
     }
     // Main ML loop
@@ -173,7 +175,6 @@ void Localization::dataAssociation(std::vector<LandmarkML*> &ml_t_list){
         if(!ml_i_list.empty()){
             ml_t_list.push_back(ml_i_list.front());
         }
-        // Clear rest of objects from aux list i
         j = 0;
         ml_i_list.clear();
     }
@@ -206,6 +207,7 @@ void Localization::sequentialUpdate(std::vector<LandmarkML *> &observ_list){
         K_t_i = prod(K_t_i, observ_i->S_inverted_);
         // Update mu and sigma
         mu_hat_ = mu_hat_ + prod(K_t_i, observ_i->nu_);
+        mu_hat_(2) = angleLimit(mu_hat_(2));
         aux_mat = (I  - prod(K_t_i, observ_i->H_));
         sigma_hat_ = prod(aux_mat, sigma_hat_);
     }
@@ -217,13 +219,12 @@ void Localization::sequentialUpdate(std::vector<LandmarkML *> &observ_list){
     std::cout << mu_hat_ << std::endl;
     std::cout << "real mu_" << std::endl;
     std::cout << sensor_in_->true_pose.at(0) <<"," << sensor_in_->true_pose.at(1) <<"," << sensor_in_->true_pose.at(2)  << std::endl;
-
 }
 
 void Localization::ekfLocalize(){
 
     std::vector<LandmarkML*> observs_list_t;
-    ros::Rate rate(5);
+    ros::Rate rate(0.5);
     ROS_INFO("Initialized");
     ROS_INFO("-------------------------");
     int cnt = 0;
@@ -235,22 +236,18 @@ void Localization::ekfLocalize(){
             ROS_INFO("Sensors readings received");
             ROS_INFO("*************************");
             sensor_in_ = msgs_queue_.front();
-            ROS_INFO("----Computing odometry----");
+            ROS_DEBUG("----Computing odometry----");
             computeOdom();
-            ROS_INFO("----Prediction step----");
+            ROS_DEBUG("----Prediction step----");
             predictionStep();
-            ROS_INFO("----Data association----");
+            ROS_DEBUG("----Data association----");
             dataAssociation(observs_list_t);
-            ROS_INFO("----Sequential update----");
+            ROS_DEBUG("----Sequential update----");
             sequentialUpdate(observs_list_t);
             observs_list_t.clear();
             msgs_queue_.pop();
 
             std::cout << "number of loops:" << cnt++ << std::endl;
-//            if(cnt==100){
-//                loop = false;
-//                break;
-//            }
         }
         else{
             ROS_INFO("Still waiting for some good, nice sensor readings...");

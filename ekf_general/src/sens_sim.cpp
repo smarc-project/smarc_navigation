@@ -12,7 +12,7 @@ SensSim::SensSim(std::__cxx11::string node_name, ros::NodeHandle &nh):node_name_
     readSensorFile(path);
 
     ekf_general::sensors_read sensors_msg;
-    ros::Rate rate(5);
+    ros::Rate rate(10);
     boost::scoped_ptr<sensor_in_t> sensor_ptr(new sensor_in_t);
 
     while(ros::ok() && !sensors_readings_.empty()){
