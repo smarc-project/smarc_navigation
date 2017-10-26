@@ -29,11 +29,9 @@ private:
     // Measurement variables
     boost::numeric::ublas::vector<double> h_;
     boost::numeric::ublas::vector<double> z_;
-
     // Outliers rejection variables
     double lambda_M_;
     double delta_m_;
-
     // Control variables
     boost::numeric::ublas::vector<int> encoders_prev_;
     boost::numeric::ublas::vector<double> u_t_;
@@ -50,9 +48,11 @@ private:
     void init();
     void computeOdom();
     void predictionStep();
-    void predictMeasurementModel(unsigned int &j, const boost::numeric::ublas::vector<int> &landmark_j, boost::numeric::ublas::vector<double> &z_i, std::vector<LandmarkML *> &ml_i_list);
+    void predictMeasurementModel(unsigned int &j, const boost::numeric::ublas::vector<int> &landmark_j,
+                                 boost::numeric::ublas::vector<double> &z_i,
+                                 std::vector<LandmarkML *> &ml_i_list);
     void dataAssociation(std::vector<LandmarkML *> &ml_t_list);
-    void sequentialUpdate();
+    void sequentialUpdate(std::vector<LandmarkML *> &observ_list);
     void ekfLocalize();
 };
 

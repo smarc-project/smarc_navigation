@@ -32,15 +32,15 @@ void LandmarkML::computeNu(const boost::numeric::ublas::vector<double> &z_hat_i,
 
 // TODO_NACHO: NORMALIZE Gaussian pdf!!!!!!
 void LandmarkML::computeLikelihood(){
-    boost::numeric::ublas::matrix<double> S_inverted(S_.size2(), S_.size1());
-    bool inverted = matrices::InvertMatrix(S_, S_inverted);
+    S_inverted_ = boost::numeric::ublas::matrix<double> (S_.size2(), S_.size1());
+    bool inverted = matrices::InvertMatrix(S_, S_inverted_);
     if(!inverted){
         std::cout << "Error inverting S" << std::endl;
         return;
     }
     // Compute Mahalanobis distance (z_i, z_hat_j)
     d_m_ = boost::numeric::ublas::element_prod(
-                boost::numeric::ublas::prod(boost::numeric::ublas::trans(nu_), S_inverted),
+                boost::numeric::ublas::prod(boost::numeric::ublas::trans(nu_), S_inverted_),
                 nu_);
     // Calculate the determinant on the first member of the distribution
     boost::numeric::ublas::matrix<double> mat_aux = M_PI_2 * S_;

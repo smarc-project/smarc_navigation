@@ -35,28 +35,6 @@
 
 #define M_PI2 M_PI*2
 
-// TODO_NACHO: remove includes from duplicated libraries in all .hpp
-
-// Overloaded operators for std::vector
-//template <typename T>
-//boost::numeric::ublas::vector<T> operator+(const boost::numeric::ublas::vector<T>& a, const boost::numeric::ublas::vector<T>& b)
-//{
-//    assert(a.size() == b.size());
-//    boost::numeric::ublas::vector<T> result;
-//    result.reserve(a.size());
-//    std::transform(a.begin(), a.end(), b.begin(), std::back_inserter(result), std::plus<T>());
-//    return result;
-//}
-
-//template<typename T>
-//boost::numeric::ublas::vector<T> operator-(const boost::numeric::ublas::vector<T>& a, const boost::numeric::ublas::vector<T>& b){
-//    assert(a.size() == b.size());
-//    boost::numeric::ublas::vector<T> result;
-////    result.reserve(a.size());
-//    std::transform(a.begin(), a.end(), b.begin(), std::back_inserter(result), std::minus<T>());
-//    return result;
-//}
-
 namespace matrices{
     // Functions to operate boost matrices
     template<typename T>
@@ -90,8 +68,8 @@ namespace matrices{
         if( res != 0 )
             return false;
         // Backsubstitute to get the inverse
-        std::cout << A.size1() << std::endl;
-        std::cout << inverse.size1() << std::endl;
+//        std::cout << A.size1() << std::endl;
+//        std::cout << inverse.size1() << std::endl;
         inverse.assign(identity_matrix<T>(A.size1()));
         lu_substitute(A, pm, inverse);
         return true;
@@ -132,7 +110,7 @@ namespace matrices{
 
 
 
-// Class for computation of ML given a landmark_j and an observation z_t
+// Class for computation of ML given a landmark_j and an observation z_i_t
 class LandmarkML{
 public:
     LandmarkML(unsigned int &landmark_id, const boost::numeric::ublas::vector<int> &landmark_pos);
@@ -142,13 +120,14 @@ public:
     void computeLikelihood();
     double psi_;
     boost::numeric::ublas::vector<double> d_m_;
-
-private:
-    int landmark_id_;
     boost::numeric::ublas::matrix<double> H_;
     boost::numeric::ublas::matrix<double> S_;
+    boost::numeric::ublas::matrix<double> S_inverted_;
     boost::numeric::ublas::vector<int> landmark_pos_;
     boost::numeric::ublas::vector<double> nu_;
+    int landmark_id_;
+
+private:
 };
 
 #endif // LANDMARK_ML_HPP

@@ -4,7 +4,7 @@
 SensSim::SensSim(std::__cxx11::string node_name, ros::NodeHandle &nh):node_name_(node_name), nh_(&nh){
 
     //TODO_NACHO: use a launch file
-    std::string path = "/home/nacho/Documents/PhDCourses/AppliedEstimation/Lab1_EKF/DataSets/so_pb_10_outlier.txt";
+    std::string path = "/home/nacho/Documents/PhDCourses/AppliedEstimation/Lab1_EKF/DataSets/so_o3_ie.txt";
     std::string sensors_top = "sensors_sim";
     ros::Publisher sensors_pub = nh_->advertise<ekf_general::sensors_read>(sensors_top, 10);
 
