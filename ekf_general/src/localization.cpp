@@ -196,31 +196,19 @@ void Localization::dataAssociation(std::vector<LandmarkML*> &ml_t_list){
         if(!ml_i_list.empty()){
             if(ml_i_list.size() > 1){
                 std::sort(ml_i_list.begin(), ml_i_list.end(), sortLandmarksML);
-                double psi_min = ml_i_list.back()->psi_;
-                double psi_max = (ml_i_list.front()->psi_ <= 0.01)? 0: ml_i_list.front()->psi_;
-                if(psi_max != psi_min){
-                    std::cout << "************************ " << std::endl;
-                    std::cout << "ML min: " << psi_min << "ML max: " << psi_max << std::endl;
-                    for(auto ml_i: ml_i_list){
-                        std::cout << "ML values: " << ml_i->psi_ << std::endl;
-                        ml_i->psi_ = (ml_i->psi_ - psi_min)/(psi_max - psi_min);
-                        std::cout << "Normalized values: " << ml_i->psi_ << std::endl;
-                    }
-                }
-                std::sort(ml_i_list.begin(), ml_i_list.end(), sortLandmarksML);
             }
             std::cout << "psi_ value selected: " << ml_i_list.front()->psi_ << std::endl;
             ml_t_list.push_back(ml_i_list.front());
         }
         ml_i_list.clear();
     }
-    std::cout << "Num of assoc vs expected number: " << ml_t_list.size() << "-"<< sensor_in_->ids.size() << std::endl;
-    int j_ids = 0;
-    for(auto observ: ml_t_list){
-        std::cout << "Obtained vs known association: " << observ->landmark_id_ << ", " <<sensor_in_->ids.at(j_ids) << std::endl;
-        std::cout << observ->d_m_ << std::endl;
-        j_ids++;
-    }
+//    std::cout << "Num of assoc vs expected number: " << ml_t_list.size() << "-"<< sensor_in_->ids.size() << std::endl;
+//    int j_ids = 0;
+//    for(auto observ: ml_t_list){
+//        std::cout << "Obtained vs known association: " << observ->landmark_id_ << ", " <<sensor_in_->ids.at(j_ids) << std::endl;
+//        std::cout << observ->d_m_ << std::endl;
+//        j_ids++;
+//    }
 }
 
 bool sortLandmarksML(LandmarkML *ml_1, LandmarkML *ml_2){

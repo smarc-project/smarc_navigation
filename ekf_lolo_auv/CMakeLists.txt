@@ -53,7 +53,6 @@ add_dependencies(lolo_auv_navigation
     )
 
 target_link_libraries(lolo_auv_navigation
-	utils_matrices
-    ekf_class
+    utils_matrices
     ${catkin_LIBRARIES}
     )

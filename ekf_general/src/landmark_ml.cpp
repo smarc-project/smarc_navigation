@@ -43,7 +43,7 @@ void LandmarkML::computeLikelihood(){
     boost::numeric::ublas::vector<double> aux = boost::numeric::ublas::prod(boost::numeric::ublas::trans(nu_), S_inverted_);
     d_m_ = boost::numeric::ublas::inner_prod(boost::numeric::ublas::trans(aux), nu_);
     // Calculate the determinant on the first member of the distribution
-    boost::numeric::ublas::matrix<double> mat_aux = M_PI_2 * S_;
+    boost::numeric::ublas::matrix<double> mat_aux = 2 * M_PI_2 * S_;
     double det_mat = matrices::matDeterminant(mat_aux);
     // Likelihood
     psi_ = (1 / (std::sqrt(det_mat))) * std::exp(-0.5 * d_m_);

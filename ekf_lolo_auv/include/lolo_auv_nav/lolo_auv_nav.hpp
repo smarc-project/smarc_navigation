@@ -1,7 +1,6 @@
 #ifndef SMALL_AUV_NAV_HPP
 #define SMALL_AUV_NAV_HPP
 
-#include "ekf_class/ekf_class.hpp"
 #include "utils_matrices.hpp"
 
 #include <queue>
@@ -16,7 +15,7 @@
 #include <tf/tf.h>
 
 
-class LoLoEKF: public GeneralEKF{
+class LoLoEKF{
 
 public:
 
