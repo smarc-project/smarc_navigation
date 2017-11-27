@@ -1,0 +1,18 @@
+<launch>
+        <group ns="lolo_auv">
+            <node pkg="ekf_lolo_auv" name="lolo_auv_navigation" type="lolo_auv_navigation" output="screen">
+                <!--Init variables-->
+                <param name="initial_R" value="0.1" />
+                <param name="initial_Q" value="0.1" />
+	        <param name="delta" value="0.999" />
+                <param name="state_vec_size" value="5" />
+                <param name="measurement_vec_size" value="2" />
+                <param name="sequential_update" value="true" />
+                <!--Topics-->
+                <param name="imu_topic" value="/lolo_auv/imu"/>
+                <param name="dvl_topic" value="/lolo_auv/dvl_twist"/>
+                <param name="gt_pose_topic" value="/lolo_auv/pose_gt"/>
+                <param name="odom_pub_topic" value="/lolo_auv/ekf_odom"/>
+            </node>
+	</group>
+</launch>
