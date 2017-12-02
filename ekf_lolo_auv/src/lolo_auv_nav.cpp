@@ -1,6 +1,6 @@
 #include "lolo_auv_nav/lolo_auv_nav.hpp"
 
-LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):GeneralEKF(node_name, nh){
+LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):node_name_(node_name), nh_(&nh){
 
     // TODO_NACHO: Create a flexible sensors msgs container to be used in ekfLocalize() inheritated attribute]
     std::string imu_topic;
@@ -14,9 +14,9 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):GeneralEKF(node_nam
     nh_->param<std::string>((ros::this_node::getName() + "/gt_pose_topic"), gt_topic, "/gt_pose");
 
     // Node connections
-    imu_subs_ = nh_->subscribe(imu_topic, 10, &LoLoEKF::imuCB, this);
-    dvl_subs_ = nh_->subscribe(dvl_topic, 10, &LoLoEKF::dvlCB, this);
-    tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &LoLoEKF::gtCB, this);
+    imu_subs_ = nh_->subscribe(imu_topic, 1, &LoLoEKF::imuCB, this);
+    dvl_subs_ = nh_->subscribe(dvl_topic, 1, &LoLoEKF::dvlCB, this);
+    tf_gt_subs_ = nh_->subscribe(gt_topic, 1, &LoLoEKF::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
 
     // TODO: necessary to clear up queue at init?
@@ -25,21 +25,6 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):GeneralEKF(node_nam
     }
 }
 
-void LoLoEKF::init(const double &initial_R, const double &initial_Q, const double &delta, const unsigned int &size_n, const unsigned int &size_k){
-    // Noise models params
-    R_ = boost::numeric::ublas::identity_matrix<double> (size_n, size_n) * initial_R;
-    Q_ = boost::numeric::ublas::identity_matrix<double> (size_k, size_k) * initial_Q;
-    // Outlier rejection threshold
-    delta_m_ = delta;
-    boost::math::chi_squared chi2_dist(2);
-    lambda_M_ = boost::math::quantile(chi2_dist, delta_m_);
-    // Initial control variables
-    u_t_ =boost::numeric::ublas::vector<double>(size_n);
-
-    sigma_imu_ = boost::numeric::ublas::identity_matrix<double>(3) * 0.0000001;
-    mu_imu_ = boost::numeric::ublas::vector<double>(3);
-
-}
 
 double LoLoEKF::angleLimit (double angle) const{ // keep angle within [-pi;pi)
         return std::fmod(angle + M_PI, (M_PI * 2)) - M_PI;
@@ -48,26 +33,6 @@ double LoLoEKF::angleLimit (double angle) const{ // keep angle within [-pi;pi)
 // Freq is 50Hz
 void LoLoEKF::imuCB(const sensor_msgs::ImuPtr &imu_msg){
     using namespace boost::numeric::ublas;
-    // TODO: implement noise-reduction filter here
-    matrix<double> sigma_imu_hat;
-    matrix<double> k_imu;
-    matrix<double> Q_imu = identity_matrix<double>(3) * 0.001;
-    matrix<double> S_invert = matrix<double>(3,3);
-    matrix<double> I = identity_matrix<double>(3);
-
-    vector<double> mu_hat_imu = mu_imu_;
-    sigma_imu_hat = sigma_imu_;
-    matrix<double> aux = (sigma_imu_hat + Q_imu);
-    bool inverted = matrices::InvertMatrix(aux, S_invert);
-
-    k_imu = prod(sigma_imu_hat, S_invert);
-    vector<double> aux2 = vector<double>(3);
-    aux2(0) = imu_msg->angular_velocity.x - mu_hat_imu(0);
-    aux2(1) = imu_msg->angular_velocity.y - mu_hat_imu(1);
-    aux2(2) = imu_msg->angular_velocity.z - mu_hat_imu(2);
-    mu_imu_ = mu_hat_imu + prod(k_imu, aux2);
-    sigma_imu_ = prod((I - k_imu), sigma_imu_hat);
-
     boost::mutex::scoped_lock(msg_lock_);
     imu_readings_.push(imu_msg);
 }
@@ -82,147 +47,153 @@ void LoLoEKF::dvlCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg)
     dvl_readings_.push(dvl_msg);
 }
 
-void LoLoEKF::computeOdom(const sensor_msgs::ImuPtr sens_reading){
-    double x_acc = sens_reading->linear_acceleration.x;
-    double y_acc = sens_reading->linear_acceleration.y;
-    double yaw_vel = sens_reading->angular_velocity.z;
-
-    double t_now = sens_reading->header.stamp.toSec();
-    delta_t_ = t_now - this->t_prev_;
-    std::cout << "delta_t" << delta_t_ << std::endl;
-    double delta_theta = angleLimit(yaw_vel * delta_t_);
-
-    this->u_t_(0) = (mu_(2) * std::cos(mu_(4)) - mu_(1) * std::sin(mu_(4))) * delta_t_ +
-            0.5 * (x_acc * std::cos(mu_(4)) - y_acc * std::sin(mu_(4))) * std::pow(delta_t_,2) -
-            (mu_(3)/yaw_vel) * (std::cos(mu_(4) + delta_theta) - std::cos(mu_(4)));
-
-    this->u_t_(1) = (mu_(2) * std::sin(mu_(4)) + mu_(1) * std::cos(mu_(4))) * delta_t_ +
-            0.5 * (x_acc * std::sin(mu_(4)) + y_acc * std::cos(mu_(4))) * std::pow(delta_t_,2) +
-            (mu_(3)/yaw_vel) * (std::sin(mu_(4) + delta_theta) - std::sin(mu_(4)));
-
-    this->u_t_(2) = x_acc * delta_t_;
-    this->u_t_(3) = y_acc * delta_t_;
-    this->u_t_(4) = angleLimit(yaw_vel * delta_t_);
-
-    this->t_prev_ = t_now;
-}
-
-void LoLoEKF::predictionStep(const sensor_msgs::ImuPtr sens_reading){
-    using namespace boost::numeric::ublas;
-
-    // Compute Jacobian of motion model for time t
-    matrix<double> G_t = identity_matrix<double>(this->size_n_, this->size_n_);
-    G_t(0,2) = std::cos(this->mu_(4)) *  delta_t_;
-    G_t(0,3) = (1/sens_reading->angular_velocity.z) * (std::cos(mu_(4) + sens_reading->angular_velocity.z * delta_t_) - std::cos(mu_(4)))
-                - std::sin(mu_(4) * delta_t_);
-    G_t(0,4) = (mu_(3)/sens_reading->angular_velocity.z) * (std::sin(mu_(4)) - std::sin(mu_(4) + sens_reading->angular_velocity.z * delta_t_))
-                - (mu_(2) * std::sin(mu_(4)) + mu_(3) * std::cos(mu_(4))) * delta_t_
-                - 0.5 * (sens_reading->linear_acceleration.x * std::sin(mu_(4)) - sens_reading->linear_acceleration.y * std::cos(mu_(4))) * std::pow(delta_t_, 2);
-
-    G_t(1,2) = std::sin(this->mu_(4)) *  delta_t_;
-    G_t(1,3) = (1/sens_reading->angular_velocity.z) * (std::sin(mu_(4) + sens_reading->angular_velocity.z * delta_t_) - std::sin(mu_(4)))
-                - std::cos(mu_(4) * delta_t_);
-    G_t(1,4) = (mu_(3)/sens_reading->angular_velocity.z) * (std::cos(mu_(4)) - std::cos(mu_(4) + sens_reading->angular_velocity.z * delta_t_))
-                - (mu_(2) * std::cos(mu_(4)) + mu_(3) * std::sin(mu_(4))) * delta_t_
-                - 0.5 * (sens_reading->linear_acceleration.x * std::cos(mu_(4)) - sens_reading->linear_acceleration.y * std::sin(mu_(4))) * std::pow(delta_t_, 2);
-
-    // Update prediction
-    matrix<double> G_t_trans = trans(G_t);
-    matrix<double> aux = prod(sigma_, G_t_trans);
-    mu_hat_ = mu_ + u_t_;
-    mu_hat_(4) = angleLimit(mu_hat_(4));
-    sigma_hat_ = prod(G_t, aux) + R_;
-
-    std::cout << "MU_" << mu_ << std::endl;
-
-}
-
-void LoLoEKF::predictMeasurementModel(){
-    boost::numeric::ublas::vector<double> z_hat (size_k_);
-    boost::numeric::ublas::matrix<double> identity = boost::numeric::ublas::identity_matrix<double>(size_n_);
-}
-
-void LoLoEKF::dataAssociation(){
-
-}
-
-void LoLoEKF::sequentialUpdate(){
-    mu_ = mu_hat_;
-    sigma_ = sigma_hat_;
-
-}
-
-void LoLoEKF::batchUpdate(){
-
+double angle_diff(double angle_new, double angle_old) // return signed difference between new and old angle
+{
+    double diff = angle_new - angle_old;
+    while (diff < -M_PI)
+        diff += M_PI * 2;
+    while (diff > M_PI)
+        diff -= M_PI * 2;
+    return diff;
 }
 
 void LoLoEKF::ekfLocalize(){
-    boost::numeric::ublas::vector<double> mu_real = boost::numeric::ublas::vector<double>(3);
-    ros::Rate rate(20);
-    sensor_msgs::ImuPtr sensor_in;
+    ros::Rate rate(10);
 
+    sensor_msgs::ImuPtr imu_msg;
+    geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg;
+    nav_msgs::OdometryPtr gt_msg;
+
+    double delta_t;
+    double t_now;
+    double t_prev;
+    mu_ = boost::numeric::ublas::zero_vector<double>(6);
     nav_msgs::Odometry odom_msg;
-    tf::Quaternion q;
+    tf::TransformBroadcaster odom_bc;
+
+    tf::TransformListener listener;
+    tf::StampedTransform transf_dvl_base;
+    tf::StampedTransform transf_world_odom;
+    geometry_msgs::TransformStamped odom_trans;
 
     ROS_INFO("Initialized");
     ROS_INFO("-------------------------");
-    int cnt = 0;
     bool loop = true;
     bool init_filter = true;
+    double prev_imu_yaw;
+    double theta;
+
     while(ros::ok()&& loop){
         ros::spinOnce();
-        if(!imu_readings_.empty() && !gt_readings_.empty()){
-//            ROS_DEBUG("*************************");
-//            ROS_DEBUG("Sensors readings received");
-//            ROS_DEBUG("*************************");
-//            // Thread safe handling of sensor msgs queue **unnecessary**
-//            {
-//                boost::mutex::scoped_lock(msg_lock_);
-//                sensor_in = imu_readings_.front();
-//            }
-//            // Initial estimate for the filter from ground truth
-//            if(init_filter == true){
-//                ROS_INFO("Filter initialized");
-//                mu_(0) = gt_readings_.front()->pose.pose.position.x;
-//                mu_(1) = gt_readings_.front()->pose.pose.position.y;
-//                mu_(2) = gt_readings_.front()->twist.twist.linear.x;
-//                mu_(3) = gt_readings_.front()->twist.twist.linear.y;
-//                mu_(4) = tf::getYaw(gt_readings_.front()->pose.pose.orientation);
-//                sigma_ = boost::numeric::ublas::identity_matrix<double>(this->size_n_) * 0.0000001;
-//                init_filter = false;
-//            }
+        if(!dvl_readings_.empty() && !imu_readings_.empty() && !gt_readings_.empty()){
 
-//            ROS_DEBUG("----Computing odometry----");
-//            computeOdom(sensor_in);
-//            ROS_DEBUG("----Prediction step----");
-//            predictionStep(sensor_in);
-//            ROS_DEBUG("----Data association----");
-//            dataAssociation();
-//            ROS_DEBUG("----Sequential update----");
-//            // Sequential or batch update
-//            if(sequential_update_ == true){
-//                sequentialUpdate();
-//            }
-//            else{
-//                batchUpdate();
-//            }
+            // Init filter with initial, true pose (from GPS?)
+            if(init_filter){
+                ROS_INFO("Starting...");
+                gt_msg = gt_readings_.back();
+                t_prev = gt_msg->header.stamp.toSec();
 
-//            // Advertise results
-//            odom_msg.header.stamp = sensor_in->header.stamp;
-//            odom_msg.header.frame_id = "world";
-//            odom_msg.child_frame_id = "lolo_auv/base_link";
-//            odom_msg.pose.pose.position.x = mu_(0);
-//            odom_msg.pose.pose.position.y = mu_(1);
-//            odom_msg.pose.pose.position.z = gt_readings_.front()->pose.pose.position.z;
-//            odom_msg.pose.pose.orientation = tf::createQuaternionMsgFromYaw(mu_(4));
-//            odom_pub_.publish(odom_msg);
+                // Compute initial pose
+                double qx = gt_msg->pose.pose.orientation.x;
+                double qy = gt_msg->pose.pose.orientation.y;
+                double qz = gt_msg->pose.pose.orientation.z;
+                double qw = gt_msg->pose.pose.orientation.w;
+                prev_imu_yaw = std::atan2(2*(qx*qy + qw*qz), qw*qw + qx*qx - qy*qy - qz*qz);
+                theta = prev_imu_yaw;
 
-//            // Thread safe dispossal of sensor msgs
-//            {
-//                boost::mutex::scoped_lock(msg_lock_);
-//                imu_readings_.pop();
-//            }
-//            gt_readings_.pop();
+                // Broadcast transform over tf
+                odom_trans.header.stamp = gt_msg->header.stamp;
+                odom_trans.header.frame_id = "odom";
+                odom_trans.child_frame_id = "lolo_auv/base_link";
+                odom_trans.transform.translation.x = 0;
+                odom_trans.transform.translation.y = 0;
+                odom_trans.transform.translation.z = 0;
+                odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(0);
+                odom_bc.sendTransform(odom_trans);
+
+                // Publish odom msg
+                odom_msg.header.stamp = gt_msg->header.stamp;
+                odom_msg.header.frame_id = "odom";
+                odom_msg.child_frame_id = "lolo_auv/base_link";
+                odom_msg.pose.pose.position.x = 0;
+                odom_msg.pose.pose.position.y = 0;
+                odom_msg.pose.pose.position.z = 0;
+                odom_msg.pose.pose.orientation = tf::createQuaternionMsgFromYaw(0);
+                odom_pub_.publish(odom_msg);
+
+                // Get fixed transform from dvl to the base_link frame
+                try {
+                  listener.lookupTransform("lolo_auv/base_link", "lolo_auv/dvl_link", ros::Time(0), transf_dvl_base);
+                  listener.waitForTransform("lolo_auv/base_link", "lolo_auv/dvl_link", ros::Time(0), ros::Duration(10.0) );
+                  ROS_INFO("Locked transform dvl --> base");
+                }
+                catch(tf::TransformException &exception) {
+                  ROS_ERROR("%s", exception.what());
+                  ros::Duration(1.0).sleep();
+                }
+
+                try {
+                  listener.lookupTransform("world", "odom", ros::Time(0), transf_world_odom);
+                  listener.waitForTransform("world", "odom", ros::Time(0), ros::Duration(10.0) );
+                  ROS_INFO("Locked transform world --> odom");
+                }
+                catch(tf::TransformException &exception) {
+                  ROS_ERROR("%s", exception.what());
+                  ros::Duration(1.0).sleep();
+                }
+
+                init_filter = false;
+                continue;
+            }
+
+            // Integrate pose from dvl and imu
+            imu_msg = imu_readings_.back();
+            dvl_msg = dvl_readings_.back();
+            gt_msg = gt_readings_.back();
+
+            // Obtain absolute yaw from quaternion
+            double qx = imu_msg->orientation.x;
+            double qy = imu_msg->orientation.y;
+            double qz = imu_msg->orientation.z;
+            double qw = imu_msg->orientation.w;
+            double imu_yaw = std::atan2(2*(qx*qy + qw*qz), qw*qw + qx*qx - qy*qy - qz*qz);
+            double dtheta = angle_diff(imu_yaw, prev_imu_yaw);
+            prev_imu_yaw = imu_yaw;
+
+            // Compute norm of differential displacement
+            t_now = dvl_msg->header.stamp.toSec();
+            delta_t = t_now - t_prev;
+            double disp = std::sqrt(pow((dvl_msg->twist.twist.linear.z * delta_t),2) + pow((dvl_msg->twist.twist.linear.y * delta_t),2));
+
+            // Update pose xt = xt-1 + ut
+            mu_(0) += std::cos(dtheta) * disp;
+            mu_(1) += std::sin(dtheta) * disp;
+            mu_(2) = gt_msg->pose.pose.position.z - transf_world_odom.getOrigin().getZ(); // Imitate depth sensor input
+            theta += dtheta;
+            geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
+
+            // Publish odom msg
+            odom_msg.header.stamp = imu_msg->header.stamp;
+            odom_msg.header.frame_id = "odom";
+            odom_msg.child_frame_id = "lolo_auv/base_link";
+            odom_msg.pose.pose.position.x = mu_(0);
+            odom_msg.pose.pose.position.y = mu_(1);
+            odom_msg.pose.pose.position.z = mu_(2);
+            odom_msg.pose.pose.orientation = odom_quat;
+            odom_pub_.publish(odom_msg);
+
+            // Broadcast transform over tf
+            odom_trans.header.stamp = imu_msg->header.stamp;
+            odom_trans.header.frame_id = "odom";
+            odom_trans.child_frame_id = "lolo_auv/base_link";
+            odom_trans.transform.translation.x = mu_(0);
+            odom_trans.transform.translation.y = mu_(1);
+            odom_trans.transform.translation.z = mu_(2);
+            odom_trans.transform.rotation = odom_quat;
+
+            odom_bc.sendTransform(odom_trans);
+
+            t_prev = t_now;
         }
         else{
             ROS_INFO("Still waiting for some good, nice sensor readings...");

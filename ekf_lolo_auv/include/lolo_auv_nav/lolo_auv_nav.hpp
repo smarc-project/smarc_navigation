@@ -12,7 +12,12 @@
 #include <sensor_msgs/Imu.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistWithCovarianceStamped.h>
+
 #include <tf/tf.h>
+#include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
+#include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/TransformStamped.h>
 
 
 class LoLoEKF{
@@ -25,6 +30,13 @@ public:
 
 private:
 
+    // ROS variables
+    ros::NodeHandle *nh_;
+    std::string node_name_;
+    // Sensors readings handlers
+    double delta_t_;
+
+
     ros::Subscriber imu_subs_;
     ros::Subscriber dvl_subs_;
     ros::Subscriber tf_gt_subs_;
@@ -36,23 +48,13 @@ private:
     std::queue<nav_msgs::OdometryPtr> gt_readings_;
     boost::mutex msg_lock_;
 
+    boost::numeric::ublas::vector<double> mu_;
+
     void imuCB(const sensor_msgs::ImuPtr &imu_msg);
     void dvlCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg);
     void gtCB(const nav_msgs::OdometryPtr &pose_msg);
 
-    boost::numeric::ublas::matrix<double> sigma_imu_;
-    boost::numeric::ublas::vector<double> mu_imu_ ;
-
     double angleLimit (double angle) const;
-
-    // EKF methods
-    void init(const double &initial_R, const double &initial_Q, const double &delta, const unsigned int &size_n, const unsigned int &size_k);
-    void computeOdom(const sensor_msgs::ImuPtr sensor_reading);
-    void predictionStep(const sensor_msgs::ImuPtr sensor_reading);
-    void predictMeasurementModel();
-    void dataAssociation();
-    void sequentialUpdate();
-    void batchUpdate();
 
 };
 

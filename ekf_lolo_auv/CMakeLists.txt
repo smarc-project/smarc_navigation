@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
     rospy
     std_msgs
     ekf_general
+    tf
  )
 
 #set(Boost_USE_STATIC_LIBS        ON)
@@ -27,7 +28,7 @@ endif()
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES
-  CATKIN_DEPENDS roscpp rospy std_msgs ekf_general #message_runtime
+  CATKIN_DEPENDS roscpp rospy std_msgs ekf_general tf #message_runtime
 #  DEPENDS system_lib
 )
 
