@@ -33,10 +33,6 @@ private:
     // ROS variables
     ros::NodeHandle *nh_;
     std::string node_name_;
-    // Sensors readings handlers
-    double delta_t_;
-
-
     ros::Subscriber imu_subs_;
     ros::Subscriber dvl_subs_;
     ros::Subscriber tf_gt_subs_;
@@ -47,9 +43,13 @@ private:
     std::queue<geometry_msgs::TwistWithCovarianceStampedPtr> dvl_readings_;
     std::queue<nav_msgs::OdometryPtr> gt_readings_;
     boost::mutex msg_lock_;
-
+    // System state variables
     boost::numeric::ublas::vector<double> mu_;
+    double delta_t_;
+    // tf
+    tf::TransformBroadcaster odom_bc_;
 
+    // Methods
     void imuCB(const sensor_msgs::ImuPtr &imu_msg);
     void dvlCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg);
     void gtCB(const nav_msgs::OdometryPtr &pose_msg);
