@@ -71,6 +71,7 @@ void LoLoEKF::ekfLocalize(){
     bool init_filter = true;
 
     double theta;
+    double theta_prev;
     tf::Quaternion q_imu;
     tf::Quaternion q_world_odom;
     geometry_msgs::Quaternion odom_quat;
@@ -114,6 +115,7 @@ void LoLoEKF::ekfLocalize(){
                 tf::quaternionMsgToTF(gt_msg->pose.pose.orientation, q_gt);
                 tf::Quaternion q_auv = q_world_odom * q_gt;
                 q_auv.normalize();
+                theta_prev = tf::getYaw(q_auv);
                 tf::quaternionTFToMsg(q_auv, odom_quat);
 
                 // Broadcast transform over tf
@@ -150,30 +152,54 @@ void LoLoEKF::ekfLocalize(){
             tf::quaternionMsgToTF(imu_msg->orientation, q_imu);
             q_world_odom.normalize();
             tf::Quaternion q_auv = q_world_odom * q_imu;
-            q_auv.normalize();
-
-            // Obtain absolute yaw from quaternion
-            // TODO: implement handling for singularities
-            double imu_yaw = std::atan2(2*(q_auv.x()*q_auv.y() + q_auv.w()*q_auv.z()),
-                                        q_auv.w()*q_auv.w() + q_auv.x()*q_auv.x() - q_auv.y()*q_auv.y() - q_auv.z()*q_auv.z());
+            q_auv.normalize();  // TODO: implement handling for singularities
+            double imu_yaw = tf::getYaw(q_auv);
 
             theta = this->angleLimit(imu_yaw);
+            double dtheta = theta - theta_prev;
 
             // Update time step
             t_now = dvl_msg->header.stamp.toSec();
             delta_t = t_now - t_prev;
-            t_prev = t_now;
 
             // Compute magnitud of differential displacement
+            // Transform from dvl input form dvl --> base_link frame
+
+//            tf::Vector3 twist_rot(dvl_msg->twist.twist.angular.x,
+//                                  dvl_msg->twist.twist.angular.y,
+//                                  dvl_msg->twist.twist.angular.z);
+
+//            tf::Vector3 twist_vel(dvl_msg->twist.twist.linear.x,
+//                                  dvl_msg->twist.twist.linear.y,
+//                                  dvl_msg->twist.twist.linear.z);
+
+//            tf::Vector3 out_rot = transf_dvl_base.getBasis() * twist_rot;
+//            tf::Vector3 out_vel = transf_dvl_base.getBasis() * twist_vel + transf_dvl_base.getOrigin().cross(out_rot);
+
+//            geometry_msgs::Twist interframe_twist;
+//            tf::TransformListener::lookupTwist("lolo_auv/base_link", "lolo_auv/dvl_link", dvl_msg->header.stamp, ros::Duration(0.1), interframe_twist);
+
+//            // DVL Twist in base frame
+//            double dx =  (out_vel.x() + interframe_twist.linear.x) * delta_t;
+//            double dy =  out_vel.y() + interframe_twist.linear.y * delta_t;
+//            double dz =  out_vel.z() + interframe_twist.linear.z * delta_t;
+//            double droll =  out_rot.x() + interframe_twist.angular.x * delta_t;
+//            double dpitch =  out_rot.y() + interframe_twist.angular.y * delta_t;
+//            double dyaw =  (out_rot.z() + interframe_twist.angular.z) * delta_t;
+
             double disp = std::sqrt(pow((dvl_msg->twist.twist.linear.z * delta_t),2) +
                                     pow((dvl_msg->twist.twist.linear.y * delta_t),2));
 
+
             // Update pose xt = xt-1 + ut
-            mu_(0) += std::cos(theta) * disp;
-            mu_(1) += std::sin(theta) * disp;
+            mu_(0) += disp * std::cos(dtheta);
+            mu_(1) += disp * std::sin(dtheta);
             mu_(2) = gt_msg->pose.pose.position.z - transf_world_odom.getOrigin().getZ(); // Imitate depth sensor input
-            odom_quat = tf::createQuaternionMsgFromYaw(theta);
-            tf::quaternionTFToMsg(q_auv, odom_quat);
+//            odom_quat = tf::createQuaternionMsgFromYaw(theta + dyaw);
+//            tf::quaternionTFToMsg(q_auv, odom_quat);
+
+
+
 
             // Publish odom msg
             odom_msg.header.stamp = imu_msg->header.stamp;
@@ -182,7 +208,7 @@ void LoLoEKF::ekfLocalize(){
             odom_msg.pose.pose.position.x = mu_(0);
             odom_msg.pose.pose.position.y = mu_(1);
             odom_msg.pose.pose.position.z = mu_(2);
-            odom_msg.pose.pose.orientation = odom_quat;
+            odom_msg.pose.pose.orientation = imu_msg->orientation;
             odom_pub_.publish(odom_msg);
 
             // Broadcast transform over tf
@@ -192,8 +218,11 @@ void LoLoEKF::ekfLocalize(){
             odom_trans.transform.translation.x = mu_(0);
             odom_trans.transform.translation.y = mu_(1);
             odom_trans.transform.translation.z = mu_(2);
-            odom_trans.transform.rotation = odom_quat;
-            odom_bc.sendTransform(odom_trans);
+            odom_trans.transform.rotation = imu_msg->orientation;
+            odom_bc_.sendTransform(odom_trans);
+
+            theta = theta_prev;
+            t_prev = t_now;
         }
         else{
             ROS_INFO("Still waiting for some good, nice sensor readings...");
