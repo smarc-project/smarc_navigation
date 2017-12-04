@@ -49,12 +49,17 @@ private:
     double delta_t_;
     // tf
     tf::TransformBroadcaster odom_bc_;
+    std::string odom_frame_;
+    std::string world_frame_;
+    std::string base_frame_;
+    std::string dvl_frame_;
 
     // Methods
     void imuCB(const sensor_msgs::ImuPtr &imu_msg);
     void dvlCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg);
     void gtCB(const nav_msgs::OdometryPtr &pose_msg);
 
+    bool sendOutput(ros::Time &t, tf::Quaternion &q_auv);
     double angleLimit (double angle) const;
 
 };
