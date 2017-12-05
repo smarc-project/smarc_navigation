@@ -24,6 +24,9 @@ if(Boost_FOUND)
 endif()
 
 
+catkin_python_setup()
+
+
 # Generate messages in the 'msg' folder
  add_message_files(
    DIRECTORY msg
@@ -32,11 +35,11 @@ endif()
  )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+ add_service_files(
+   DIRECTORY srv
+   FILES
+   plot_map.srv
+ )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -71,20 +74,11 @@ endif()
 #   cfg/DynReconf2.cfg
 # )
 
-###################################
-## catkin specific configuration ##
-###################################
-## The catkin_package macro generates cmake config files for your package
-## Declare things to be passed to dependent projects
-## INCLUDE_DIRS: uncomment this if your package contains header files
-## LIBRARIES: libraries you create in this project that dependent projects also need
-## CATKIN_DEPENDS: catkin_packages dependent projects also need
-## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-#  LIBRARIES ekf_general
-  CATKIN_DEPENDS std_msgs roscpp message_runtime
-#  DEPENDS system_lib
+  LIBRARIES utils_matrices
+  CATKIN_DEPENDS std_msgs roscpp rospy message_runtime
+  DEPENDS boost
 )
 
 ###########
@@ -98,11 +92,9 @@ include_directories(
  ${catkin_INCLUDE_DIRS}
 )
 
-# Declare a C++ library
- add_library(landmark_ML
-   src/landmark_ml.cpp
-   include/landmark_ml.hpp
- )
+add_library(utils_matrices
+    src/utils_matrices.cpp
+    )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -113,15 +105,14 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(localization_node
+    src/landmark_ml.cpp
     src/localization_node.cpp
     src/localization.cpp
-    include/localization.hpp
 )
 
 add_executable(sens_sim_node
     src/sens_sim_node.cpp
     src/sens_sim.cpp
-    include/sens_sim.hpp
 )
 
 ## Rename C++ executable without prefix
@@ -145,14 +136,13 @@ add_dependencies(sens_sim_node
 
 # Specify libraries to link a library or executable target against
 target_link_libraries(localization_node
+   utils_matrices
    ${catkin_LIBRARIES}
-   landmark_ML
    ${Boost_LIBRARIES}
    )
 
 target_link_libraries(sens_sim_node
    ${catkin_LIBRARIES}
-   landmark_ML
    ${Boost_LIBRARIES}
    )
 

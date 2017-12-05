@@ -1,8 +1,9 @@
 *~
-*.autosave
 *.pyc
+
+# Qt files
+*.config
 *.creator
-*.user
+*.creator.user
 *.files
 *.includes
-*.config

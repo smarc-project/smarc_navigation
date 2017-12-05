@@ -3,13 +3,14 @@
 
 SensSim::SensSim(std::__cxx11::string node_name, ros::NodeHandle &nh):node_name_(node_name), nh_(&nh){
 
-    //TODO_NACHO: use a launch file
-    std::string path = "/home/nacho/Documents/PhDCourses/AppliedEstimation/Lab1_EKF/DataSets/so_o3_ie.txt";
-    std::string sensors_top = "sensors_sim";
+    std::string path_2_sens;
+    std::string sensors_top;
+    nh_->param<std::string>((ros::this_node::getName() + "/path_2_sens"), path_2_sens, "/home/nacho/Documents/PhDCourses/AppliedEstimation/Lab1_EKF/DataSets/so_o3_ie.txt");
+    nh_->param<std::string>((ros::this_node::getName() + "/sensors_top"), sensors_top, "/sensors_sim");
     ros::Publisher sensors_pub = nh_->advertise<ekf_general::sensors_read>(sensors_top, 10);
 
     // Read input file with simulated readings
-    readSensorFile(path);
+    readSensorFile(path_2_sens);
 
     ekf_general::sensors_read sensors_msg;
     ros::Rate rate(10);

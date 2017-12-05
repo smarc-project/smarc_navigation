@@ -1,0 +1,18 @@
+<launch>
+        <group ns="lolo_auv">
+            <node pkg="ekf_lolo_auv" name="lolo_auv_navigation" type="lolo_auv_navigation" output="screen">
+                <!--Init variables-->
+
+                <!--Topics-->
+                <param name="imu_topic" value="/lolo_auv/imu"/>
+                <param name="dvl_topic" value="/lolo_auv/dvl_twist"/>
+                <param name="odom_pub_topic" value="/lolo_auv/ekf_odom"/>
+                <param name="gt_pose_topic" value="/lolo_auv/pose_gt"/>
+                <param name="odom_frame" value="odom"/>
+                <param name="world_frame" value="world"/>
+                <param name="base_frame" value="/lolo_auv/base_link"/>
+                <param name="dvl_frame" value="/lolo_auv/dvl_link"/>
+
+            </node>
+	</group>
+</launch>

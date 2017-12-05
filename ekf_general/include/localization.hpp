@@ -11,9 +11,15 @@ public:
     Localization(std::string node_name, ros::NodeHandle &nh);
 
 private:
-    // ROS node variables
+    // ROS variables
     ros::NodeHandle *nh_;
     std::string node_name_;
+    ros::Subscriber sens_sub_;
+    ros::Publisher nu_est_pub_;
+    ros::Publisher nu_real_pub_;
+    ros::Publisher error_pub_;
+    ros::ServiceClient map_client_;
+
     // Sensors readings handlers
     std::vector<boost::numeric::ublas::vector<int>> map_;
     std::queue<ekf_general::sensors_read::Ptr> msgs_queue_;
@@ -38,17 +44,16 @@ private:
     double t_prev_;
 
     // Aux methods
-    void readMapFile(std::string path_to_map);
+    void getMapFile(std::string path_to_map);
     void split (const std::string &s, char delim, std::vector<std::string> &elems);
-    double angleLimit (double angle);
 
     void sensorsCB(const ekf_general::sensors_read::Ptr &sensor_msg);
 
     // Lab1 methods
-    void init();
+    void init(const double &initial_R, const double &initial_Q, const double &delta);
     void computeOdom();
     void predictionStep();
-    void predictMeasurementModel(unsigned int &j, const boost::numeric::ublas::vector<int> &landmark_j,
+    void predictMeasurementModel(const boost::numeric::ublas::vector<int> &landmark_j,
                                  boost::numeric::ublas::vector<double> &z_i,
                                  std::vector<LandmarkML *> &ml_i_list);
     void dataAssociation(std::vector<LandmarkML *> &ml_t_list);

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>ekf_general</name>
+  <name>ekf_lolo_auv</name>
   <version>0.0.0</version>
-  <description>The ekf_general package</description>
+  <description>The ekf_lolo_auv package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -49,16 +49,15 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>roscpp</build_depend>
-  <exec_depend>roscpp</exec_depend>
-  <exec_depend>rospy</exec_depend>
-  <build_depend>rospy</build_depend>
-  <build_depend>genmsg</build_depend>
+  <depend>ekf_general</depend>
+  <depend>roscpp</depend>
+  <depend>tf</depend>
+  <depend>rospy</depend>
+<!--   <build_depend>genmsg</build_depend>
   <exec_depend>genmsg</exec_depend>
   <build_depend>message_generation</build_depend>
-  <exec_depend>message_runtime</exec_depend>
-  <build_depend>std_msgs</build_depend>
-  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>message_runtime</exec_depend> -->
+  <depend>std_msgs</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
