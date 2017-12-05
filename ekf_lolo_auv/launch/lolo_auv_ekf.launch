@@ -10,8 +10,8 @@
                 <param name="gt_pose_topic" value="/lolo_auv/pose_gt"/>
                 <param name="odom_frame" value="odom"/>
                 <param name="world_frame" value="world"/>
-                <param name="base_frame" value="/lolo_auv/base_link"/>
-                <param name="dvl_frame" value="/lolo_auv/dvl_link"/>
+                <param name="base_frame" value="lolo_auv/base_link"/>
+                <param name="dvl_frame" value="lolo_auv/dvl_link"/>
 
             </node>
 	</group>
