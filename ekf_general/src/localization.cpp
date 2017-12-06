@@ -75,7 +75,6 @@ void Localization::getMapFile(std::__cxx11::string path_to_map){
         landmark.clear();
     }
     map_file.close();
-
     // Plot map service request
     while(!map_client_.call(map_srv) && ros::ok()){
         ros::Duration(0.5).sleep();
@@ -88,6 +87,7 @@ void Localization::getMapFile(std::__cxx11::string path_to_map){
 void Localization::sensorsCB(const ekf_general::sensors_read::Ptr& sensor_msg){
     msgs_queue_.push(sensor_msg);
 }
+
 
 void Localization::init(const double &initial_R, const double &initial_Q, const double &delta){
 
@@ -117,7 +117,6 @@ void Localization::computeOdom(){
     // Update incremental variables
     double t_now = sensor_in_->acq_time;
     double delta_t = t_now - t_prev_;
-
     int delta_enc_L = sensor_in_->encoders.at(1) - encoders_prev_(1);
     int delta_enc_R = sensor_in_->encoders.at(0) - encoders_prev_(0);
     double omega_R_t = 2*M_PI*(delta_enc_R)/(E_T*delta_t);
@@ -267,7 +266,6 @@ void Localization::ekfLocalize(){
     mu_real_msg.layout.dim[0].stride = 1;
 
     std_msgs::Float32 angle_error_msg;
-
     ROS_INFO("Initialized");
     ROS_INFO("-------------------------");
     int cnt = 0;
@@ -304,12 +302,10 @@ void Localization::ekfLocalize(){
 
             angle_error_msg.data = mu_(2) - sensor_in_->true_pose.at(2);
             error_pub_.publish(angle_error_msg);
-
             observs_list_t.clear();
             msgs_queue_.pop();
 
             std::cout << "number of loops:" << cnt++ << std::endl;
-
         }
         else{
             ROS_INFO("Still waiting for some good, nice sensor readings...");

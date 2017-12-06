@@ -1,6 +1,5 @@
 #include "landmark_ml.hpp"
 
-
 LandmarkML::LandmarkML(const boost::numeric::ublas::vector<int> &landmark_pos){
     landmark_id_ = landmark_pos(0);
     landmark_pos_ = boost::numeric::ublas::vector<int>(2);

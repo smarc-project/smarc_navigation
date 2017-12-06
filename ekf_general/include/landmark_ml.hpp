@@ -40,6 +40,7 @@ double angleLimit (double angle);
 // Class for computation of ML given a landmark_j and an observation z_i_t
 class LandmarkML{
 public:
+
     LandmarkML(const boost::numeric::ublas::vector<int> &landmark_pos);
     void computeH(const boost::numeric::ublas::vector<double> &z_hat, const boost::numeric::ublas::vector<double> &mu_hat);
     void computeS(const boost::numeric::ublas::matrix<double> &sigma, const boost::numeric::ublas::matrix<double> &Q);

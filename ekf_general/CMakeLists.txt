@@ -9,7 +9,6 @@ endif()
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
-    rospy
     std_msgs
     genmsg
     message_generation
@@ -93,7 +92,6 @@ include_directories(
  ${catkin_INCLUDE_DIRS}
 )
 
-# Declare a C++ library
 add_library(utils_matrices
     src/utils_matrices.cpp
     )
