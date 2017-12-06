@@ -151,9 +151,9 @@ void LoLoEKF::ekfLocalize(){
     sensor_msgs::ImuPtr imu_msg;
     geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg;
     nav_msgs::OdometryPtr gt_msg;
-
     double t_prev;
     double yaw_prev;
+
     // TODO: full implementation of 6 DOF movement
     mu_ = boost::numeric::ublas::zero_vector<double>(6);
     mu_hat_ = boost::numeric::ublas::zero_vector<double>(6);
@@ -174,25 +174,25 @@ void LoLoEKF::ekfLocalize(){
                 tf::Quaternion q_world_odom;
                 tf::TransformListener tf_listener;
                 try {
-                  tf_listener.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_dvl_base_);
-                  tf_listener.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
-                  ROS_INFO("Locked transform dvl --> base");
+                    tf_listener.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
+                    tf_listener.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_dvl_base_);
+                    ROS_INFO("Locked transform dvl --> base");
                 }
                 catch(tf::TransformException &exception) {
-                  ROS_ERROR("%s", exception.what());
-                  ros::Duration(1.0).sleep();
+                    ROS_ERROR("%s", exception.what());
+                    ros::Duration(1.0).sleep();
                 }
 
                 // Get fixed transform world --> odom frame
                 try {
-                  tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
-                  tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
-                  q_world_odom = transf_world_odom_.getRotation();
-                  ROS_INFO("Locked transform world --> odom");
+                    tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
+                    tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
+                    q_world_odom = transf_world_odom_.getRotation();
+                    ROS_INFO("Locked transform world --> odom");
                 }
                 catch(tf::TransformException &exception) {
-                  ROS_ERROR("%s", exception.what());
-                  ros::Duration(1.0).sleep();
+                    ROS_ERROR("%s", exception.what());
+                    ros::Duration(1.0).sleep();
                 }
 
                 // Compute initial pose
