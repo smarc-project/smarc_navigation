@@ -65,13 +65,14 @@ private:
 
     // EKF methods
     void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const nav_msgs::OdometryPtr &gt_msg,
-                const sensor_msgs::ImuPtr &imu_msg, double &t_prev, double& yaw_prev, boost::numeric::ublas::vector<double> &u_t);
+                     const tf::Quaternion q_auv, double &t_prev, double& yaw_prev, boost::numeric::ublas::vector<double> &u_t);
 
     void prediction(boost::numeric::ublas::vector<double> &u_t);
     void update();
+    void transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &q_auv);
 
     // Aux methods
-    bool sendOutput(ros::Time &t, geometry_msgs::Quaternion &odom_quat);
+    bool sendOutput(ros::Time &t, tf::Quaternion &q_auv);
     double angleLimit (double angle) const;
 
 };

@@ -58,9 +58,11 @@ void LoLoEKF::dvlCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg)
     dvl_readings_.push(dvl_msg);
 }
 
-bool LoLoEKF::sendOutput(ros::Time &t, geometry_msgs::Quaternion &odom_quat){
+bool LoLoEKF::sendOutput(ros::Time &t, tf::Quaternion &q_auv){
 
 //    try{
+        geometry_msgs::Quaternion odom_quat;
+        tf::quaternionTFToMsg(q_auv, odom_quat);
 
         // Broadcast transform over tf
         geometry_msgs::TransformStamped odom_trans;
@@ -93,7 +95,7 @@ bool LoLoEKF::sendOutput(ros::Time &t, geometry_msgs::Quaternion &odom_quat){
 }
 
 void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const nav_msgs::OdometryPtr &gt_msg,
-                          const sensor_msgs::ImuPtr &imu_msg, double &t_prev, double& yaw_prev, boost::numeric::ublas::vector<double> &u_t){
+                          const tf::Quaternion q_auv, double &t_prev, double& yaw_prev, boost::numeric::ublas::vector<double> &u_t){
 
     // Update time step
     double t_now = dvl_msg->header.stamp.toSec();
@@ -107,13 +109,6 @@ void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dv
     tf::Vector3 l_vel_base = transf_dvl_base_.getBasis() * twist_vel;
     double w_z_base = transf_dvl_base_.getOrigin().getX() * dvl_msg->twist.twist.linear.y;
 
-    // Transform IMU orientation from world to odom coordinates
-    tf::Quaternion q_imu;
-    tf::quaternionMsgToTF(imu_msg->orientation, q_imu);
-    tf::Quaternion q_world_odom = transf_world_odom_.getRotation();
-    tf::Quaternion q_auv = q_world_odom * q_imu;
-    q_auv.normalize();  // TODO: implement handling of singularities?
-    double yaw_t = tf::getYaw(q_auv);
 
     // Compute incremental displacement
     double disp = std::sqrt(pow((l_vel_base.y() * delta_t),2) +
@@ -124,6 +119,7 @@ void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dv
     double theta = angleLimit(yaw_prev + dtheta);
 
     // Compute control u_t
+    double yaw_t = tf::getYaw(q_auv);
     int sign = (sgn(std::sin(theta) * disp) == 1)? -1: 1;
     u_t(0) = std::cos(theta) * disp;
     u_t(1) = std::sin(theta) * disp + sign * (w_z_base * delta_t) * transf_dvl_base_.getOrigin().getX();
@@ -135,14 +131,23 @@ void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dv
 }
 
 void LoLoEKF::prediction(boost::numeric::ublas::vector<double> &u_t){
-    mu_hat_(0) =+ u_t(0);
-    mu_hat_(1) =+ u_t(1);
+    mu_hat_(0) += u_t(0);
+    mu_hat_(1) += u_t(1);
     mu_hat_(2) = u_t(2);
     mu_hat_(3) = u_t(3);
 }
 
 void LoLoEKF::update(){
     mu_ = mu_hat_;
+}
+
+void LoLoEKF::transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &q_auv){
+    // Transform IMU orientation from world to odom coordinates
+    tf::Quaternion q_transf;
+    tf::quaternionMsgToTF(auv_quat, q_transf);
+    tf::Quaternion q_world_odom = transf_world_odom_.getRotation();
+    q_auv = q_world_odom * q_transf;
+    q_auv.normalize();  // TODO: implement handling of singularities?
 }
 
 void LoLoEKF::ekfLocalize(){
@@ -152,7 +157,8 @@ void LoLoEKF::ekfLocalize(){
     geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg;
     nav_msgs::OdometryPtr gt_msg;
     double t_prev;
-    double yaw_prev;
+    double yaw_t;
+    tf::Quaternion q_auv;
 
     // TODO: full implementation of 6 DOF movement
     mu_ = boost::numeric::ublas::zero_vector<double>(6);
@@ -187,7 +193,6 @@ void LoLoEKF::ekfLocalize(){
                 try {
                     tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
                     tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
-                    q_world_odom = transf_world_odom_.getRotation();
                     ROS_INFO("Locked transform world --> odom");
                 }
                 catch(tf::TransformException &exception) {
@@ -198,14 +203,11 @@ void LoLoEKF::ekfLocalize(){
                 // Compute initial pose
                 gt_msg = gt_readings_.back();
                 t_prev = gt_msg->header.stamp.toSec();
-                tf::Quaternion q_gt;
-                tf::quaternionMsgToTF(gt_msg->pose.pose.orientation, q_gt);
-                tf::Quaternion q_auv = q_world_odom * q_gt;
-                q_auv.normalize();
-                yaw_prev = tf::getYaw(q_auv);
+                transIMUframe(gt_msg->pose.pose.orientation, q_auv);
+                yaw_t = tf::getYaw(q_auv);
 
                 // Publish and broadcast
-                this->sendOutput(gt_msg->header.stamp, gt_msg->pose.pose.orientation);
+                this->sendOutput(gt_msg->header.stamp, q_auv);
 
                 gt_readings_.pop();
                 init_filter = false;
@@ -218,8 +220,10 @@ void LoLoEKF::ekfLocalize(){
             dvl_msg = dvl_readings_.back();
             gt_msg = gt_readings_.back();
 
+            transIMUframe(imu_msg->orientation, q_auv);
+
             // Compute displacement based on DVL and IMU orientation
-            computeOdom(dvl_msg, gt_msg, imu_msg, t_prev, yaw_prev, u_t);
+            computeOdom(dvl_msg, gt_msg, q_auv, t_prev, yaw_t, u_t);
 
             // Prediction step
             prediction(u_t);
@@ -228,7 +232,7 @@ void LoLoEKF::ekfLocalize(){
             update();
 
             // Publish and broadcast
-            this->sendOutput(dvl_msg->header.stamp, imu_msg->orientation);
+            this->sendOutput(dvl_msg->header.stamp, q_auv);
 
 
             imu_readings_.pop();
