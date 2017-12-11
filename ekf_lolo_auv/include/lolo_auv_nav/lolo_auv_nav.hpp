@@ -28,6 +28,7 @@ public:
     LoLoEKF(std::string node_name, ros::NodeHandle &nh);
     void ekfLocalize();
     ~LoLoEKF();
+    void init();
 
 private:
 
@@ -47,8 +48,15 @@ private:
     // System state variables
     boost::numeric::ublas::vector<double> mu_;
     boost::numeric::ublas::vector<double> mu_hat_;
+    boost::numeric::ublas::matrix<double> Sigma_;
+    boost::numeric::ublas::matrix<double> Sigma_hat_;
+    boost::numeric::ublas::matrix<double> G_t_;
+    // Noise models
+    boost::numeric::ublas::matrix<double> R_;
+    boost::numeric::ublas::matrix<double> Q_;
 
     double delta_t_;
+    double z_t_; // Aux until model extended to 6DOF
     // tf
     tf::TransformBroadcaster odom_bc_;
     tf::StampedTransform transf_dvl_base_;
@@ -64,15 +72,15 @@ private:
     void gtCB(const nav_msgs::OdometryPtr &pose_msg);
 
     // EKF methods
-    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const nav_msgs::OdometryPtr &gt_msg,
-                     const tf::Quaternion q_auv, double &t_prev, double& yaw_prev, boost::numeric::ublas::vector<double> &u_t);
-
+    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const tf::Quaternion q_auv,
+                     double &t_prev, boost::numeric::ublas::vector<double> &u_t);
     void prediction(boost::numeric::ublas::vector<double> &u_t);
     void update();
-    void transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &q_auv);
+
 
     // Aux methods
-    bool sendOutput(ros::Time &t, tf::Quaternion &q_auv);
+    void transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &q_auv);
+    bool sendOutput(ros::Time &t);
     double angleLimit (double angle) const;
 
 };

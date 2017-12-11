@@ -21,8 +21,17 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):node_name_(node_nam
     dvl_subs_ = nh_->subscribe(dvl_topic, 1, &LoLoEKF::dvlCB, this);
     tf_gt_subs_ = nh_->subscribe(gt_topic, 1, &LoLoEKF::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
+
+    init();
 }
 
+void LoLoEKF::init(){
+    mu_ = boost::numeric::ublas::zero_vector<double>(3);
+    Sigma_ = boost::numeric::ublas::identity_matrix<double>(3);
+    R_ = boost::numeric::ublas::identity_matrix<double> (3) * 0.001; // TODO: set diagonal as rosparam
+    Q_ = boost::numeric::ublas::identity_matrix<double> (2) * 0.001;
+
+}
 
 double LoLoEKF::angleLimit (double angle) const{ // keep angle within [-pi;pi)
         return std::fmod(angle + M_PI, (M_PI * 2)) - M_PI;
@@ -48,8 +57,10 @@ void LoLoEKF::dvlCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg)
     dvl_readings_.push(dvl_msg);
 }
 
-bool LoLoEKF::sendOutput(ros::Time &t, tf::Quaternion &q_auv){
+bool LoLoEKF::sendOutput(ros::Time &t){
 
+    tf::Quaternion q_auv = tf::createQuaternionFromRPY(0, 0, mu_(2));
+    q_auv.normalize();
     geometry_msgs::Quaternion odom_quat;
     tf::quaternionTFToMsg(q_auv, odom_quat);
 
@@ -60,7 +71,7 @@ bool LoLoEKF::sendOutput(ros::Time &t, tf::Quaternion &q_auv){
     odom_trans.child_frame_id = base_frame_;
     odom_trans.transform.translation.x = mu_(0);
     odom_trans.transform.translation.y = mu_(1);
-    odom_trans.transform.translation.z = mu_(2);
+    odom_trans.transform.translation.z = z_t_;
     odom_trans.transform.rotation = odom_quat;
     odom_bc_.sendTransform(odom_trans);
 
@@ -71,15 +82,15 @@ bool LoLoEKF::sendOutput(ros::Time &t, tf::Quaternion &q_auv){
     odom_msg.child_frame_id = base_frame_;
     odom_msg.pose.pose.position.x = mu_(0);
     odom_msg.pose.pose.position.y = mu_(1);
-    odom_msg.pose.pose.position.z = mu_(2);
+    odom_msg.pose.pose.position.z = z_t_;
     odom_msg.pose.pose.orientation = odom_quat;
     odom_pub_.publish(odom_msg);
 
     return true;
 }
 
-void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const nav_msgs::OdometryPtr &gt_msg,
-                          const tf::Quaternion q_auv, double &t_prev, double& yaw_prev, boost::numeric::ublas::vector<double> &u_t){
+void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const tf::Quaternion q_auv,
+                          double &t_prev, boost::numeric::ublas::vector<double> &u_t){
 
     // Update time step
     double t_now = dvl_msg->header.stamp.toSec();
@@ -89,36 +100,41 @@ void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dv
     tf::Vector3 twist_vel(dvl_msg->twist.twist.linear.x,
                           dvl_msg->twist.twist.linear.y,
                           dvl_msg->twist.twist.linear.z);
-
     tf::Vector3 l_vel_base = transf_dvl_base_.getBasis() * twist_vel;
-    double w_z_base = transf_dvl_base_.getOrigin().getX() * dvl_msg->twist.twist.linear.y;
 
-
-    // Compute incremental displacement
+    // Compute incremental displacements
     double vel_t = std::sqrt(pow((l_vel_base.y()),2) +
                             pow((l_vel_base.x()),2));
 
-    double dtheta = std::atan2((l_vel_base.y() * delta_t),
-                               (l_vel_base.x() * delta_t));
-    double theta = angleLimit(yaw_prev + (0.5) * dtheta);
+    double yaw_t = tf::getYaw(q_auv);
+    double dtheta = angleLimit(yaw_t - mu_(2));
+    double theta = angleLimit(mu_(2) + dtheta/2);
 
     // Compute control u_t
-    double yaw_t = tf::getYaw(q_auv);
     int sign = (sgn(std::sin(theta) * vel_t) == 1)? -1: 1;
     u_t(0) = std::cos(theta) * vel_t * delta_t;
-    u_t(1) = std::sin(theta) * vel_t * delta_t; // + sign * (w_z_base * delta_t) * transf_dvl_base_.getOrigin().getX();
-    u_t(2) = gt_msg->pose.pose.position.z - transf_world_odom_.getOrigin().getZ(); // Imitate depth sensor input
-    u_t(3) = yaw_t; // TODO: expand state space to 6DOF
+    u_t(1) = std::sin(theta) * vel_t * delta_t;
+    u_t(2) = dtheta;
 
-    yaw_prev = yaw_t;
+    // Derivative of motion model
+    G_t_ = boost::numeric::ublas::identity_matrix<double>(3);
+    G_t_(0,2) = -0.5 * vel_t * delta_t * std::sin(theta);
+    G_t_(1,2) = 0.5 * vel_t * delta_t * std::cos(theta);
+    G_t_(2,2) = 0;
+
     t_prev = t_now;
 }
 
 void LoLoEKF::prediction(boost::numeric::ublas::vector<double> &u_t){
-    mu_hat_(0) += u_t(0);
-    mu_hat_(1) += u_t(1);
-    mu_hat_(2) = u_t(2);
-    mu_hat_(3) = u_t(3);
+
+    // Compute predicted mu
+    mu_hat_ = mu_ + u_t;
+    mu_hat_(2) = angleLimit(mu_hat_(2));
+
+    // Predicted covariance matrix
+    boost::numeric::ublas::matrix<double> aux = boost::numeric::ublas::prod(G_t_, Sigma_);
+    Sigma_hat_ = boost::numeric::ublas::prod(aux, boost::numeric::ublas::trans(G_t_));
+    Sigma_hat_ += R_;
 }
 
 void LoLoEKF::update(){
@@ -141,13 +157,11 @@ void LoLoEKF::ekfLocalize(){
     geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg;
     nav_msgs::OdometryPtr gt_msg;
     double t_prev;
-    double yaw_t;
     tf::Quaternion q_auv;
 
     // TODO: full implementation of 6 DOF movement
-    mu_ = boost::numeric::ublas::zero_vector<double>(6);
-    mu_hat_ = boost::numeric::ublas::zero_vector<double>(6);
-    boost::numeric::ublas::vector<double> u_t = boost::numeric::ublas::vector<double>(6);
+
+    boost::numeric::ublas::vector<double> u_t = boost::numeric::ublas::vector<double>(3);
 
     bool loop = true;
     bool init_filter = true;
@@ -187,10 +201,10 @@ void LoLoEKF::ekfLocalize(){
                 gt_msg = gt_readings_.back();
                 t_prev = gt_msg->header.stamp.toSec();
                 transIMUframe(gt_msg->pose.pose.orientation, q_auv);
-                yaw_t = tf::getYaw(q_auv);
 
                 // Publish and broadcast
-                this->sendOutput(gt_msg->header.stamp, q_auv);
+                z_t_ = gt_msg->pose.pose.position.z - transf_world_odom_.getOrigin().getZ(); // Imitate depth sensor input
+                this->sendOutput(gt_msg->header.stamp);
 
                 gt_readings_.pop();
                 init_filter = false;
@@ -203,13 +217,13 @@ void LoLoEKF::ekfLocalize(){
             dvl_msg = dvl_readings_.back();
             gt_msg = gt_readings_.back();
 
-
             // Compute displacement based on DVL and IMU orientation
             transIMUframe(imu_msg->orientation, q_auv);
-            computeOdom(dvl_msg, gt_msg, q_auv, t_prev, yaw_t, u_t);
+            computeOdom(dvl_msg, q_auv, t_prev, u_t);
 
             // Prediction step
             prediction(u_t);
+            z_t_ = gt_msg->pose.pose.position.z - transf_world_odom_.getOrigin().getZ(); // Imitate depth sensor input
 
             // Update step
             update();
@@ -219,7 +233,7 @@ void LoLoEKF::ekfLocalize(){
 //            std::cout << "Error in x: " << error_x << " and y: " << error_y << std::endl;
 
             // Publish and broadcast
-            this->sendOutput(dvl_msg->header.stamp, q_auv);
+            this->sendOutput(dvl_msg->header.stamp);
 
             imu_readings_.pop();
             dvl_readings_.pop();
