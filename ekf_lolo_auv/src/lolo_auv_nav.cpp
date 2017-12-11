@@ -138,7 +138,10 @@ void LoLoEKF::prediction(boost::numeric::ublas::vector<double> &u_t){
 }
 
 void LoLoEKF::update(){
+
     mu_ = mu_hat_;
+    mu_(2) = angleLimit(mu_(2));
+    sigma_ = sigma_hat_;
 }
 
 void LoLoEKF::transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &q_auv){
