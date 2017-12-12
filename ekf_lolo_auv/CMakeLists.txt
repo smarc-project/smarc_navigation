@@ -1,11 +1,20 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(ekf_lolo_auv)
 
+# check c++14 / c++0x
 include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("-std=c++11" HAS_FLAGS)
-if(HAS_FLAGS)
-    add_compile_options(-std=c++11 -Wall -Wextra)
+CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+if(COMPILER_SUPPORTS_CXX14)
+    set(CMAKE_CXX_FLAGS "-std=c++14")
+     add_compile_options(-std=c++14 -Wall -Wextra)
+elseif(COMPILER_SUPPORTS_CXX0X)
+    set(CMAKE_CXX_FLAGS "-std=c++11")
+     add_compile_options(-std=c++11 -Wall -Wextra)
+else()
+    message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++14 or C++11 support. Please use a different C++ compiler.")
 endif()
+
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
@@ -13,6 +22,8 @@ find_package(catkin REQUIRED COMPONENTS
     std_msgs
     ekf_general
     tf
+    message_generation
+    geometry_msgs
  )
 
 #set(Boost_USE_STATIC_LIBS        ON)
@@ -24,11 +35,25 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
+# setup.py for map_provider_node.py
+catkin_python_setup()
+
+add_service_files(
+    DIRECTORY srv
+    FILES
+    map_ekf.srv
+)
+
+generate_messages(
+    DEPENDENCIES
+    geometry_msgs
+    std_msgs
+    )
 
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES
-  CATKIN_DEPENDS roscpp rospy std_msgs ekf_general tf #message_runtime
+  CATKIN_DEPENDS roscpp rospy std_msgs ekf_general tf message_runtime
 #  DEPENDS system_lib
 )
 

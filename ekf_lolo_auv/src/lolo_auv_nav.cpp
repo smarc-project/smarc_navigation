@@ -6,26 +6,52 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):node_name_(node_nam
     std::string dvl_topic;
     std::string odom_topic;
     std::string gt_topic;
+    std::string rpt_topic;
 
-    nh_->param<std::string>((ros::this_node::getName() + "/imu_topic"), imu_topic, "/imu");
-    nh_->param<std::string>((ros::this_node::getName() + "/dvl_topic"), dvl_topic, "/dvl");
-    nh_->param<std::string>((ros::this_node::getName() + "/odom_pub_topic"), odom_topic, "/odom_ekf");
-    nh_->param<std::string>((ros::this_node::getName() + "/gt_pose_topic"), gt_topic, "/gt_pose");
-    nh_->param<std::string>((ros::this_node::getName() + "/odom_frame"), odom_frame_, "/odom");
-    nh_->param<std::string>((ros::this_node::getName() + "/world_frame"), world_frame_, "/world");
-    nh_->param<std::string>((ros::this_node::getName() + "/base_frame"), base_frame_, "/base_link");
-    nh_->param<std::string>((ros::this_node::getName() + "/dvl_frame"), dvl_frame_, "/dvl_link");
+    nh_->param<std::string>((node_name_ + "/imu_topic"), imu_topic, "/imu");
+    nh_->param<std::string>((node_name_ + "/dvl_topic"), dvl_topic, "/dvl");
+    nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
+    nh_->param<std::string>((node_name_ + "/gt_pose_topic"), gt_topic, "/gt_pose");
+    nh_->param<std::string>((node_name_ + "/rpt_topic"), rpt_topic, "/rpt_topic");
+    nh_->param<std::string>((node_name_ + "/map_srv"), map_srv_name_, "/get_map");
+    nh_->param<std::string>((node_name_ + "/odom_frame"), odom_frame_, "/odom");
+    nh_->param<std::string>((node_name_ + "/world_frame"), world_frame_, "/world");
+    nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
+    nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
 
     // Node connections
     imu_subs_ = nh_->subscribe(imu_topic, 1, &LoLoEKF::imuCB, this);
+    rpt_subs_ = nh_->subscribe(rpt_topic, 1, &LoLoEKF::rptCB, this);
     dvl_subs_ = nh_->subscribe(dvl_topic, 1, &LoLoEKF::dvlCB, this);
     tf_gt_subs_ = nh_->subscribe(gt_topic, 1, &LoLoEKF::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
+    map_client_ = nh_->serviceClient<ekf_lolo_auv::map_ekf>(map_srv_name_);
+//    timer_ = nh_->createTimer(ros::Duration(0.1), outputError);
 
     init();
 }
 
+//auto timerCallback = [](auto input) { ROS_ERROR("Map server not available"); };
+
 void LoLoEKF::init(){
+
+    // Get map from provider
+    while(!ros::service::waitForService(map_srv_name_, ros::Duration(10)) && ros::ok()){
+        ROS_INFO_NAMED(node_name_,"Waiting for the map server to come up");
+    }
+
+    ekf_lolo_auv::map_ekf map_req;
+    map_req.request.request_map = true;
+    if(map_client_.call(map_req)){
+        boost::numeric::ublas::vector<double> aux_vec(3);
+        for (auto landmark: map_req.response.map){
+            aux_vec(0) = landmark.x;
+            aux_vec(1) = landmark.y;
+            aux_vec(2) = landmark.z;
+            map_.push_back(aux_vec);
+        }
+    }
+
     mu_ = boost::numeric::ublas::zero_vector<double>(3);
     Sigma_ = boost::numeric::ublas::identity_matrix<double>(3);
     R_ = boost::numeric::ublas::identity_matrix<double> (3) * 0.001; // TODO: set diagonal as rosparam
@@ -56,6 +82,11 @@ void LoLoEKF::gtCB(const nav_msgs::OdometryPtr &pose_msg){
 void LoLoEKF::dvlCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg){
     dvl_readings_.push(dvl_msg);
 }
+
+void LoLoEKF::rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr &ptr_msg){
+
+}
+
 
 bool LoLoEKF::sendOutput(ros::Time &t){
 
@@ -141,7 +172,7 @@ void LoLoEKF::update(){
 
     mu_ = mu_hat_;
     mu_(2) = angleLimit(mu_(2));
-    sigma_ = sigma_hat_;
+    Sigma_ = Sigma_hat_;
 }
 
 void LoLoEKF::transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &q_auv){
@@ -243,7 +274,7 @@ void LoLoEKF::ekfLocalize(){
             gt_readings_.pop();
         }
         else{
-            ROS_INFO("Still waiting for some good, nice sensor readings...");
+//            ROS_INFO("Still waiting for some good, nice sensor readings...");
         }
         rate.sleep();
     }

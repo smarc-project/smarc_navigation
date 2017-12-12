@@ -12,14 +12,14 @@
 #include <sensor_msgs/Imu.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistWithCovarianceStamped.h>
+#include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include "ekf_lolo_auv/map_ekf.h"
 
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
-#include <geometry_msgs/Quaternion.h>
-#include <geometry_msgs/TransformStamped.h>
-
-
 
 class LoLoEKF{
 
@@ -38,13 +38,18 @@ private:
     ros::Subscriber imu_subs_;
     ros::Subscriber dvl_subs_;
     ros::Subscriber tf_gt_subs_;
+    ros::Subscriber rpt_subs_;
     ros::Publisher odom_pub_;
+    ros::ServiceClient map_client_;
+    ros::Timer timer_;
 
     // Handlers for sensors
     std::queue<sensor_msgs::ImuPtr> imu_readings_;
     std::queue<geometry_msgs::TwistWithCovarianceStampedPtr> dvl_readings_;
     std::queue<nav_msgs::OdometryPtr> gt_readings_;
     boost::mutex msg_lock_;
+    std::vector<boost::numeric::ublas::vector<double>> map_;
+
     // System state variables
     boost::numeric::ublas::vector<double> mu_;
     boost::numeric::ublas::vector<double> mu_hat_;
@@ -65,11 +70,13 @@ private:
     std::string world_frame_;
     std::string base_frame_;
     std::string dvl_frame_;
+    std::string map_srv_name_;
 
     // Callbacks
     void imuCB(const sensor_msgs::ImuPtr &imu_msg);
     void dvlCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg);
     void gtCB(const nav_msgs::OdometryPtr &pose_msg);
+    void rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr & ptr_msg);
 
     // EKF methods
     void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const tf::Quaternion q_auv,

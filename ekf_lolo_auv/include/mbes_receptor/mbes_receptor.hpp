@@ -1,0 +1,4 @@
+#ifndef MBES_RECEPTOR_HPP
+#define MBES_RECEPTOR_HPP
+
+#endif // MBES_RECEPTOR_HPP

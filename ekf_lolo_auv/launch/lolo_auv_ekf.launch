@@ -10,9 +10,15 @@
                 <param name="gt_pose_topic" value="/lolo_auv/pose_gt"/>
                 <param name="odom_frame" value="odom"/>
                 <param name="world_frame" value="world"/>
-                <param name="base_frame" value="lolo_auv/base_link"/>
-                <param name="dvl_frame" value="lolo_auv/dvl_link"/>
-
+                <param name="base_frame" value="/lolo_auv/base_link"/>
+                <param name="dvl_frame" value="/lolo_auv/dvl_link"/>
+                <param name="map_srv" value="/lolo_auv/get_map"/>
+                
+            </node>
+            <node pkg="ekf_lolo_auv" type="map_provider_node.py" name="map_provider_node" output="screen">
+                <param name="map_provider_srv" value="/lolo_auv/get_map"/>
+                <param name="map_file" value="$(find ekf_lolo_auv)/maps/map_stones1.yaml"/>
+                <param name="rocks_depth" value="-90"/>
             </node>
 	</group>
 </launch>

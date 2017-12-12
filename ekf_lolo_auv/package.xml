@@ -50,6 +50,8 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <depend>ekf_general</depend>
+  <depend>message_generation</depend>
+  <depend>message_runtime</depend>
   <depend>roscpp</depend>
   <depend>tf</depend>
   <depend>rospy</depend>
