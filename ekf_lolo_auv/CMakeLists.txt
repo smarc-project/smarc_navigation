@@ -24,12 +24,11 @@ find_package(catkin REQUIRED COMPONENTS
     tf
     message_generation
     geometry_msgs
+    message_filters
  )
 
 #set(Boost_USE_STATIC_LIBS        ON)
-find_package(Boost 1.36.0 COMPONENTS
-    system
-    )
+find_package(Boost REQUIRED COMPONENTS system signals)
 
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
@@ -53,7 +52,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES
-  CATKIN_DEPENDS roscpp rospy std_msgs ekf_general tf message_runtime
+  CATKIN_DEPENDS roscpp rospy std_msgs ekf_general tf message_runtime message_filters
 #  DEPENDS system_lib
 )
 
@@ -81,4 +80,5 @@ add_dependencies(lolo_auv_navigation
 target_link_libraries(lolo_auv_navigation
     utils_matrices
     ${catkin_LIBRARIES}
+    ${Boost_LIBRARIES}
     )

@@ -1,5 +1,6 @@
 #include "lolo_auv_nav/lolo_auv_nav.hpp"
 
+
 LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):node_name_(node_name), nh_(&nh){
 
     std::string imu_topic;
@@ -19,16 +20,25 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):node_name_(node_nam
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
     nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
 
-    // Node connections
-    imu_subs_ = nh_->subscribe(imu_topic, 1, &LoLoEKF::imuCB, this);
-    rpt_subs_ = nh_->subscribe(rpt_topic, 1, &LoLoEKF::rptCB, this);
-    dvl_subs_ = nh_->subscribe(dvl_topic, 1, &LoLoEKF::dvlCB, this);
-    tf_gt_subs_ = nh_->subscribe(gt_topic, 1, &LoLoEKF::gtCB, this);
+    // Synch IMU and DVL readings
+    imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 50);
+    dvl_subs_ = new message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>(*nh_, dvl_topic, 10);
+    msg_synch_ptr_ = new message_filters::Synchronizer<MsgTimingPolicy> (MsgTimingPolicy(100), *imu_subs_, *dvl_subs_);
+    msg_synch_ptr_->registerCallback(boost::bind(&LoLoEKF::synchSensorsCB, this, _1, _2));
+
+    rpt_subs_ = nh_->subscribe(rpt_topic, 10, &LoLoEKF::rptCB, this);
+    tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &LoLoEKF::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
     map_client_ = nh_->serviceClient<ekf_lolo_auv::map_ekf>(map_srv_name_);
-//    timer_ = nh_->createTimer(ros::Duration(0.1), outputError);
+    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/landmarks", 0 );
 
+    // Initialize attributes
     init();
+}
+
+void LoLoEKF::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
+    imu_readings_.push(imu_msg);
+    dvl_readings_.push(dvl_msg);
 }
 
 //auto timerCallback = [](auto input) { ROS_ERROR("Map server not available"); };
@@ -51,7 +61,8 @@ void LoLoEKF::init(){
             map_.push_back(aux_vec);
         }
     }
-
+    createMapMarkers();
+    ROS_INFO("Initialized");
     mu_ = boost::numeric::ublas::zero_vector<double>(3);
     Sigma_ = boost::numeric::ublas::identity_matrix<double>(3);
     R_ = boost::numeric::ublas::identity_matrix<double> (3) * 0.001; // TODO: set diagonal as rosparam
@@ -67,28 +78,48 @@ template <typename T> int sgn(T val) {
     return (T(0) < val) - (val < T(0));
 }
 
-// Freq is 50Hz
-void LoLoEKF::imuCB(const sensor_msgs::ImuPtr &imu_msg){
-    using namespace boost::numeric::ublas;
-    boost::mutex::scoped_lock(msg_lock_);
-    imu_readings_.push(imu_msg);
-}
-
 void LoLoEKF::gtCB(const nav_msgs::OdometryPtr &pose_msg){
     gt_readings_.push(pose_msg);
 }
 
-// Freq is 10Hz
-void LoLoEKF::dvlCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg){
-    dvl_readings_.push(dvl_msg);
-}
 
 void LoLoEKF::rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr &ptr_msg){
 
 }
 
+void LoLoEKF::createMapMarkers(){
 
-bool LoLoEKF::sendOutput(ros::Time &t){
+    unsigned int i = 0;
+    for (auto landmark: map_){
+        visualization_msgs::Marker markers;
+        markers.header.frame_id = "world";
+        markers.header.stamp = ros::Time();
+        markers.ns = "lolo_auv";
+        markers.id = i;
+        markers.type = visualization_msgs::Marker::CUBE;
+        markers.action = visualization_msgs::Marker::ADD;
+        markers.pose.position.x = landmark(0);
+        markers.pose.position.y = landmark(1);
+        markers.pose.position.z = landmark(2);
+        markers.pose.orientation.x = 0.0;
+        markers.pose.orientation.y = 0.0;
+        markers.pose.orientation.z = 0.0;
+        markers.pose.orientation.w = 1.0;
+        markers.scale.x = 1;
+        markers.scale.y = 1;
+        markers.scale.z = 1;
+        markers.color.a = 1.0; // Don't forget to set the alpha!
+        markers.color.r = 0.0;
+        markers.color.g = 1.0;
+        markers.color.b = 0.0;
+
+        markers_.markers.push_back(markers);
+        i += 1;
+    }
+    std::cout << "number of landmars: " << i << std::endl;
+}
+
+bool LoLoEKF::sendOutput(ros::Time t){
 
     tf::Quaternion q_auv = tf::createQuaternionFromRPY(0, 0, mu_(2));
     q_auv.normalize();
@@ -120,7 +151,7 @@ bool LoLoEKF::sendOutput(ros::Time &t){
     return true;
 }
 
-void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const tf::Quaternion q_auv,
+void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg, const tf::Quaternion q_auv,
                           double &t_prev, boost::numeric::ublas::vector<double> &u_t){
 
     // Update time step
@@ -187,8 +218,8 @@ void LoLoEKF::transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quate
 void LoLoEKF::ekfLocalize(){
     ros::Rate rate(10);
 
-    sensor_msgs::ImuPtr imu_msg;
-    geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg;
+    sensor_msgs::ImuConstPtr imu_msg;
+    geometry_msgs::TwistWithCovarianceStampedConstPtr dvl_msg;
     nav_msgs::OdometryPtr gt_msg;
     double t_prev;
     tf::Quaternion q_auv;
@@ -202,8 +233,9 @@ void LoLoEKF::ekfLocalize(){
 
     while(ros::ok()&& loop){
         ros::spinOnce();
-        if(!dvl_readings_.empty() && !imu_readings_.empty() && !gt_readings_.empty()){
+//        std::cout << "Sizes: " <<  dvl_readings_.size() << ", " << imu_readings_.size()<< std::endl;
 
+        if(!dvl_readings_.empty() && !imu_readings_.empty() && !gt_readings_.empty()){
             // Init filter with initial, true pose (from GPS?)
             if(init_filter){
                 ROS_INFO("Starting localization node");
@@ -245,8 +277,7 @@ void LoLoEKF::ekfLocalize(){
                 continue;
             }
 
-            // TODO: interpolate the faster sensors and adapt to slower ones
-            // Integrate pose from dvl and imu
+            // Fetch latest sensor readings
             imu_msg = imu_readings_.back();
             dvl_msg = dvl_readings_.back();
             gt_msg = gt_readings_.back();
@@ -262,19 +293,17 @@ void LoLoEKF::ekfLocalize(){
             // Update step
             update();
 
-//            double error_x = std::sqrt(pow(gt_msg->pose.pose.position.x - mu_(0), 2));
-//            double error_y = std::sqrt(pow(gt_msg->pose.pose.position.y - mu_(1), 2));
-//            std::cout << "Error in x: " << error_x << " and y: " << error_y << std::endl;
-
             // Publish and broadcast
             this->sendOutput(dvl_msg->header.stamp);
+
+            vis_pub_.publish(markers_);
 
             imu_readings_.pop();
             dvl_readings_.pop();
             gt_readings_.pop();
         }
         else{
-//            ROS_INFO("Still waiting for some good, nice sensor readings...");
+            ROS_DEBUG("Still waiting for some good, nice sensor readings...");
         }
         rate.sleep();
     }

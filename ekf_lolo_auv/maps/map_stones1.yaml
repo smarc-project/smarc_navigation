@@ -1,268 +1,8 @@
 pose: 
   - 
     position: 
-      x: 0.0
+      x: -250.0
       y: 0.0
-      z: 0.0
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 38.0484
-      y: -60.4677
-      z: -99.9954
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 46.0885
-      y: 183.863
-      z: -99.9551
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -203.031
-      y: 220.401
-      z: -99.9819
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 187.905
-      y: 103.313
-      z: -100.019
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -201.431
-      y: -118.857
-      z: -100.018
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 174.909
-      y: -203.526
-      z: -99.9901
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -55.0703
-      y: 91.406
-      z: -99.9714
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -111.911
-      y: 227.216
-      z: -100.014
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -214.552
-      y: 234.636
-      z: -100.041
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 130.582
-      y: -157.1
-      z: -100.011
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 41.7395
-      y: -59.7861
-      z: -99.9639
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -203.16
-      y: 185.298
-      z: -100.036
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 53.4693
-      y: -113.467
-      z: -100.012
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -36.726
-      y: -65.6015
-      z: -99.9737
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 12.1855
-      y: 221.851
-      z: -100.026
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 189.906
-      y: 61.0531
-      z: -100.011
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -246.274
-      y: 42.0096
-      z: -100.001
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 38.1481
-      y: 84.3567
-      z: -99.9553
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -246.398
-      y: 111.463
-      z: -99.9992
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -170.704
-      y: -124.144
-      z: -99.9811
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -127.0
-      y: -194.303
-      z: -100.044
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -32.4392
-      y: -12.8952
-      z: -100.037
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 27.8997
-      y: 151.037
-      z: -100.035
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -21.9768
-      y: -170.254
-      z: -100.044
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 200.262
-      y: -98.5392
       z: -100.0
     orientation: 
       x: 0.0
@@ -271,28 +11,8 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -89.034
-      y: -22.2824
-      z: -99.9756
-    orientation: 
-      x: 0.0
+      x: -245.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -108.142
-      y: -124.052
-      z: -99.9551
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 56.5143
-      y: 209.307
       z: -100.0
     orientation: 
       x: 0.0
@@ -301,939 +21,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 241.413
-      y: 206.534
-      z: -99.9809
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -0.756909
-      y: 174.87
-      z: -99.9763
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 166.973
-      y: 0.073289
-      z: -99.9931
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -187.361
-      y: -207.237
-      z: -99.9547
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -104.811
-      y: -66.9233
-      z: -99.9893
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 231.909
-      y: -126.423
-      z: -99.9935
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -111.113
-      y: -132.344
-      z: -99.9882
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -110.121
-      y: 4.53843
-      z: -99.9509
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -48.7905
-      y: 53.9447
-      z: -99.9859
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 9.30718
-      y: 190.545
-      z: -100.005
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 145.81
-      y: -124.642
-      z: -99.9714
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 81.4187
-      y: 60.4096
-      z: -99.9693
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 3.80745
-      y: -160.986
-      z: -100.013
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 71.9819
-      y: -12.7857
-      z: -100.047
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -164.775
-      y: -184.313
-      z: -100.015
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -204.154
-      y: -163.977
-      z: -100.034
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 203.819
-      y: -246.538
-      z: -100.038
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -115.157
-      y: 128.675
-      z: -99.9629
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 161.109
-      y: -106.427
-      z: -100.028
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 34.4772
-      y: -4.30729
-      z: -100.04
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -38.195
-      y: 14.52
-      z: -99.9733
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -167.565
-      y: 57.3315
-      z: -100.013
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 212.697
-      y: 110.637
-      z: -100.049
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -175.925
-      y: 168.633
-      z: -100.009
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 247.768
-      y: -132.435
-      z: -99.9584
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 12.3834
-      y: 150.287
-      z: -99.9987
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -89.8026
-      y: 75.9156
-      z: -100.011
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 44.6511
-      y: -90.0531
-      z: -100.04
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 58.0768
-      y: 155.908
-      z: -99.9762
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 9.70027
-      y: -105.398
-      z: -100.042
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 239.186
-      y: -57.6553
-      z: -99.9864
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -111.889
-      y: 73.1612
-      z: -100.025
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 52.5338
-      y: 114.695
-      z: -99.9696
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -211.31
-      y: 48.1305
-      z: -100.025
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -141.236
-      y: -194.406
-      z: -99.9735
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -186.373
-      y: 114.772
-      z: -99.9777
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 229.785
-      y: 125.85
-      z: -100.004
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 171.59
-      y: 3.25413
-      z: -100.04
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 47.8812
-      y: -15.9398
-      z: -100.013
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 55.3319
-      y: -38.2629
-      z: -100.002
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 106.052
-      y: 153.887
-      z: -100.041
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 41.3819
-      y: -209.553
-      z: -99.9639
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -85.9413
-      y: -140.822
-      z: -99.975
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 142.917
-      y: -226.347
-      z: -99.9701
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 154.227
-      y: -139.678
-      z: -100.032
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -177.001
-      y: 220.165
-      z: -99.9568
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -213.968
-      y: -2.84034
-      z: -99.9726
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 124.063
-      y: -200.366
-      z: -100.027
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -50.6835
-      y: 21.1122
-      z: -99.9954
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 207.47
-      y: -29.8109
-      z: -100.032
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -194.955
-      y: -43.6201
-      z: -99.9763
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 165.292
-      y: -168.265
-      z: -99.9914
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 240.96
-      y: -157.028
-      z: -99.9954
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 98.9173
-      y: -11.343
-      z: -99.964
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -53.9945
-      y: 156.054
-      z: -100.023
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 185.708
-      y: -61.5133
-      z: -100.047
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -30.1207
-      y: -3.97078
-      z: -100.017
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 104.945
-      y: -239.754
-      z: -99.976
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -121.787
-      y: -29.1044
-      z: -99.9887
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 117.735
-      y: -2.59349
-      z: -100.038
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 176.013
-      y: 186.628
-      z: -99.9563
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 20.569
-      y: 192.648
-      z: -100.013
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 66.6848
-      y: -244.434
-      z: -100.027
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 174.606
-      y: 119.003
-      z: -100.033
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 190.929
-      y: -236.274
-      z: -99.9567
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -160.369
-      y: 175.623
-      z: -99.9538
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 194.596
-      y: -236.476
-      z: -99.9811
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 240.313
-      y: -107.454
-      z: -100.01
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 104.559
-      y: 118.546
-      z: -100.008
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -156.763
-      y: 115.408
-      z: -99.983
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -131.043
-      y: 60.848
-      z: -99.984
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 116.363
-      y: 49.293
-      z: -100.029
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -94.6945
-      y: 163.863
-      z: -99.9583
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 211.813
-      y: 246.76
-      z: -99.9693
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 205.922
-      y: -96.4322
-      z: -99.9925
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -111.604
-      y: -187.607
-      z: -99.9763
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -47.0288
-      y: 222.559
-      z: -100.006
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 60.1558
-      y: -123.122
-      z: -99.9815
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -149.475
-      y: -146.248
-      z: -99.995
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -23.2999
-      y: 157.519
-      z: -99.9999
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 87.6892
-      y: 147.759
-      z: -99.9918
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 3.57856
-      y: -227.271
-      z: -100.041
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 221.074
-      y: 161.436
-      z: -100.041
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -139.486
-      y: -221.641
-      z: -99.9529
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -142.484
-      y: 29.2026
-      z: -100.026
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -111.899
-      y: 5.82778
-      z: -100.015
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 20.7871
-      y: -76.0724
-      z: -99.9609
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -139.396
-      y: 141.913
-      z: -99.9789
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 85.8699
-      y: -227.942
-      z: -99.9715
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 188.082
-      y: 133.34
-      z: -100.036
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 64.8958
-      y: 194.631
-      z: -100.019
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -100.069
-      y: -56.4286
-      z: -99.9886
-    orientation: 
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -35.0022
-      y: 224.59
-      z: -100.005
-    orientation: 
-      x: 0.0
+      x: -240.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -35.3014
-      y: 129.499
-      z: -99.9723
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1241,19 +31,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -78.6923
-      y: 49.6169
-      z: -100.028
-    orientation: 
-      x: 0.0
+      x: -235.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -187.266
-      y: 197.727
-      z: -100.012
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1261,19 +41,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 132.815
-      y: 242.59
-      z: -99.9602
-    orientation: 
-      x: 0.0
+      x: -230.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 25.9373
-      y: 211.762
-      z: -99.9874
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1281,19 +51,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -4.85947
-      y: -185.038
-      z: -100.005
-    orientation: 
-      x: 0.0
+      x: -225.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 2.87624
-      y: 152.393
-      z: -100.026
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1301,19 +61,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 112.198
-      y: -168.052
-      z: -99.9933
-    orientation: 
-      x: 0.0
+      x: -220.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -70.529
-      y: -201.293
-      z: -100.04
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1321,19 +71,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 132.095
-      y: 206.931
-      z: -99.9684
-    orientation: 
-      x: 0.0
+      x: -215.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -24.3329
-      y: 8.05213
-      z: -99.9522
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1341,19 +81,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 178.174
-      y: 243.133
-      z: -99.98
-    orientation: 
-      x: 0.0
+      x: -210.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -134.962
-      y: 183.381
-      z: -100.041
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1361,19 +91,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 248.308
-      y: -56.5228
-      z: -100.003
-    orientation: 
-      x: 0.0
+      x: -205.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -203.906
-      y: 14.6773
-      z: -100.04
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1381,19 +101,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 121.197
-      y: -124.797
-      z: -99.99
-    orientation: 
-      x: 0.0
+      x: -200.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -58.9757
-      y: 61.192
-      z: -99.9849
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1401,19 +111,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -70.2791
-      y: 245.093
-      z: -100.018
-    orientation: 
-      x: 0.0
+      x: -195.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 88.0091
-      y: 96.2294
-      z: -99.9611
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1421,19 +121,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 73.0211
-      y: 180.626
-      z: -99.9631
-    orientation: 
-      x: 0.0
+      x: -190.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 241.857
-      y: 126.956
-      z: -100.045
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1441,19 +131,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -31.4263
-      y: -81.7747
-      z: -99.9674
-    orientation: 
-      x: 0.0
+      x: -185.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 192.789
-      y: -175.96
-      z: -100.03
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1461,19 +141,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -217.397
-      y: 249.877
-      z: -99.9905
-    orientation: 
-      x: 0.0
+      x: -180.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -71.3271
-      y: -228.338
-      z: -100.042
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1481,19 +151,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 2.33831
-      y: 4.9467
-      z: -100.03
-    orientation: 
-      x: 0.0
+      x: -175.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 124.856
-      y: -149.453
-      z: -100.013
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1501,19 +161,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 78.8803
-      y: -6.77926
-      z: -100.013
-    orientation: 
-      x: 0.0
+      x: -170.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -141.11
-      y: -214.875
-      z: -99.9727
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1521,19 +171,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 79.1983
-      y: 60.089
-      z: -100.009
-    orientation: 
-      x: 0.0
+      x: -165.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -84.0776
-      y: -75.3194
-      z: -99.9532
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1541,19 +181,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -206.432
-      y: 181.482
-      z: -99.9603
-    orientation: 
-      x: 0.0
+      x: -160.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 230.61
-      y: 217.343
-      z: -100.042
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1561,19 +191,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 124.824
-      y: 155.871
-      z: -99.9804
-    orientation: 
-      x: 0.0
+      x: -155.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -159.449
-      y: -83.6398
-      z: -100.004
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1581,19 +201,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 121.083
-      y: 172.799
-      z: -100.048
-    orientation: 
-      x: 0.0
+      x: -150.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -30.3522
-      y: -40.2737
-      z: -99.988
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1601,19 +211,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 65.7835
-      y: 243.636
-      z: -100.008
-    orientation: 
-      x: 0.0
+      x: -145.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -235.725
-      y: 136.641
-      z: -99.9663
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1621,19 +221,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -206.897
-      y: -224.447
-      z: -100.038
-    orientation: 
-      x: 0.0
+      x: -140.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -46.9501
-      y: 99.6742
-      z: -99.9807
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1641,19 +231,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 126.693
-      y: 198.804
-      z: -99.9589
-    orientation: 
-      x: 0.0
+      x: -135.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 202.791
-      y: 159.967
-      z: -100.005
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1661,19 +241,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -8.09959
-      y: 134.473
-      z: -99.9964
-    orientation: 
-      x: 0.0
+      x: -130.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 216.532
-      y: 171.952
-      z: -99.9706
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1681,19 +251,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 248.103
-      y: 191.103
-      z: -100.001
-    orientation: 
-      x: 0.0
+      x: -125.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 195.108
-      y: 121.875
-      z: -99.993
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1701,19 +261,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 24.2521
-      y: -244.517
-      z: -100.046
-    orientation: 
-      x: 0.0
+      x: -120.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -30.1216
-      y: -22.0344
-      z: -100.049
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1721,19 +271,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 164.575
-      y: -19.6355
-      z: -100.002
-    orientation: 
-      x: 0.0
+      x: -115.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 106.958
-      y: 76.9566
-      z: -99.9955
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1741,19 +281,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 132.377
-      y: 53.7762
-      z: -99.9785
-    orientation: 
-      x: 0.0
+      x: -110.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 129.684
-      y: 126.275
-      z: -99.9653
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1761,19 +291,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -90.9569
-      y: -141.293
-      z: -100.023
-    orientation: 
-      x: 0.0
+      x: -105.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -135.462
-      y: 153.657
-      z: -99.9614
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1781,19 +301,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -21.0435
-      y: 5.81258
-      z: -99.9604
-    orientation: 
-      x: 0.0
+      x: -100.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 47.968
-      y: 172.05
-      z: -99.9571
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1801,19 +311,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 177.95
-      y: 62.3439
-      z: -100.044
-    orientation: 
-      x: 0.0
+      x: -95.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 59.7984
-      y: -93.9648
-      z: -99.9988
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1821,19 +321,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -241.842
-      y: 84.5765
-      z: -99.9887
-    orientation: 
-      x: 0.0
+      x: -90.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: -174.102
-      y: -18.2986
-      z: -100.045
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1841,9 +331,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 100.812
-      y: 137.542
-      z: -100.023
+      x: -85.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1851,9 +341,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 115.31
-      y: -45.4387
-      z: -100.012
+      x: -80.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1861,9 +351,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 156.86
-      y: -133.114
-      z: -99.9507
+      x: -75.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1871,9 +361,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 228.608
-      y: -101.793
-      z: -100.008
+      x: -70.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1881,9 +371,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 30.6709
-      y: 9.65794
-      z: -100.043
+      x: -65.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1891,9 +381,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -44.9714
-      y: -78.0691
-      z: -100.047
+      x: -60.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1901,9 +391,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 92.0641
-      y: -216.823
-      z: -99.9789
+      x: -55.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1911,9 +401,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -166.508
-      y: 175.456
-      z: -99.9549
+      x: -50.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1921,9 +411,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -131.672
-      y: -14.6709
-      z: -99.9573
+      x: -45.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1931,9 +421,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 88.8744
-      y: -72.5579
-      z: -99.9714
+      x: -40.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1941,9 +431,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 36.7976
-      y: -93.892
-      z: -100.016
+      x: -35.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1951,9 +441,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 100.794
-      y: 167.359
-      z: -99.9569
+      x: -30.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1961,9 +451,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -191.808
-      y: -147.748
-      z: -100.007
+      x: -25.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1971,9 +461,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -141.113
-      y: 106.08
-      z: -99.9538
+      x: -20.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1981,9 +471,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 68.9425
-      y: -194.685
-      z: -100.038
+      x: -15.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -1991,9 +481,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -106.237
-      y: -149.193
-      z: -99.9798
+      x: -10.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2001,9 +491,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 196.308
-      y: 161.357
-      z: -99.9614
+      x: -5.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2011,19 +501,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 71.32
-      y: 237.81
-      z: -100.029
-    orientation: 
       x: 0.0
       y: 0.0
-      z: 0.0
-      w: 1.0
-  - 
-    position: 
-      x: 137.476
-      y: 108.724
-      z: -100.031
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2031,9 +511,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 101.513
-      y: -28.0026
-      z: -99.9575
+      x: 5.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2041,9 +521,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 101.119
-      y: -219.887
-      z: -100.045
+      x: 10.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2051,9 +531,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -11.2849
-      y: 154.378
-      z: -99.9519
+      x: 15.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2061,9 +541,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 24.51
-      y: -244.203
-      z: -99.9656
+      x: 20.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2071,9 +551,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -31.3095
-      y: 94.8772
-      z: -99.9877
+      x: 25.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2081,9 +561,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 205.317
-      y: -188.685
-      z: -99.9816
+      x: 30.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2091,9 +571,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 184.221
-      y: -212.625
-      z: -100.001
+      x: 35.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2101,9 +581,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 198.736
-      y: -34.9695
-      z: -100.02
+      x: 40.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2111,9 +591,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -172.291
-      y: 222.259
-      z: -99.985
+      x: 45.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2121,9 +601,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 120.561
-      y: 239.707
-      z: -99.9999
+      x: 50.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2131,9 +611,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 226.642
-      y: -201.097
-      z: -100.026
+      x: 55.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2141,9 +621,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -164.842
-      y: 127.635
-      z: -99.9572
+      x: 60.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2151,9 +631,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 15.5243
-      y: 97.0302
-      z: -100.013
+      x: 65.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2161,9 +641,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -105.672
-      y: -180.763
-      z: -99.9689
+      x: 70.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2171,9 +651,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 80.4546
-      y: 12.2669
-      z: -100.038
+      x: 75.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2181,9 +661,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -54.8363
-      y: 233.682
-      z: -100.008
+      x: 80.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2191,9 +671,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 229.83
-      y: -158.42
-      z: -100.009
+      x: 85.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2201,9 +681,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 33.9753
-      y: -209.931
-      z: -99.9924
+      x: 90.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2211,9 +691,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -9.05542
-      y: 50.7982
-      z: -100.002
+      x: 95.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2221,9 +701,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -106.276
-      y: 36.4285
-      z: -99.9687
+      x: 100.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2231,9 +711,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -36.7405
-      y: -202.619
-      z: -100.034
+      x: 105.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2241,9 +721,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 141.01
-      y: 193.806
-      z: -100.012
+      x: 110.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2251,9 +731,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -184.464
-      y: -44.5609
-      z: -99.972
+      x: 115.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2261,9 +741,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 93.063
-      y: 182.327
-      z: -100.002
+      x: 120.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2271,9 +751,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 56.4897
-      y: -210.379
-      z: -99.9691
+      x: 125.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2281,9 +761,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 110.455
-      y: -50.7542
-      z: -99.9966
+      x: 130.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2291,9 +771,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -129.958
-      y: -41.9372
-      z: -100.034
+      x: 135.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2301,9 +781,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -71.9802
-      y: 34.7511
-      z: -99.9711
+      x: 140.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2311,9 +791,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -130.934
-      y: -181.157
-      z: -100.01
+      x: 145.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2321,9 +801,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -223.672
-      y: -36.6738
-      z: -100.04
+      x: 150.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2331,9 +811,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -129.624
-      y: 67.1988
-      z: -99.9687
+      x: 155.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2341,9 +821,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -134.323
-      y: 65.6701
-      z: -99.9937
+      x: 160.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2351,9 +831,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -219.313
-      y: -157.238
-      z: -99.9506
+      x: 165.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2361,9 +841,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -154.701
-      y: -68.8576
-      z: -99.9805
+      x: 170.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2371,9 +851,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -27.3211
-      y: -206.068
-      z: -99.9577
+      x: 175.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2381,9 +861,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -98.5782
-      y: 128.046
-      z: -100.012
+      x: 180.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2391,9 +871,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 38.2161
-      y: 130.705
-      z: -99.9722
+      x: 185.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2401,9 +881,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -80.7799
-      y: 133.794
-      z: -99.9808
+      x: 190.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2411,9 +891,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 76.5598
-      y: -157.161
-      z: -99.9813
+      x: 195.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2421,9 +901,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 146.492
-      y: 155.178
-      z: -100.029
+      x: 200.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2431,9 +911,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -206.967
-      y: 171.948
-      z: -99.9529
+      x: 205.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2441,9 +921,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -228.11
-      y: 85.6024
-      z: -100.029
+      x: 210.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2451,9 +931,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 161.229
-      y: -108.614
-      z: -99.981
+      x: 215.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2461,9 +941,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -128.425
-      y: -125.08
-      z: -99.9816
+      x: 220.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2471,9 +951,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 89.1325
-      y: 141.623
-      z: -99.9881
+      x: 225.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2481,9 +961,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -131.809
-      y: 209.757
-      z: -99.951
+      x: 230.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2491,9 +971,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 131.446
-      y: -54.6778
-      z: -100.029
+      x: 235.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2501,9 +981,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: -83.7552
-      y: -151.622
-      z: -99.9849
+      x: 240.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
@@ -2511,9 +991,9 @@ pose:
       w: 1.0
   - 
     position: 
-      x: 140.007
-      y: 193.083
-      z: -99.9677
+      x: 245.0
+      y: 0.0
+      z: -100.0
     orientation: 
       x: 0.0
       y: 0.0
