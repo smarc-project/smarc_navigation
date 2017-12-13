@@ -11,8 +11,6 @@
 #include <ros/transport_hints.h>
 #include <boost/scoped_ptr.hpp>
 
-
-
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/UInt32.h>

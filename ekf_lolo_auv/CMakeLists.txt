@@ -66,6 +66,10 @@ add_library(ekf_class
  src/ekf_class.cpp
 )
 
+add_library(mbes_receptor
+    src/mbes_receptor.cpp
+    )
+
 add_executable(lolo_auv_navigation
     src/lolo_auv_nav.cpp
     src/lolo_auv_nav_node.cpp
