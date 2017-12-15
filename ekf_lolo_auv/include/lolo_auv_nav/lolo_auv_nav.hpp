@@ -56,6 +56,9 @@ private:
     message_filters::Subscriber<sensor_msgs::Imu>* imu_subs_;
     message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>* dvl_subs_;
     ros::Timer timer_;
+    // Comms
+    ros::Subscriber fast_imu_sub_;
+    ros::Subscriber fast_dvl_sub_;
 
     ros::Subscriber tf_gt_subs_;
     ros::Subscriber rpt_subs_;
@@ -65,9 +68,9 @@ private:
     visualization_msgs::MarkerArray markers_;
 
     // Handlers for sensors
-    std::queue<sensor_msgs::ImuConstPtr> imu_readings_;
-    std::queue<geometry_msgs::TwistWithCovarianceStampedConstPtr> dvl_readings_;
-    std::queue<nav_msgs::OdometryPtr> gt_readings_;
+    std::deque<sensor_msgs::ImuConstPtr> imu_readings_; // TODO: add limit size to queues
+    std::deque<geometry_msgs::TwistWithCovarianceStampedConstPtr> dvl_readings_;
+    std::deque<nav_msgs::OdometryPtr> gt_readings_;
     boost::mutex msg_lock_;
     std::vector<boost::numeric::ublas::vector<double>> map_;
     bool init_filter_;
@@ -82,8 +85,11 @@ private:
     boost::numeric::ublas::matrix<double> R_;
     boost::numeric::ublas::matrix<double> Q_;
 
+    // Aux
     double z_t_; // Aux until model extended to 6DOF
     double t_prev_;
+    bool coord_;
+
     // tf
     tf::TransformBroadcaster odom_bc_;
     tf::StampedTransform transf_dvl_base_;
@@ -107,6 +113,8 @@ private:
 
     // Aux methods
     void synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
+    void fastIMUCB(const sensor_msgs::ImuConstPtr &imu_msg);
+    void fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
     void createMapMarkers();
     void transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &q_auv);
     bool sendOutput(ros::Time t);

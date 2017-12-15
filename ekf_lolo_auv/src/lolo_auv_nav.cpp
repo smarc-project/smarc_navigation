@@ -29,6 +29,9 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):node_name_(node_nam
     msg_synch_ptr_->registerCallback(boost::bind(&LoLoEKF::synchSensorsCB, this, _1, _2));
 
     // Subscribe to sensor msgs
+    fast_imu_sub_ = nh_->subscribe(imu_topic, 10, &LoLoEKF::fastIMUCB, this);
+    fast_dvl_sub_ = nh_->subscribe(dvl_topic, 10, &LoLoEKF::fastDVLCB, this);
+
     rpt_subs_ = nh_->subscribe(rpt_topic, 10, &LoLoEKF::rptCB, this);
     tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &LoLoEKF::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
@@ -71,7 +74,10 @@ void LoLoEKF::init(){
     Sigma_ = boost::numeric::ublas::identity_matrix<double>(3);
     R_ = boost::numeric::ublas::identity_matrix<double> (3) * 0.001; // TODO: set diagonal as rosparam
     Q_ = boost::numeric::ublas::identity_matrix<double> (2) * 0.001;
-    init_filter_ = true;
+
+    // State machine
+    init_filter_ = false;
+    coord_ = false;
 }
 
 double LoLoEKF::angleLimit (double angle) const{ // keep angle within [-pi;pi)
@@ -82,14 +88,34 @@ template <typename T> int sgn(T val) {
     return (T(0) < val) - (val < T(0));
 }
 
+void LoLoEKF::fastIMUCB(const sensor_msgs::ImuConstPtr &imu_msg){
+    imu_readings_.push_back(imu_msg);
+    unsigned int size_imu_q = 50;
+    while(imu_readings_.size() > size_imu_q){
+        imu_readings_.pop_front();
+    }
+}
+
+void LoLoEKF::fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
+    dvl_readings_.push_back(dvl_msg);
+    unsigned int size_dvl_q = 10;
+    while(dvl_readings_.size() > size_dvl_q){
+        dvl_readings_.pop_front();
+    }
+}
 
 void LoLoEKF::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
-    imu_readings_.push(imu_msg);
-    dvl_readings_.push(dvl_msg);
+//    imu_readings_.push(imu_msg);
+//    dvl_readings_.push(dvl_msg);
+    coord_ = true;
 }
 
 void LoLoEKF::gtCB(const nav_msgs::OdometryPtr &pose_msg){
-    gt_readings_.push(pose_msg);
+    gt_readings_.push_back(pose_msg);
+    unsigned int size_gt_q = 10;
+    while(gt_readings_.size() > size_gt_q){
+        gt_readings_.pop_front();
+    }
 }
 
 
@@ -234,8 +260,9 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
     boost::numeric::ublas::vector<double> u_t = boost::numeric::ublas::vector<double>(3); // TODO: full implementation of 6 DOF movement
 
     if(!dvl_readings_.empty() && !imu_readings_.empty() && !gt_readings_.empty()){
+        std::cout << "Size in imu queue: " << dvl_readings_.size() << " and dvl queue: " << imu_readings_.size() << std::endl;
         // Init filter with initial, true pose (from GPS?)
-        if(init_filter_){ // TODO: change if condition for sth faster
+        if(!init_filter_){ // TODO: change if condition for sth faster
             ROS_INFO_NAMED(node_name_, "Starting localization node");
 
             // Get fixed transform dvl_link --> base_link frame
@@ -270,8 +297,7 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
             z_t_ = gt_msg->pose.pose.position.z - transf_world_odom_.getOrigin().getZ(); // Imitate depth sensor input
             this->sendOutput(gt_msg->header.stamp);
 
-            gt_readings_.pop();
-            init_filter_ = false;
+            init_filter_ = true;
         }
 
         else{
@@ -279,6 +305,15 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
             imu_msg = imu_readings_.back();
             dvl_msg = dvl_readings_.back();
             gt_msg = gt_readings_.back();
+
+            if(coord_ == true){
+                coord_ = false;
+//                std::cout << "Time in imu queue: " << imu_msg->header.stamp << " and dvl queue: " << dvl_msg->header.stamp << std::endl;
+            }
+            else{
+//                std::cout << "Not coordinated" << std::endl;
+//                std::cout << "Time in imu queue: " << imu_msg->header.stamp << " and dvl queue: " << dvl_msg->header.stamp << std::endl;
+            }
 
             // Compute displacement based on DVL and IMU orientation
             transIMUframe(imu_msg->orientation, q_auv);
@@ -295,14 +330,12 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
             this->sendOutput(dvl_msg->header.stamp);
 
             vis_pub_.publish(markers_);
-
-            imu_readings_.pop();
-            dvl_readings_.pop();
-            gt_readings_.pop();
         }
     }
     else{
-        ROS_DEBUG("Still waiting for some good, nice sensor readings...");
+        gt_msg = gt_readings_.back();
+        this->sendOutput(gt_msg->header.stamp);
+        ROS_INFO("No sensory update, broadcasting latest known pose");
     }
 
 }
