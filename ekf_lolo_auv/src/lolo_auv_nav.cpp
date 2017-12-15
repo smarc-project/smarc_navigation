@@ -23,9 +23,9 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):node_name_(node_nam
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
 
     // Synch IMU and DVL readings
-    imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 50); // TODO: adjust sizes of queues
-    dvl_subs_ = new message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>(*nh_, dvl_topic, 10);
-    msg_synch_ptr_ = new message_filters::Synchronizer<MsgTimingPolicy> (MsgTimingPolicy(100), *imu_subs_, *dvl_subs_);
+    imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 1); // TODO: adjust sizes of queues
+    dvl_subs_ = new message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>(*nh_, dvl_topic, 1);
+    msg_synch_ptr_ = new message_filters::Synchronizer<MsgTimingPolicy> (MsgTimingPolicy(5), *imu_subs_, *dvl_subs_);
     msg_synch_ptr_->registerCallback(boost::bind(&LoLoEKF::synchSensorsCB, this, _1, _2));
 
     // Subscribe to sensor msgs
@@ -41,7 +41,7 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):node_name_(node_nam
     init();
 
     // Main spin loop
-    timer_ = nh_->createTimer(ros::Duration(1.0 / std::max(10.0, 1.0)), &LoLoEKF::ekfLocalize, this);
+    timer_ = nh_->createTimer(ros::Duration(1.0 / std::max(30.0, 1.0)), &LoLoEKF::ekfLocalize, this);
 
 }
 
@@ -131,10 +131,10 @@ void LoLoEKF::createMapMarkers(){
 
 bool LoLoEKF::sendOutput(ros::Time t){
 
-    tf::Quaternion q_auv = tf::createQuaternionFromRPY(0, 0, mu_(2));
-    q_auv.normalize();
+    tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(0, 0, mu_(2));
+    q_auv_t.normalize();
     geometry_msgs::Quaternion odom_quat;
-    tf::quaternionTFToMsg(q_auv, odom_quat);
+    tf::quaternionTFToMsg(q_auv_t, odom_quat);
 
     // Broadcast transform over tf
     geometry_msgs::TransformStamped odom_trans;
@@ -161,12 +161,11 @@ bool LoLoEKF::sendOutput(ros::Time t){
     return true;
 }
 
-void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg, const tf::Quaternion q_auv,
-                          double &t_prev, boost::numeric::ublas::vector<double> &u_t){
+void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg, const tf::Quaternion q_auv_t, boost::numeric::ublas::vector<double> &u_t){
 
     // Update time step
     double t_now = dvl_msg->header.stamp.toSec();
-    double delta_t = t_now - t_prev;
+    double delta_t = t_now - t_prev_;
 
     // Transform from dvl input form dvl --> base_link frame
     tf::Vector3 twist_vel(dvl_msg->twist.twist.linear.x,
@@ -178,7 +177,7 @@ void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedConstPt
     double vel_t = std::sqrt(pow((l_vel_base.y()),2) +
                             pow((l_vel_base.x()),2));
 
-    double yaw_t = tf::getYaw(q_auv);
+    double yaw_t = tf::getYaw(q_auv_t);
     double dtheta = angleLimit(yaw_t - mu_(2));
     double theta = angleLimit(mu_(2) + dtheta/2);
 
@@ -194,7 +193,7 @@ void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedConstPt
     G_t_(1,2) = 0.5 * vel_t * delta_t * std::cos(theta);
     G_t_(2,2) = 0;
 
-    t_prev = t_now;
+    t_prev_ = t_now;
 }
 
 void LoLoEKF::prediction(boost::numeric::ublas::vector<double> &u_t){
@@ -230,14 +229,14 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
     sensor_msgs::ImuConstPtr imu_msg;
     geometry_msgs::TwistWithCovarianceStampedConstPtr dvl_msg;
     nav_msgs::OdometryPtr gt_msg;
-    double t_prev;
+
     tf::Quaternion q_auv;
     boost::numeric::ublas::vector<double> u_t = boost::numeric::ublas::vector<double>(3); // TODO: full implementation of 6 DOF movement
 
     if(!dvl_readings_.empty() && !imu_readings_.empty() && !gt_readings_.empty()){
         // Init filter with initial, true pose (from GPS?)
         if(init_filter_){ // TODO: change if condition for sth faster
-            ROS_INFO("Starting localization node");
+            ROS_INFO_NAMED(node_name_, "Starting localization node");
 
             // Get fixed transform dvl_link --> base_link frame
             tf::TransformListener tf_listener;
@@ -264,7 +263,7 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
 
             // Compute initial pose
             gt_msg = gt_readings_.back();
-            t_prev = gt_msg->header.stamp.toSec();
+            t_prev_ = gt_msg->header.stamp.toSec();
             transIMUframe(gt_msg->pose.pose.orientation, q_auv);
 
             // Publish and broadcast
@@ -276,7 +275,6 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
         }
 
         else{
-            ROS_INFO("Publishing new ODOM");
             // Fetch latest sensor readings
             imu_msg = imu_readings_.back();
             dvl_msg = dvl_readings_.back();
@@ -284,7 +282,7 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
 
             // Compute displacement based on DVL and IMU orientation
             transIMUframe(imu_msg->orientation, q_auv);
-            computeOdom(dvl_msg, q_auv, t_prev, u_t);
+            computeOdom(dvl_msg, q_auv, u_t);
 
             // Prediction step
             prediction(u_t);
@@ -304,7 +302,7 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
         }
     }
     else{
-        ROS_INFO("Still waiting for some good, nice sensor readings...");
+        ROS_DEBUG("Still waiting for some good, nice sensor readings...");
     }
 
 }

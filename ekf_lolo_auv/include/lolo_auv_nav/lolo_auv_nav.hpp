@@ -82,8 +82,8 @@ private:
     boost::numeric::ublas::matrix<double> R_;
     boost::numeric::ublas::matrix<double> Q_;
 
-    double delta_t_;
     double z_t_; // Aux until model extended to 6DOF
+    double t_prev_;
     // tf
     tf::TransformBroadcaster odom_bc_;
     tf::StampedTransform transf_dvl_base_;
@@ -100,7 +100,7 @@ private:
 
     // EKF methods
     void computeOdom(const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg, const tf::Quaternion q_auv,
-                     double &t_prev, boost::numeric::ublas::vector<double> &u_t);
+                     boost::numeric::ublas::vector<double> &u_t);
     void prediction(boost::numeric::ublas::vector<double> &u_t);
     void update();
 
