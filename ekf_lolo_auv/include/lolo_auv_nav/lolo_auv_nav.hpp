@@ -33,6 +33,9 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
+#include <ros/timer.h>
+#include <ros/ros.h>
+
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu, geometry_msgs::TwistWithCovarianceStamped> MsgTimingPolicy;
 
 class LoLoEKF{
@@ -40,7 +43,7 @@ class LoLoEKF{
 public:
 
     LoLoEKF(std::string node_name, ros::NodeHandle &nh);
-    void ekfLocalize();
+    void ekfLocalize(const ros::TimerEvent& e);
     ~LoLoEKF();
     void init();
 
@@ -52,14 +55,13 @@ private:
     message_filters::Synchronizer<MsgTimingPolicy>* msg_synch_ptr_;
     message_filters::Subscriber<sensor_msgs::Imu>* imu_subs_;
     message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>* dvl_subs_;
+    ros::Timer timer_;
 
     ros::Subscriber tf_gt_subs_;
     ros::Subscriber rpt_subs_;
     ros::Publisher odom_pub_;
     ros::ServiceClient map_client_;
-    ros::Timer timer_;
     ros::Publisher vis_pub_;
-
     visualization_msgs::MarkerArray markers_;
 
     // Handlers for sensors
@@ -68,6 +70,7 @@ private:
     std::queue<nav_msgs::OdometryPtr> gt_readings_;
     boost::mutex msg_lock_;
     std::vector<boost::numeric::ublas::vector<double>> map_;
+    bool init_filter_;
 
     // System state variables
     boost::numeric::ublas::vector<double> mu_;

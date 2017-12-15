@@ -8,6 +8,7 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):node_name_(node_nam
     std::string odom_topic;
     std::string gt_topic;
     std::string rpt_topic;
+    double freq;
 
     nh_->param<std::string>((node_name_ + "/imu_topic"), imu_topic, "/imu");
     nh_->param<std::string>((node_name_ + "/dvl_topic"), dvl_topic, "/dvl");
@@ -19,26 +20,29 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh):node_name_(node_nam
     nh_->param<std::string>((node_name_ + "/world_frame"), world_frame_, "/world");
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
     nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
+    nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
 
     // Synch IMU and DVL readings
-    imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 50);
+    imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 50); // TODO: adjust sizes of queues
     dvl_subs_ = new message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>(*nh_, dvl_topic, 10);
     msg_synch_ptr_ = new message_filters::Synchronizer<MsgTimingPolicy> (MsgTimingPolicy(100), *imu_subs_, *dvl_subs_);
     msg_synch_ptr_->registerCallback(boost::bind(&LoLoEKF::synchSensorsCB, this, _1, _2));
 
+    // Subscribe to sensor msgs
     rpt_subs_ = nh_->subscribe(rpt_topic, 10, &LoLoEKF::rptCB, this);
     tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &LoLoEKF::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
+    // Get map service TODO: read it directly from gazebo topics?
     map_client_ = nh_->serviceClient<ekf_lolo_auv::map_ekf>(map_srv_name_);
+    // Plot map in RVIZ
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/landmarks", 0 );
 
-    // Initialize attributes
+    // Initialize
     init();
-}
 
-void LoLoEKF::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
-    imu_readings_.push(imu_msg);
-    dvl_readings_.push(dvl_msg);
+    // Main spin loop
+    timer_ = nh_->createTimer(ros::Duration(1.0 / std::max(10.0, 1.0)), &LoLoEKF::ekfLocalize, this);
+
 }
 
 //auto timerCallback = [](auto input) { ROS_ERROR("Map server not available"); };
@@ -67,7 +71,7 @@ void LoLoEKF::init(){
     Sigma_ = boost::numeric::ublas::identity_matrix<double>(3);
     R_ = boost::numeric::ublas::identity_matrix<double> (3) * 0.001; // TODO: set diagonal as rosparam
     Q_ = boost::numeric::ublas::identity_matrix<double> (2) * 0.001;
-
+    init_filter_ = true;
 }
 
 double LoLoEKF::angleLimit (double angle) const{ // keep angle within [-pi;pi)
@@ -76,6 +80,12 @@ double LoLoEKF::angleLimit (double angle) const{ // keep angle within [-pi;pi)
 
 template <typename T> int sgn(T val) {
     return (T(0) < val) - (val < T(0));
+}
+
+
+void LoLoEKF::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
+    imu_readings_.push(imu_msg);
+    dvl_readings_.push(dvl_msg);
 }
 
 void LoLoEKF::gtCB(const nav_msgs::OdometryPtr &pose_msg){
@@ -215,68 +225,58 @@ void LoLoEKF::transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quate
     q_auv.normalize();  // TODO: implement handling of singularities?
 }
 
-void LoLoEKF::ekfLocalize(){
-    ros::Rate rate(10);
+void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
 
     sensor_msgs::ImuConstPtr imu_msg;
     geometry_msgs::TwistWithCovarianceStampedConstPtr dvl_msg;
     nav_msgs::OdometryPtr gt_msg;
     double t_prev;
     tf::Quaternion q_auv;
+    boost::numeric::ublas::vector<double> u_t = boost::numeric::ublas::vector<double>(3); // TODO: full implementation of 6 DOF movement
 
-    // TODO: full implementation of 6 DOF movement
+    if(!dvl_readings_.empty() && !imu_readings_.empty() && !gt_readings_.empty()){
+        // Init filter with initial, true pose (from GPS?)
+        if(init_filter_){ // TODO: change if condition for sth faster
+            ROS_INFO("Starting localization node");
 
-    boost::numeric::ublas::vector<double> u_t = boost::numeric::ublas::vector<double>(3);
-
-    bool loop = true;
-    bool init_filter = true;
-
-    while(ros::ok()&& loop){
-        ros::spinOnce();
-//        std::cout << "Sizes: " <<  dvl_readings_.size() << ", " << imu_readings_.size()<< std::endl;
-
-        if(!dvl_readings_.empty() && !imu_readings_.empty() && !gt_readings_.empty()){
-            // Init filter with initial, true pose (from GPS?)
-            if(init_filter){
-                ROS_INFO("Starting localization node");
-
-                // Get fixed transform dvl_link --> base_link frame
-                tf::TransformListener tf_listener;
-                try {
-                    tf_listener.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
-                    tf_listener.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_dvl_base_);
-                    ROS_INFO("Locked transform dvl --> base");
-                }
-                catch(tf::TransformException &exception) {
-                    ROS_ERROR("%s", exception.what());
-                    ros::Duration(1.0).sleep();
-                }
-
-                // Get fixed transform world --> odom frame
-                try {
-                    tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
-                    tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
-                    ROS_INFO("Locked transform world --> odom");
-                }
-                catch(tf::TransformException &exception) {
-                    ROS_ERROR("%s", exception.what());
-                    ros::Duration(1.0).sleep();
-                }
-
-                // Compute initial pose
-                gt_msg = gt_readings_.back();
-                t_prev = gt_msg->header.stamp.toSec();
-                transIMUframe(gt_msg->pose.pose.orientation, q_auv);
-
-                // Publish and broadcast
-                z_t_ = gt_msg->pose.pose.position.z - transf_world_odom_.getOrigin().getZ(); // Imitate depth sensor input
-                this->sendOutput(gt_msg->header.stamp);
-
-                gt_readings_.pop();
-                init_filter = false;
-                continue;
+            // Get fixed transform dvl_link --> base_link frame
+            tf::TransformListener tf_listener;
+            try {
+                tf_listener.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
+                tf_listener.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_dvl_base_);
+                ROS_INFO("Locked transform dvl --> base");
+            }
+            catch(tf::TransformException &exception) {
+                ROS_ERROR("%s", exception.what());
+                ros::Duration(1.0).sleep();
             }
 
+            // Get fixed transform world --> odom frame
+            try {
+                tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
+                tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
+                ROS_INFO("Locked transform world --> odom");
+            }
+            catch(tf::TransformException &exception) {
+                ROS_ERROR("%s", exception.what());
+                ros::Duration(1.0).sleep();
+            }
+
+            // Compute initial pose
+            gt_msg = gt_readings_.back();
+            t_prev = gt_msg->header.stamp.toSec();
+            transIMUframe(gt_msg->pose.pose.orientation, q_auv);
+
+            // Publish and broadcast
+            z_t_ = gt_msg->pose.pose.position.z - transf_world_odom_.getOrigin().getZ(); // Imitate depth sensor input
+            this->sendOutput(gt_msg->header.stamp);
+
+            gt_readings_.pop();
+            init_filter_ = false;
+        }
+
+        else{
+            ROS_INFO("Publishing new ODOM");
             // Fetch latest sensor readings
             imu_msg = imu_readings_.back();
             dvl_msg = dvl_readings_.back();
@@ -302,11 +302,11 @@ void LoLoEKF::ekfLocalize(){
             dvl_readings_.pop();
             gt_readings_.pop();
         }
-        else{
-            ROS_DEBUG("Still waiting for some good, nice sensor readings...");
-        }
-        rate.sleep();
     }
+    else{
+        ROS_INFO("Still waiting for some good, nice sensor readings...");
+    }
+
 }
 
 LoLoEKF::~LoLoEKF(){

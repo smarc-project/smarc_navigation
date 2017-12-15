@@ -5,7 +5,7 @@ int main(int argc, char** argv){
     ros::NodeHandle nh;
     LoLoEKF *lolo_auv_nav = new LoLoEKF(ros::this_node::getName(), nh);
 
-    lolo_auv_nav->ekfLocalize();
+    ros::spin();
 
     if(!ros::ok()){
         delete lolo_auv_nav;

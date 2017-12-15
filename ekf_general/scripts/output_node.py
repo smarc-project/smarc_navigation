@@ -13,7 +13,6 @@ from IPython import embed
 
 
 class PlotterClass():
-    """docstring foPlotterClassme"""
 
     def __init__(self):
 

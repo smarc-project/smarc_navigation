@@ -25,11 +25,18 @@ find_package(catkin REQUIRED COMPONENTS
     message_generation
     geometry_msgs
     message_filters
+    pcl_ros
  )
+
+find_package(PCL REQUIRED)
+if(PCL_FOUND)
+    include_directories(${PCL_INCLUDE_DIRS})
+    link_directories(${PCL_LIBRARY_DIRS})
+    add_definitions(${PCL_DEFINITIONS})
+endif()
 
 #set(Boost_USE_STATIC_LIBS        ON)
 find_package(Boost REQUIRED COMPONENTS system signals)
-
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
@@ -66,23 +73,38 @@ add_library(ekf_class
  src/ekf_class.cpp
 )
 
-add_library(mbes_receptor
-    src/mbes_receptor.cpp
-    )
+#add_library(mbes_receptor
+#    src/mbes_receptor.cpp
+#    )
 
-add_executable(lolo_auv_navigation
+add_executable(lolo_auv_nav_node
     src/lolo_auv_nav.cpp
     src/lolo_auv_nav_node.cpp
     )
 
-add_dependencies(lolo_auv_navigation
+add_dependencies(lolo_auv_nav_node
     ${${PROJECT_NAME}_EXPORTED_TARGETS}
     ${catkin_EXPORTED_TARGETS}
 #    lolo_navigation_node_generate_messages_cpp
     )
 
-target_link_libraries(lolo_auv_navigation
+target_link_libraries(lolo_auv_nav_node
     utils_matrices
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
+    )
+
+add_executable(mbes_receptor_node
+    src/mbes_receptor_node.cpp
+    src/mbes_receptor.cpp
+    )
+
+add_dependencies(mbes_receptor_node
+    ${catkin_EXPORTED_TARGETS}
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    )
+
+target_link_libraries(mbes_receptor_node
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
     )
