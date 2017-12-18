@@ -68,8 +68,8 @@ private:
     visualization_msgs::MarkerArray markers_;
 
     // Handlers for sensors
-    std::deque<sensor_msgs::ImuConstPtr> imu_readings_; // TODO: add limit size to queues
-    std::deque<geometry_msgs::TwistWithCovarianceStampedConstPtr> dvl_readings_;
+    std::deque<sensor_msgs::ImuPtr> imu_readings_; // TODO: add limit size to queues
+    std::deque<geometry_msgs::TwistWithCovarianceStampedPtr> dvl_readings_;
     std::deque<nav_msgs::OdometryPtr> gt_readings_;
     boost::mutex msg_lock_;
     std::vector<boost::numeric::ublas::vector<double>> map_;
@@ -89,6 +89,8 @@ private:
     double z_t_; // Aux until model extended to 6DOF
     double t_prev_;
     bool coord_;
+    unsigned int size_imu_q_;
+    unsigned int size_dvl_q_;
 
     // tf
     tf::TransformBroadcaster odom_bc_;
@@ -102,23 +104,26 @@ private:
 
     // Callbacks
     void gtCB(const nav_msgs::OdometryPtr &pose_msg);
-    void rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr & ptr_msg);
+    void synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
+    void fastIMUCB(const sensor_msgs::ImuPtr &imu_msg);
+    void fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg);
+//    void rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr & ptr_msg);
 
     // EKF methods
-    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg, const tf::Quaternion q_auv,
+    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const tf::Quaternion q_auv,
                      boost::numeric::ublas::vector<double> &u_t);
     void prediction(boost::numeric::ublas::vector<double> &u_t);
     void update();
 
 
     // Aux methods
-    void synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
-    void fastIMUCB(const sensor_msgs::ImuConstPtr &imu_msg);
-    void fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
     void createMapMarkers();
     void transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &q_auv);
     bool sendOutput(ros::Time t);
     double angleLimit (double angle) const;
+    void interpolateDVL(ros::Time t_now);
+
+
 };
 
 #endif // SMALL_AUV_NAV_HPP
