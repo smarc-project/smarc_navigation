@@ -24,6 +24,7 @@ find_package(catkin REQUIRED COMPONENTS
     tf
     message_generation
     geometry_msgs
+    sensor_msgs
     message_filters
     pcl_ros
  )
@@ -58,7 +59,7 @@ generate_messages(
 
 catkin_package(
   INCLUDE_DIRS include
-#  LIBRARIES
+  LIBRARIES sonar_manipulator
   CATKIN_DEPENDS roscpp rospy std_msgs ekf_general tf message_runtime message_filters
 #  DEPENDS system_lib
 )
@@ -69,8 +70,8 @@ include_directories(
  ${catkin_INCLUDE_DIRS}
 )
 
-add_library(ekf_class
- src/ekf_class.cpp
+add_library(sonar_manipulator
+ src/sonar_manipulator.cpp
 )
 
 #add_library(mbes_receptor
@@ -93,6 +94,35 @@ target_link_libraries(lolo_auv_nav_node
     utils_matrices
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
-    ${PCL_LIBRARIES}
     )
+
+add_executable(mbes_receptor_node
+    src/mbes_receptor_node.cpp
+    src/mbes_receptor.cpp
+    )
+
+add_dependencies(mbes_receptor_node
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+#    lolo_navigation_node_generate_messages_cpp
+    )
+
+target_link_libraries(mbes_receptor_node
+    ${catkin_LIBRARIES}
+    ${Boost_LIBRARIES}
+    ${PCL_LIBRARIES}
+    sonar_manipulator
+    utils_matrices
+    )
+
+
+
+
+
+
+
+
+
+
+
 
