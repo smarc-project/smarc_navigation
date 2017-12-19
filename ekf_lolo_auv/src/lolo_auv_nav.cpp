@@ -48,8 +48,6 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
 
 }
 
-//auto timerCallback = [](auto input) { ROS_ERROR("Map server not available"); };
-
 void LoLoEKF::init(){
 
     // Get map from provider

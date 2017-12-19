@@ -11,7 +11,7 @@ MBESReceptor::MBESReceptor(std::string node_name, ros::NodeHandle &nh_right, ros
 
     nh_left_->param<std::string>((node_name_ + "/mbes_left_topic"), mbes_left_tp, "/sss_left");
     nh_right_->param<std::string>((node_name_ + "/mbes_right_topic"), mbes_right_tp, "/sss_right");
-    nh_left_->param<std::string>((node_name_ + "/sss_l_link"), sss_r_frame_, "/sss_link");
+    nh_left_->param<std::string>((node_name_ + "/sss_l_link"), sss_l_frame_, "/sss_link");
     nh_right_->param<std::string>((node_name_ + "/sss_r_link"), sss_r_frame_, "/sss_link");
 
     nh_.param<std::string>((node_name_ + "/lm_detect_topic"), lm_detect_top, "/landmarks_detected");
