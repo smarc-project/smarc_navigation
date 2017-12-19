@@ -27,6 +27,11 @@ public:
 private:
     ros::NodeHandle* nh_;
     std::string node_name_;
+
+    std::string sss_r_frame_;
+    std::string base_frame_;
+    tf::StampedTransform tf_sss_base_;
+
     message_filters::Subscriber<sensor_msgs::LaserScan>* mbes_l_subs_;
     message_filters::Subscriber<sensor_msgs::LaserScan>* mbes_r_subs_;
     message_filters::Synchronizer<MyTimerPolicy>* mbes_synch_;
@@ -35,7 +40,7 @@ private:
 
     // Methods
     void mbesReadingsCB(const sensor_msgs::LaserScanConstPtr & mbes_l_msg, const sensor_msgs::LaserScanConstPtr &mbes_r_msg );
-
+    void init();
 };
 
 

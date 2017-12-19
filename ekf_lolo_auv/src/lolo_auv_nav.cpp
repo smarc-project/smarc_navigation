@@ -81,6 +81,30 @@ void LoLoEKF::init(){
     // Masks for interpolation of sensor inputs
     size_imu_q_ = 50;
     size_dvl_q_ = 10;
+
+    // Get fixed transform dvl_link --> base_link frame
+    tf::TransformListener tf_listener;
+    try {
+        tf_listener.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
+        tf_listener.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_dvl_base_);
+        ROS_INFO("Locked transform dvl --> base");
+    }
+    catch(tf::TransformException &exception) {
+        ROS_ERROR("%s", exception.what());
+        ros::Duration(1.0).sleep();
+    }
+
+    // Get fixed transform world --> odom frame
+    try {
+        tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
+        tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
+        ROS_INFO("Locked transform world --> odom");
+    }
+    catch(tf::TransformException &exception) {
+        ROS_ERROR("%s", exception.what());
+        ros::Duration(1.0).sleep();
+    }
+
 }
 
 //HELPER FUNCTIONS: move to aux library
@@ -318,29 +342,6 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
         // Init filter with initial, true pose (from GPS?)
         if(!init_filter_){ // TODO: change if condition for sth faster
             ROS_INFO_NAMED(node_name_, "Starting localization node");
-
-            // Get fixed transform dvl_link --> base_link frame
-            tf::TransformListener tf_listener;
-            try {
-                tf_listener.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
-                tf_listener.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_dvl_base_);
-                ROS_INFO("Locked transform dvl --> base");
-            }
-            catch(tf::TransformException &exception) {
-                ROS_ERROR("%s", exception.what());
-                ros::Duration(1.0).sleep();
-            }
-
-            // Get fixed transform world --> odom frame
-            try {
-                tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
-                tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
-                ROS_INFO("Locked transform world --> odom");
-            }
-            catch(tf::TransformException &exception) {
-                ROS_ERROR("%s", exception.what());
-                ros::Duration(1.0).sleep();
-            }
 
             // Compute initial pose
             gt_msg = gt_readings_.back();

@@ -20,6 +20,7 @@
                 <param name="mbes_left_topic" value="/$(arg namespace)/sss_left"/>
                 <param name="mbes_right_topic" value="/$(arg namespace)/sss_right"/>
                 <param name="pcl" value="/$(arg namespace)/pcl_out"/>
+                <param name="lm_detect_topic" value="/$(arg namespace)/landmark_detected"/>
             </node>
 
             <node pkg="ekf_lolo_auv" type="map_provider_node.py" name="map_provider_node" output="screen">

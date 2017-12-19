@@ -6,10 +6,14 @@ MBESReceptor::MBESReceptor(std::string node_name, ros::NodeHandle &nh): node_nam
     std::string mbes_left_tp;
     std::string mbes_right_tp;
     std::string pcl_out_top;
+    std::string lm_detect_top;
 
     nh_->param<std::string>((node_name_ + "/mbes_left_topic"), mbes_left_tp, "/sss_left");
     nh_->param<std::string>((node_name_ + "/mbes_right_topic"), mbes_right_tp, "/sss_right");
     nh_->param<std::string>((node_name_ + "/pcl_out"), pcl_out_top, "/pcl_out");
+    nh_->param<std::string>((node_name_ + "/lm_detect_topic"), lm_detect_top, "/landmark_detected");
+    nh_->param<std::string>((node_name_ + "/base_link"), base_frame_, "/base_link");
+    nh_->param<std::string>((node_name_ + "/sss_r_link"), sss_r_frame_, "/sss_link");
 
     // Synch reception of mbes msgs
     mbes_l_subs_ = new message_filters::Subscriber<sensor_msgs::LaserScan>(*nh_, mbes_left_tp, 20);
@@ -19,32 +23,55 @@ MBESReceptor::MBESReceptor(std::string node_name, ros::NodeHandle &nh): node_nam
 
     // RVIZ pcl output for testing
     pcl_pub_ = nh_->advertise<pcl::PointCloud<pcl::PointXYZ>>(pcl_out_top, 10);
-    landmark_pub_ = nh_->advertise<geometry_msgs::PointStamped>("/lolo_auv/landmark_detected", 10);
+    landmark_pub_ = nh_->advertise<geometry_msgs::PointStamped>(lm_detect_top, 10);
+
+    this->init();
+}
+
+void MBESReceptor::init(){
+    tf::TransformListener tf_listener;
+    try{
+        tf_listener.waitForTransform(base_frame_, sss_r_frame_, ros::Time(0), ros::Duration(10));
+        tf_listener.lookupTransform(base_frame_, sss_r_frame_, ros::Time(0), tf_sss_base_);
+        ROS_INFO_NAMED(node_name_, "Locked transform sss --> base");
+    }
+    catch(tf::TransformException &exception) {
+        ROS_ERROR_NAMED(node_name_, "%s", exception.what());
+        ros::Duration(1.0).sleep();
+    }
 }
 
 auto print = [](const double& n) { std::cout << " " << n; };
 
+
+
 void MBESReceptor::mbesReadingsCB(const sensor_msgs::LaserScanConstPtr &mbes_l_msg,
                                   const sensor_msgs::LaserScanConstPtr &mbes_r_msg){
 
-    // Compute mean of the intensities
-    double mean_r = std::accumulate(mbes_r_msg->intensities.begin(), mbes_r_msg->intensities.end(), 0) / mbes_r_msg->intensities.size();
-    std::vector<double> intensities_right;
-    std::vector<double> edges_right;
-    std::vector<double> mask {-1,0,1};
+//    std::cout << "SSS: " << std::endl;
+//    std::for_each(mbes_r_msg->intensities.begin(), mbes_r_msg->intensities.end(), print);
+//    std::cout << std::endl;
 
-    // Substract the mean to each value
-    std::for_each(mbes_r_msg->intensities.begin(), mbes_r_msg->intensities.end(), [&mean_r, &intensities_right](const double& n) {
-        intensities_right.push_back(n - mean_r);
-    });
-    std::cout << std::endl;
+    // Mean filter
+//    std::vector<double> filtered_right;
+//    std::vector<double> median {0.333,0.333,0.333};
+//    filtered_right.push_back(0);
+//    for(unsigned int i=1; i<mbes_r_msg->intensities.size() -1; i++){
+//        std::vector<double>aux {mbes_r_msg->intensities.at(i-1),
+//                                mbes_r_msg->intensities.at(i),
+//                                mbes_r_msg->intensities.at(i+1)};
+//        filtered_right.push_back(std::inner_product(aux.begin(), aux.end(), median.begin(), 0));
+//    }
+//    filtered_right.push_back(0);
 
     // Prewitt mask for edges
+    std::vector<double> edges_right;
+    std::vector<double> mask {-1,0,1};
     edges_right.push_back(0);
-    for(unsigned int i=1; i<intensities_right.size() -1; i++){
-        std::vector<double>aux {intensities_right.at(i-1),
-                                intensities_right.at(i),
-                                intensities_right.at(i+1)};
+    for(unsigned int i=1; i<mbes_r_msg->intensities.size() -1; i++){
+        std::vector<double>aux {mbes_r_msg->intensities.at(i-1),
+                                mbes_r_msg->intensities.at(i),
+                                mbes_r_msg->intensities.at(i+1)};
         edges_right.push_back(std::inner_product(aux.begin(), aux.end(), mask.begin(), 0));
     }
     edges_right.push_back(0);
@@ -58,17 +85,14 @@ void MBESReceptor::mbesReadingsCB(const sensor_msgs::LaserScanConstPtr &mbes_l_m
             i++;
     });
 
-    if(!target_pose.empty()){
-//        std::cout << "Possible poses: " << std::endl;
-//        std::for_each(target_pose.begin(), target_pose.end(), print);
-//        std::cout << std::endl;
-
+    // If any higher intensity value detected
+    if(target_pose.size() > 1){
+        // Compute polar coordinates of landmark
         int reminder = target_pose.size()%2;
         int landmark_idx = (reminder == 0)? target_pose.at((target_pose.size()/2)): target_pose.at(((target_pose.size()+1)/2));
-
         double alpha = mbes_r_msg->angle_min + mbes_r_msg->angle_increment * landmark_idx;
-        std::cout << "alpha: " << alpha << std::endl;
 
+        // Create marker for RVIZ
         geometry_msgs::PointStamped landmark_msg;
         landmark_msg.header.stamp = mbes_r_msg->header.stamp;
         landmark_msg.header.frame_id = "lolo_auv/sonarright_link";
