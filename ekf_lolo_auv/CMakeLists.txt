@@ -80,6 +80,7 @@ add_library(ekf_class
 add_executable(lolo_auv_nav_node
     src/lolo_auv_nav.cpp
     src/lolo_auv_nav_node.cpp
+    src/mbes_receptor.cpp
     )
 
 add_dependencies(lolo_auv_nav_node
@@ -92,19 +93,6 @@ target_link_libraries(lolo_auv_nav_node
     utils_matrices
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
-    )
-
-add_executable(mbes_receptor_node
-    src/mbes_receptor_node.cpp
-    src/mbes_receptor.cpp
-    )
-
-add_dependencies(mbes_receptor_node
-    ${catkin_EXPORTED_TARGETS}
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    )
-
-target_link_libraries(mbes_receptor_node
-    ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
     )
+
