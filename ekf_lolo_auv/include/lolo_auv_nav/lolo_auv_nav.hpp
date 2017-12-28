@@ -121,7 +121,7 @@ private:
     void transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &q_auv);
     bool sendOutput(ros::Time t);
     double angleLimit (double angle) const;
-    void interpolateDVL(ros::Time t_now);
+    void interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg_ptr);
 
 
 };

@@ -286,7 +286,7 @@ void LoLoEKF::transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quate
     q_auv.normalize();  // TODO: implement handling of singularities?
 }
 
-void LoLoEKF::interpolateDVL(ros::Time t_now){
+void LoLoEKF::interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg_ptr){
 
     geometry_msgs::Vector3 u_interp;
     u_interp.x = 0.0;
@@ -313,17 +313,17 @@ void LoLoEKF::interpolateDVL(ros::Time t_now){
     }
 
     // New interpolated reading
-    geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg_ptr;
+//    geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg_ptr;
     dvl_msg_ptr.reset(new geometry_msgs::TwistWithCovarianceStamped{});
     dvl_msg_ptr->header.stamp = t_now;
     dvl_msg_ptr->twist.twist.linear = u_interp;
     // Store it in the moving mask
-    dvl_readings_.push_back(dvl_msg_ptr);
+//    dvl_readings_.push_back(dvl_msg_ptr);
 
-    // TODO: add interpolated values to the mask or omit??
-    while(dvl_readings_.size() > size_dvl_q_){
-        dvl_readings_.pop_front();
-    }
+//    // TODO: add interpolated values to the mask or omit??
+//    while(dvl_readings_.size() > size_dvl_q_){
+//        dvl_readings_.pop_front();
+//    }
 }
 
 
@@ -359,8 +359,8 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
 
             if(coord_ == false){
                 // Sensor input available on both channels
-                this->interpolateDVL(imu_msg->header.stamp);
-                dvl_msg = dvl_readings_.back();
+                this->interpolateDVL(imu_msg->header.stamp, dvl_msg);
+//                dvl_msg = dvl_readings_.back();
             }
             else{
                 coord_ = false;
