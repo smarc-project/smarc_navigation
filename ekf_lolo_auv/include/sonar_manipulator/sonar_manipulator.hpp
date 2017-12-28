@@ -3,6 +3,8 @@
 
 #include <sensor_msgs/LaserScan.h>
 #include <ros/ros.h>
+#include <tf/transform_datatypes.h>
+#include <tf/tf.h>
 
 class SonarManipulator{
 
@@ -56,13 +58,14 @@ public:
             int landmark_idx = (reminder == 0)? target_pose.at((target_pose.size()/2)): target_pose.at(((target_pose.size()+1)/2));
             double alpha = mbes_msg->angle_min + mbes_msg->angle_increment * landmark_idx;
 
-            landmarks_.push_back({mbes_msg->ranges.at(landmark_idx) * std::cos(alpha),
-                                  mbes_msg->ranges.at(landmark_idx) * std::sin(alpha),
-                                  0});
+            tf::Vector3 point (mbes_msg->ranges.at(landmark_idx) * std::cos(alpha),
+                       mbes_msg->ranges.at(landmark_idx) * std::sin(alpha),
+                       0);
+            landmarks_.push_back(point);
         }
     }
 
-    std::vector<std::vector<double>> landmarks_;
+   std::vector<tf::Vector3> landmarks_;
 };
 
 
