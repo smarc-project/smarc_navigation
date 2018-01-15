@@ -89,7 +89,6 @@ private:
     boost::numeric::ublas::matrix<double> Q_;
 
     // Aux
-    double z_t_; // Aux until model extended to 6DOF
     double t_prev_;
     bool coord_;
     unsigned int size_imu_q_;
@@ -115,7 +114,7 @@ private:
 //    void rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr & ptr_msg);
 
     // EKF methods
-    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const tf::Quaternion q_auv,
+    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const nav_msgs::OdometryPtr &gt_pose, const tf::Quaternion &q_auv,
                      boost::numeric::ublas::vector<double> &u_t);
     void prediction(boost::numeric::ublas::vector<double> &u_t);
 
@@ -130,7 +129,7 @@ private:
 
     // Aux methods
     void createMapMarkers();
-    void transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &q_auv);
+    void transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &auv_R);
     bool sendOutput(ros::Time t);
     double angleLimit (double angle) const;
     void interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg_ptr);
