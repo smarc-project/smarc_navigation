@@ -2,6 +2,8 @@
 #define SMALL_AUV_NAV_HPP
 
 #include "utils_matrices.hpp"
+#include "ekf_lolo_auv/map_ekf.h"
+#include "landmark_ml/landmark_ml.hpp"
 
 #include <queue>
 
@@ -20,14 +22,13 @@
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/TwistWithCovarianceStamped.h>
 #include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/TransformStamped.h>
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include "ekf_lolo_auv/map_ekf.h"
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
+#include <geometry_msgs/PointStamped.h>
 
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
@@ -61,6 +62,7 @@ private:
     ros::Subscriber fast_dvl_sub_;
 
     ros::Subscriber tf_gt_subs_;
+    ros::Subscriber observs_subs_;
     ros::Subscriber rpt_subs_;
     ros::Publisher odom_pub_;
     ros::ServiceClient map_client_;
@@ -71,6 +73,7 @@ private:
     std::deque<sensor_msgs::ImuPtr> imu_readings_; // TODO: add limit size to queues
     std::deque<geometry_msgs::TwistWithCovarianceStampedPtr> dvl_readings_;
     std::deque<nav_msgs::OdometryPtr> gt_readings_;
+    std::deque<geometry_msgs::PointStampedPtr> observ_readings_;
     boost::mutex msg_lock_;
     std::vector<boost::numeric::ublas::vector<double>> map_;
     bool init_filter_;
@@ -107,12 +110,21 @@ private:
     void synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
     void fastIMUCB(const sensor_msgs::ImuPtr &imu_msg);
     void fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg);
+    void observationsCB(const geometry_msgs::PointStampedPtr &observ_msg);
+
 //    void rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr & ptr_msg);
 
     // EKF methods
     void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const tf::Quaternion q_auv,
                      boost::numeric::ublas::vector<double> &u_t);
     void prediction(boost::numeric::ublas::vector<double> &u_t);
+
+    void predictMeasurementModel(const boost::numeric::ublas::vector<int> &landmark_j,
+                                 boost::numeric::ublas::vector<double> &z_i,
+                                 std::vector<LandmarkML *> &ml_i_list);
+    void dataAssociation(std::vector<LandmarkML *> &ml_t_list);
+    void sequentialUpdate(std::vector<LandmarkML *> &observ_list);
+
     void update();
 
 

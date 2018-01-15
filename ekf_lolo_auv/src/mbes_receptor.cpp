@@ -65,7 +65,7 @@ void MBESReceptor::mbesReadingsCB(const sensor_msgs::LaserScanConstPtr &mbes_l_m
     // If any higher intensity value detected
     if(sss_right_.landmarks_.size() > 0){
         // Transform to base frame
-        tf::Vector3 aux_vec2 = tf_sss_r_base_ * sss_right_.landmarks_.back();
+        tf::Vector3 lm_pose = tf_sss_r_base_ * sss_right_.landmarks_.back();
 
         // Create marker for RVIZ
 //        tf::Stamped<tf::Vector3> lm_base(tf_sss_r_base_ * aux_vec, ros::Time(0), "lolo_auv/base_link");
@@ -74,9 +74,9 @@ void MBESReceptor::mbesReadingsCB(const sensor_msgs::LaserScanConstPtr &mbes_l_m
         geometry_msgs::PointStamped landmark_msg;
         landmark_msg.header.stamp = mbes_r_msg->header.stamp;
         landmark_msg.header.frame_id = "lolo_auv/base_link";
-        landmark_msg.point.x = aux_vec2.x();
-        landmark_msg.point.y = aux_vec2.y();
-        landmark_msg.point.z = aux_vec2.z();
+        landmark_msg.point.x = lm_pose.x();
+        landmark_msg.point.y = lm_pose.y();
+        landmark_msg.point.z = lm_pose.z();
 
         landmark_pub_.publish(landmark_msg);
     }

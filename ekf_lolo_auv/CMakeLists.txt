@@ -79,6 +79,7 @@ add_library(sonar_manipulator
 #    )
 
 add_executable(lolo_auv_nav_node
+    src/landmark_ml.cpp
     src/lolo_auv_nav.cpp
     src/lolo_auv_nav_node.cpp
     src/mbes_receptor.cpp

@@ -15,6 +15,7 @@
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="dvl_frame" value="/$(arg namespace)/dvl_link"/>
                 <param name="map_srv" value="/$(arg namespace)/get_map"/>
+                <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
                 <param name="system_freq" value="30"/>
             </node>
 
