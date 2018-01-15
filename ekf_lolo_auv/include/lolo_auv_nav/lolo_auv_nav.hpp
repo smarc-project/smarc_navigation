@@ -118,8 +118,8 @@ private:
                      boost::numeric::ublas::vector<double> &u_t);
     void prediction(boost::numeric::ublas::vector<double> &u_t);
 
-    void predictMeasurementModel(const boost::numeric::ublas::vector<int> &landmark_j,
-                                 boost::numeric::ublas::vector<double> &z_i,
+    void predictMeasurement(const boost::numeric::ublas::vector<double> &landmark_j,
+                                 boost::numeric::ublas::vector<double> &z_i_hat,
                                  std::vector<LandmarkML *> &ml_i_list);
     void dataAssociation(std::vector<LandmarkML *> &ml_t_list);
     void sequentialUpdate(std::vector<LandmarkML *> &observ_list);

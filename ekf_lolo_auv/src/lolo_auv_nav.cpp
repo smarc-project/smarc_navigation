@@ -343,9 +343,28 @@ void LoLoEKF::update(){
 //    }
 }
 
-void LoLoEKF::predictMeasurementModel(const boost::numeric::ublas::vector<int> &landmark_j,
-                                      boost::numeric::ublas::vector<double> &z_i,
+void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &landmark_j,
+                                      boost::numeric::ublas::vector<double> &z_i_hat,
                                       std::vector<LandmarkML *> &ml_i_list){
+    using namespace boost::numeric::ublas;
+    vector<double> mu_hat_world = vector<double>(3);
+    vector<double> world_odom_vec = vector<double>(3);
+    world_odom_vec(0) = transf_world_odom_.getOrigin().getX();
+    world_odom_vec(1) = transf_world_odom_.getOrigin().getY();
+    world_odom_vec(2) = transf_world_odom_.getOrigin().getZ();
+
+    // Measurement model
+    mu_hat_world = mu_hat_ + world_odom_vec;
+    tf::Vector3 z_i_world (landmark_j(0) - mu_hat_world(0),
+                           landmark_j(1) - mu_hat_world(1),
+                           landmark_j(2) - mu_hat_world(2));
+
+    // Convert to base frame
+    tf::Vector3 z_i_base = transf_world_odom_ * z_i_world;
+    z_i_hat(0) = z_i_base.x();
+    z_i_hat(1) = z_i_base.y();
+    z_i_hat(2) = z_i_base.z();
+
 
 }
 
