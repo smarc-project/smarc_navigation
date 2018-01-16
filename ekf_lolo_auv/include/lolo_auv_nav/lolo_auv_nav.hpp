@@ -1,6 +1,9 @@
 #ifndef SMALL_AUV_NAV_HPP
 #define SMALL_AUV_NAV_HPP
 
+#include <ros/timer.h>
+#include <ros/ros.h>
+
 #include "utils_matrices.hpp"
 #include "ekf_lolo_auv/map_ekf.h"
 #include "landmark_ml/landmark_ml.hpp"
@@ -9,9 +12,13 @@
 
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/thread/mutex.hpp>
+#include <boost/assign.hpp>
 #include <boost/bind.hpp>
 #include <ros/transport_hints.h>
 #include <boost/scoped_ptr.hpp>
+
+#include <boost/math/distributions/chi_squared.hpp>
+#include <boost/math/distributions/inverse_chi_squared.hpp>
 
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
@@ -34,9 +41,6 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
-#include <ros/timer.h>
-#include <ros/ros.h>
-
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu, geometry_msgs::TwistWithCovarianceStamped> MsgTimingPolicy;
 
 class LoLoEKF{
@@ -57,10 +61,10 @@ private:
     message_filters::Subscriber<sensor_msgs::Imu>* imu_subs_;
     message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>* dvl_subs_;
     ros::Timer timer_;
+
     // Comms
     ros::Subscriber fast_imu_sub_;
     ros::Subscriber fast_dvl_sub_;
-
     ros::Subscriber tf_gt_subs_;
     ros::Subscriber observs_subs_;
     ros::Subscriber rpt_subs_;
@@ -73,7 +77,7 @@ private:
     std::deque<sensor_msgs::ImuPtr> imu_readings_; // TODO: add limit size to queues
     std::deque<geometry_msgs::TwistWithCovarianceStampedPtr> dvl_readings_;
     std::deque<nav_msgs::OdometryPtr> gt_readings_;
-    std::deque<geometry_msgs::PointStampedPtr> observ_readings_;
+    std::deque<geometry_msgs::PointStampedPtr> measurements_t_;
     boost::mutex msg_lock_;
     std::vector<boost::numeric::ublas::vector<double>> map_;
     bool init_filter_;
@@ -84,6 +88,8 @@ private:
     boost::numeric::ublas::matrix<double> Sigma_;
     boost::numeric::ublas::matrix<double> Sigma_hat_;
     boost::numeric::ublas::matrix<double> G_t_;
+    double delta_m_;
+    double lambda_M_;
     // Noise models
     boost::numeric::ublas::matrix<double> R_;
     boost::numeric::ublas::matrix<double> Q_;
@@ -106,7 +112,8 @@ private:
 
     // Callbacks
     void gtCB(const nav_msgs::OdometryPtr &pose_msg);
-    void synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
+    void synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg,
+                        const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
     void fastIMUCB(const sensor_msgs::ImuPtr &imu_msg);
     void fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg);
     void observationsCB(const geometry_msgs::PointStampedPtr &observ_msg);
@@ -114,24 +121,22 @@ private:
 //    void rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr & ptr_msg);
 
     // EKF methods
-    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const nav_msgs::OdometryPtr &gt_pose, const tf::Quaternion &q_auv,
+    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg,
+                     const nav_msgs::OdometryPtr &gt_pose, const tf::Quaternion &q_auv,
                      boost::numeric::ublas::vector<double> &u_t);
-    void prediction(boost::numeric::ublas::vector<double> &u_t);
+    void predictMotion(boost::numeric::ublas::vector<double> &u_t);
 
     void predictMeasurement(const boost::numeric::ublas::vector<double> &landmark_j,
-                                 boost::numeric::ublas::vector<double> &z_i_hat,
+                                 boost::numeric::ublas::vector<double> &z_i,
                                  std::vector<LandmarkML *> &ml_i_list);
-    void dataAssociation(std::vector<LandmarkML *> &ml_t_list);
-    void sequentialUpdate(std::vector<LandmarkML *> &observ_list);
-
-    void update();
+    void dataAssociation();
+    void sequentialUpdate(LandmarkML *c_i_j);
 
 
     // Aux methods
     void createMapMarkers();
     void transIMUframe(const geometry_msgs::Quaternion &auv_quat, tf::Quaternion &auv_R);
     bool sendOutput(ros::Time t);
-    double angleLimit (double angle) const;
     void interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg_ptr);
 
 

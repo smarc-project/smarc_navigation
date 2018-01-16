@@ -6,6 +6,7 @@
 #include "ekf_general/plot_map.h"
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/Float32.h>
+#include <tf/tf.h>
 
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/matrix_expression.hpp>
@@ -42,7 +43,8 @@ class LandmarkML{
 public:
 
     LandmarkML(const boost::numeric::ublas::vector<int> &landmark_pos);
-    void computeH(const boost::numeric::ublas::vector<double> &z_hat, const boost::numeric::ublas::vector<double> &mu_hat);
+    void computeH(const boost::numeric::ublas::vector<double> &z_hat, const boost::numeric::ublas::vector<double> &mu_hat,
+                  const tf::StampedTransform world_base_tf);
     void computeS(const boost::numeric::ublas::matrix<double> &sigma, const boost::numeric::ublas::matrix<double> &Q);
     void computeNu(const boost::numeric::ublas::vector<double> &z_hat_i, const boost::numeric::ublas::vector<double> &z_i);
     void computeLikelihood();
