@@ -10,7 +10,7 @@ LandmarkML::LandmarkML(const boost::numeric::ublas::vector<int> &landmark_pos){
 
 void LandmarkML::computeH(const boost::numeric::ublas::vector<double> &z_hat,
                           const boost::numeric::ublas::vector<double> &mu_hat,
-                          const tf::StampedTransform world_base_tf){
+                          const tf::Transform world_base_tf){
 
     H_ = boost::numeric::ublas::zero_matrix<double>(3,6);
     tf::Vector3 h_jac = tf::Vector3(-1,-1,-1);
