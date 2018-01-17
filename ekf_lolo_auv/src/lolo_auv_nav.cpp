@@ -78,9 +78,10 @@ void LoLoEKF::init(){
     ROS_INFO("Initialized");
     // EKF variables
     mu_ = boost::numeric::ublas::zero_vector<double>(6);
-    Sigma_ = boost::numeric::ublas::identity_matrix<double>(6) * 0.01;
+    mu_(1) = -1;
+    Sigma_ = boost::numeric::ublas::identity_matrix<double>(6) * 0.1;
     R_ = boost::numeric::ublas::identity_matrix<double> (6) * 0.001; // TODO: set diagonal as rosparam
-    Q_ = boost::numeric::ublas::identity_matrix<double> (3) * 0.01;
+    Q_ = boost::numeric::ublas::identity_matrix<double> (3) * 1;
     // Outlier rejection
     delta_m_ = 0.999; // TODO: Add as rosparam
     boost::math::chi_squared chi2_dist(3);
@@ -308,7 +309,7 @@ void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dv
                           dvl_msg->twist.twist.linear.z);
     tf::Vector3 l_vel_base = transf_dvl_base_ * twist_vel - transf_dvl_base_.getOrigin();
 
-    // Compute incremental displacements
+    // Compute incremental displacements in odom frame
     double vel_t = std::sqrt(pow((l_vel_base.y()),2) +
                              pow((l_vel_base.x()),2));
 
@@ -331,7 +332,7 @@ void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dv
     u_t(4) = dpitch;
     u_t(5) = dtheta;
 
-    // Derivative of motion model
+    // Derivative of motion model in mu_ (t-1)
     G_t_ = boost::numeric::ublas::zero_matrix<double>(6);
     G_t_(0,0) = 1;
     G_t_(1,1) = 1;
@@ -378,13 +379,13 @@ void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &la
     z_i_hat_base(1) = z_hat_sss.getY();
     z_i_hat_base(2) = z_hat_sss.getZ();
 
-    std::cout << "Measurement in base frame: " << z_i << std::endl;
-    std::cout << "Expected measurement in base frame: " << z_i_hat_base << std::endl;
+//    std::cout << "Measurement in base frame: " << z_i << std::endl;
+//    std::cout << "Expected measurement in base frame: " << z_i_hat_base << std::endl;
 
     // Compute ML of observation z_i with M_j
     LandmarkML *corresp_j_ptr;
     corresp_j_ptr = new LandmarkML(landmark_j);
-    corresp_j_ptr->computeH(z_i_hat_base, mu_hat_, transf_world_odom_ * transf_odom_base);
+    corresp_j_ptr->computeH(mu_hat_, transf_odom_world_ * landmark_j_w);
     corresp_j_ptr->computeS(Sigma_hat_, Q_);
     corresp_j_ptr->computeNu(z_i_hat_base, z_i);
     corresp_j_ptr->computeLikelihood();
@@ -394,8 +395,6 @@ void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &la
 //        ROS_INFO("Outlier rejection");
         ml_i_list.push_back(corresp_j_ptr);
 //    }
-
-
 }
 
 void LoLoEKF::dataAssociation(){
@@ -412,6 +411,9 @@ void LoLoEKF::dataAssociation(){
             z_t.push_back(z_i);
         }
         measurements_t_.pop_front();
+        if(!measurements_t_.empty()){
+            ROS_WARN("Cache with measurements is not empty");
+        }
         // Main ML loop
         std::vector<LandmarkML*> ml_i_list;
         // For each observation z_i at time t
@@ -445,15 +447,20 @@ void LoLoEKF::sequentialUpdate(LandmarkML* c_i_j){
     matrix<double> H_trans;
     identity_matrix<double> I(Sigma_hat_.size1(), Sigma_hat_.size2());
     matrix<double> aux_mat;
+    vector<double> aux_mat_2;
 
     // Compute Kalman gain
     H_trans = trans(c_i_j->H_);
     K_t_i = prod(Sigma_hat_, H_trans);
     K_t_i = prod(K_t_i, c_i_j->S_inverted_);
     // Update mu_hat and sigma_hat
-    mu_hat_ += prod(K_t_i, c_i_j->nu_);
+    aux_mat_2 = prod(K_t_i, c_i_j->nu_);
+    std::cout << "Update correction for the state: " << aux_mat_2 << std::endl;
+    aux_mat_2(1) = -1*aux_mat_2(1);
+    mu_hat_ += aux_mat_2;
     aux_mat = (I  - prod(K_t_i, c_i_j->H_));
     Sigma_hat_ = prod(aux_mat, Sigma_hat_);
+    std::cout << "Update correction for the variance: " << Sigma_hat_ << std::endl;
 }
 
 void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){

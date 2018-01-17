@@ -8,16 +8,25 @@ LandmarkML::LandmarkML(const boost::numeric::ublas::vector<int> &landmark_pos){
     landmark_pos_(2) = landmark_pos(3);
 }
 
-void LandmarkML::computeH(const boost::numeric::ublas::vector<double> &z_hat,
-                          const boost::numeric::ublas::vector<double> &mu_hat,
-                          const tf::Transform world_base_tf){
+void LandmarkML::computeH(const boost::numeric::ublas::vector<double> &mu_hat,
+                          const tf::Vector3 lm_odom){
 
-    H_ = boost::numeric::ublas::zero_matrix<double>(3,6);
-    tf::Vector3 h_jac = tf::Vector3(-1,-1,-1);
-    h_jac = world_base_tf * h_jac;
-    H_(0,0) = h_jac.x();
-    H_(1,1) = h_jac.y();
-    H_(2,2) = h_jac.z();
+    H_ = boost::numeric::ublas::identity_matrix<double>(3,6);
+
+    using namespace std;
+    H_(0,3) = lm_odom.getY()*(sin(mu_hat(3))*sin(mu_hat(5)) + cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4))) + lm_odom.getZ()*cos(mu_hat(3))*sin(mu_hat(5));
+    H_(0,4) = cos(mu_hat(5))*(lm_odom.getZ()*cos(mu_hat(4))*cos(mu_hat(5)) - lm_odom.getX()*sin(mu_hat(4)) + lm_odom.getY()*cos(mu_hat(4))*sin(mu_hat(3)));
+    H_(0,5) = lm_odom.getZ()*(cos(mu_hat(5))*sin(mu_hat(3)) - 2*cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(5))) - lm_odom.getY()*(cos(mu_hat(3))*cos(mu_hat(5))
+              + sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5))) - lm_odom.getX()*cos(mu_hat(4))*sin(mu_hat(5));
+
+    H_(1,3) = lm_odom.getY()*(cos(mu_hat(5))*sin(mu_hat(3)) + cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5))) + lm_odom.getZ()*cos(mu_hat(3))*cos(mu_hat(5));
+    H_(1,4) = sin(mu_hat(5))*(lm_odom.getZ()*cos(mu_hat(4))*cos(mu_hat(5)) - lm_odom.getX()*sin(mu_hat(4)) + lm_odom.getY()*cos(mu_hat(4))*sin(mu_hat(3)));
+    H_(1,5) = lm_odom.getY()*(cos(mu_hat(3))*sin(mu_hat(5)) + cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3))) - lm_odom.getZ()*(sin(mu_hat(3))*sin(mu_hat(5))
+              - pow(cos(mu_hat(5)),2)*sin(mu_hat(4)) + sin(mu_hat(4))*pow(sin(mu_hat(5)),2)) + lm_odom.getX()*cos(mu_hat(4))*cos(mu_hat(5));
+
+    H_(2,3) = cos(mu_hat(4))*(lm_odom.getY()*cos(mu_hat(3)) - lm_odom.getZ()*sin(mu_hat(3)));
+    H_(2,4) = -1 * lm_odom.getX()*cos(mu_hat(4)) - lm_odom.getZ()*cos(mu_hat(3))*sin(mu_hat(4)) - lm_odom.getY()*sin(mu_hat(4))*sin(mu_hat(3));
+    H_(2,5) = 0;
 }
 
 void LandmarkML::computeS(const boost::numeric::ublas::matrix<double> &sigma,
@@ -33,6 +42,7 @@ void LandmarkML::computeS(const boost::numeric::ublas::matrix<double> &sigma,
 void LandmarkML::computeNu(const boost::numeric::ublas::vector<double> &z_hat_i,
                            const boost::numeric::ublas::vector<double> &z_i){
     nu_ = z_i - z_hat_i;
+    nu_(0) = 0; // Remove innovation in x for testing
 }
 
 void LandmarkML::computeLikelihood(){

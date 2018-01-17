@@ -43,8 +43,8 @@ class LandmarkML{
 public:
 
     LandmarkML(const boost::numeric::ublas::vector<int> &landmark_pos);
-    void computeH(const boost::numeric::ublas::vector<double> &z_hat, const boost::numeric::ublas::vector<double> &mu_hat,
-                  const tf::Transform world_base_tf);
+    void computeH(const boost::numeric::ublas::vector<double> &mu_hat,
+                  const tf::Vector3 lm_odom);
     void computeS(const boost::numeric::ublas::matrix<double> &sigma, const boost::numeric::ublas::matrix<double> &Q);
     void computeNu(const boost::numeric::ublas::vector<double> &z_hat_i, const boost::numeric::ublas::vector<double> &z_i);
     void computeLikelihood();

@@ -65,9 +65,6 @@ void MBESReceptor::mbesReadingsCB(const sensor_msgs::LaserScanConstPtr &mbes_l_m
     // If any higher intensity value detected
     if(sss_right_.landmarks_.size() > 0){
         // Transform to base frame
-        std::cout << "Measurement in sss frame: " << sss_right_.landmarks_.back().getX() << ", " <<
-                                                      sss_right_.landmarks_.back().getY() << ", " <<
-                                                      sss_right_.landmarks_.back().getZ() << std::endl;
         tf::Vector3 lm_pose = tf_sss_r_base_ * sss_right_.landmarks_.back();
 
         // Create marker for RVIZ
