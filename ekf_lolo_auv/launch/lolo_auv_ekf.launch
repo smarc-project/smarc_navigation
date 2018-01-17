@@ -17,6 +17,7 @@
                 <param name="map_srv" value="/$(arg namespace)/get_map"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
                 <param name="system_freq" value="30"/>
+                <param name="sss_r_link" value="/$(arg namespace)/sonarright_link"/>
             </node>
 
             <node pkg="ekf_lolo_auv" type="map_provider_node.py" name="map_provider_node" output="screen">

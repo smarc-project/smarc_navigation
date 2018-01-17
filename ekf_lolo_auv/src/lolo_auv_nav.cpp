@@ -22,6 +22,8 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
     nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
+    nh_->param<std::string>((node_name_ + "/sss_r_link"), sssr_frame_, "/sss_link");
+
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
 
     // Synch IMU and DVL readings
@@ -76,14 +78,13 @@ void LoLoEKF::init(){
     ROS_INFO("Initialized");
     // EKF variables
     mu_ = boost::numeric::ublas::zero_vector<double>(6);
-    Sigma_ = boost::numeric::ublas::identity_matrix<double>(6);
+    Sigma_ = boost::numeric::ublas::identity_matrix<double>(6) * 0.01;
     R_ = boost::numeric::ublas::identity_matrix<double> (6) * 0.001; // TODO: set diagonal as rosparam
-    Q_ = boost::numeric::ublas::identity_matrix<double> (3) * 0.001;
+    Q_ = boost::numeric::ublas::identity_matrix<double> (3) * 0.01;
     // Outlier rejection
     delta_m_ = 0.999; // TODO: Add as rosparam
     boost::math::chi_squared chi2_dist(3);
     lambda_M_ = boost::math::quantile(chi2_dist, delta_m_);
-
     // State machine
     init_filter_ = false;
     coord_ = false;
@@ -108,6 +109,19 @@ void LoLoEKF::init(){
         tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
         tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
         ROS_INFO("Locked transform world --> odom");
+        // Compute inverse for later use
+        transf_odom_world_ = transf_world_odom_.inverse();
+    }
+    catch(tf::TransformException &exception) {
+        ROS_ERROR("%s", exception.what());
+        ros::Duration(1.0).sleep();
+    }
+
+    // Get fixed sss_right --> odom frame
+    try{
+        tf_listener.waitForTransform(base_frame_, sssr_frame_, ros::Time(0), ros::Duration(100));
+        tf_listener.lookupTransform(base_frame_, sssr_frame_, ros::Time(0), transf_base_sssr_);
+        ROS_INFO("Locked transform sss right --> base");
     }
     catch(tf::TransformException &exception) {
         ROS_ERROR("%s", exception.what());
@@ -157,7 +171,8 @@ void LoLoEKF::fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_
     }
 }
 
-void LoLoEKF::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
+void LoLoEKF::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg,
+                             const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
 //    imu_readings_.push(imu_msg);
 //    dvl_readings_.push(dvl_msg);
     coord_ = true;
@@ -345,25 +360,33 @@ void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &la
                                       std::vector<LandmarkML *> &ml_i_list){
 
     using namespace boost::numeric::ublas;
-    // Measurement model: z_hat_i
-    tf::Vector3 auv_position = tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2));
-    auv_position = transf_world_odom_ * auv_position;
 
-    // Convert to base frame
-    vector<double> z_i_hat = vector<double>(3);
-    z_i_hat(0) = landmark_j(1) - auv_position.getX();
-    z_i_hat(1) = landmark_j(2) - auv_position.getY();
-    z_i_hat(2) = landmark_j(3) - auv_position.getZ();
+    // Compute transform odom --> base from current state estimate
+    tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5));
+    q_auv_t.normalize();
+    tf::Transform transf_odom_base = tf::Transform(q_auv_t, tf::Vector3(mu_(0), mu_(1), mu_(2)));
+
+    // Measurement model: z_hat_i
+    tf::Vector3 landmark_j_w = tf::Vector3(landmark_j(1),
+                                           landmark_j(2),
+                                           landmark_j(3));
+    tf::Vector3 z_hat_sss;
+    z_hat_sss = transf_odom_base.inverse() * transf_odom_world_ * landmark_j_w;
+
+    vector<double> z_i_hat_base = vector<double>(3);
+    z_i_hat_base(0) = z_hat_sss.getX();
+    z_i_hat_base(1) = z_hat_sss.getY();
+    z_i_hat_base(2) = z_hat_sss.getZ();
 
     std::cout << "Measurement in base frame: " << z_i << std::endl;
-    std::cout << "Expected measurement in world frame: " << z_i_world.x() << ", " << z_i_world.y() << ", " << z_i_world.z() << std::endl;
+    std::cout << "Expected measurement in base frame: " << z_i_hat_base << std::endl;
 
     // Compute ML of observation z_i with M_j
     LandmarkML *corresp_j_ptr;
     corresp_j_ptr = new LandmarkML(landmark_j);
-    corresp_j_ptr->computeH(z_i_hat, mu_hat_, transf_world_odom_);
+    corresp_j_ptr->computeH(z_i_hat_base, mu_hat_, transf_world_odom_ * transf_odom_base);
     corresp_j_ptr->computeS(Sigma_hat_, Q_);
-    corresp_j_ptr->computeNu(z_i_hat, z_i);
+    corresp_j_ptr->computeNu(z_i_hat_base, z_i);
     corresp_j_ptr->computeLikelihood();
 
     // Outlier rejection
@@ -371,6 +394,8 @@ void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &la
 //        ROS_INFO("Outlier rejection");
         ml_i_list.push_back(corresp_j_ptr);
 //    }
+
+
 }
 
 void LoLoEKF::dataAssociation(){
@@ -379,14 +404,14 @@ void LoLoEKF::dataAssociation(){
 
     // If observations available
     if(!measurements_t_.empty()){
-//        ROS_INFO("Running data association");
         for(auto observ: measurements_t_){
-            z_i(0) = observ->point.x;
-            z_i(1) = observ->point.y + 1/std::sqrt(2);
-            z_i(2) = observ->point.z + 1/std::sqrt(2);  // Compensate for the volume of the stones***
+            // Compensate for the volume of the stones*****
+            z_i(0) = observ->point.x - 0.5;
+            z_i(1) = observ->point.y - 1/std::sqrt(2);
+            z_i(2) = observ->point.z - 1/std::sqrt(2);
             z_t.push_back(z_i);
         }
-        measurements_t_.pop_back();
+        measurements_t_.pop_front();
         // Main ML loop
         std::vector<LandmarkML*> ml_i_list;
         // For each observation z_i at time t
@@ -395,7 +420,6 @@ void LoLoEKF::dataAssociation(){
             for(auto landmark_j: map_){
                 // Narrow down the landmarks to be checked
                 if((landmark_j(1) < mu_(0) + 6) && (landmark_j(1) > mu_(0) - 6)){
-                    std::cout << "Checking against landmark: " << landmark_j(0) << std::endl;
                     predictMeasurement(landmark_j, z_i, ml_i_list);
                 }
             }
@@ -405,6 +429,7 @@ void LoLoEKF::dataAssociation(){
                     std::sort(ml_i_list.begin(), ml_i_list.end(), sortLandmarksML);
                 }
                 std::cout << "Landmark selected: " << ml_i_list.front()->landmark_id_ << std::endl;
+                std::cout << "Innovation: " << ml_i_list.front()->nu_ << std::endl;
                 // Call the sequential update here **
                 sequentialUpdate(ml_i_list.front());
             }
