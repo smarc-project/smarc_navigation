@@ -78,9 +78,9 @@ void LoLoEKF::init(){
     ROS_INFO("Initialized");
     // EKF variables
     mu_ = boost::numeric::ublas::zero_vector<double>(6);
-    mu_(1) = -1; // Uncertainty in y initial position
+    mu_(1) = 2; // Uncertainty in y initial position
     Sigma_ = boost::numeric::ublas::identity_matrix<double>(6) * 1;
-    R_ = boost::numeric::ublas::identity_matrix<double> (6) * 0.001; // TODO: set diagonal as rosparam
+    R_ = boost::numeric::ublas::identity_matrix<double> (6) * 0.01; // TODO: set diagonal as rosparam
     Q_ = boost::numeric::ublas::identity_matrix<double> (3) * 0.1;
     // Outlier rejection
     delta_m_ = 0.9; // TODO: Add as rosparam
@@ -379,8 +379,8 @@ void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &la
     z_i_hat_base(1) = z_hat_sss.getY();
     z_i_hat_base(2) = z_hat_sss.getZ();
 
-    std::cout << "Measurement in base frame: " << z_i << std::endl;
-    std::cout << "Expected measurement in base frame: " << z_i_hat_base << std::endl;
+//    std::cout << "Measurement in base frame: " << z_i << std::endl;
+//    std::cout << "Expected measurement in base frame: " << z_i_hat_base << std::endl;
 
     // Compute ML of observation z_i with M_j
     LandmarkML *corresp_j_ptr;
@@ -393,6 +393,9 @@ void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &la
     // Outlier rejection
     if(corresp_j_ptr->d_m_ < lambda_M_){
         ml_i_list.push_back(corresp_j_ptr);
+    }
+    else{
+        ROS_WARN("Outlier rejected");
     }
 }
 
