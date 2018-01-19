@@ -14,21 +14,41 @@ void LandmarkML::computeH(const boost::numeric::ublas::vector<double> &mu_hat,
     H_ = boost::numeric::ublas::identity_matrix<double>(3,6);
 
     using namespace std;
-    H_(0,3) = lm_odom.getY()*(sin(mu_hat(3))*sin(mu_hat(5)) + cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4))) + lm_odom.getZ()*(cos(mu_hat(3))*sin(mu_hat(5))
-              - cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3)));
-    H_(0,4) = cos(mu_hat(5))*(lm_odom.getZ()*cos(mu_hat(4))*cos(mu_hat(3)) - lm_odom.getX()*sin(mu_hat(4)) + lm_odom.getY()*cos(mu_hat(4))*sin(mu_hat(3)));
-    H_(0,5) = lm_odom.getZ()*(cos(mu_hat(5))*sin(mu_hat(3)) - cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5))) - lm_odom.getY()*(cos(mu_hat(3))*cos(mu_hat(5))
-              + sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5))) - lm_odom.getX()*cos(mu_hat(4))*sin(mu_hat(5));
+    H_(0,0) = -cos(mu_hat(4))*cos(mu_hat(5));
+    H_(0,1) = -cos(mu_hat(4))*sin(mu_hat(5));
+    H_(0,2) = sin(mu_hat(4));
+    H_(0,3) = 0;
+    H_(0,4) = mu_hat(2)*cos(mu_hat(4)) - lm_odom.getZ()*cos(mu_hat(4)) - lm_odom.getX()*cos(mu_hat(5))*sin(mu_hat(4)) - lm_odom.getY()*sin(mu_hat(4))*sin(mu_hat(5))
+            + mu_hat(0)*cos(mu_hat(5))*sin(mu_hat(4)) + mu_hat(1)*sin(mu_hat(4))*sin(mu_hat(5));
+    H_(0,5) = cos(mu_hat(4))*(lm_odom.getY()*cos(mu_hat(5)) - lm_odom.getX()*sin(mu_hat(5)) - mu_hat(1)*cos(mu_hat(5)) + mu_hat(0)*sin(mu_hat(5)));
 
-    H_(1,3) = -1 * lm_odom.getY()*(cos(mu_hat(5))*sin(mu_hat(3)) - cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5))) - lm_odom.getZ()*(cos(mu_hat(3))*cos(mu_hat(5))
-              + sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5)));
-    H_(1,4) = sin(mu_hat(5))*(lm_odom.getZ()*cos(mu_hat(4))*cos(mu_hat(3)) - lm_odom.getX()*sin(mu_hat(4)) + lm_odom.getY()*cos(mu_hat(4))*sin(mu_hat(3)));
-    H_(1,5) = lm_odom.getZ()*(sin(mu_hat(3))*sin(mu_hat(5)) + cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4))) - lm_odom.getY()*(cos(mu_hat(3))*sin(mu_hat(5))
-              - cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3))) + lm_odom.getX()*cos(mu_hat(4))*cos(mu_hat(5));
+    H_(1,0) = cos(mu_hat(3))*sin(mu_hat(5)) - cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3));
+    H_(1,1) = - cos(mu_hat(3))*cos(mu_hat(5)) - sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5));
+    H_(1,2) = -cos(mu_hat(4))*sin(mu_hat(3));
+    H_(1,3) = lm_odom.getZ()*cos(mu_hat(4))*cos(mu_hat(3)) - mu_hat(2)*cos(mu_hat(4))*cos(mu_hat(3)) - lm_odom.getY()*cos(mu_hat(5))*sin(mu_hat(3))
+            + lm_odom.getX()*sin(mu_hat(3))*sin(mu_hat(5)) + mu_hat(1)*cos(mu_hat(5))*sin(mu_hat(3)) - mu_hat(0)*sin(mu_hat(3))*sin(mu_hat(5))
+            + lm_odom.getX()*cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4)) + lm_odom.getY()*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5))
+            - mu_hat(0)*cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4)) - mu_hat(1)*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5));
+    H_(1,4) = -sin(mu_hat(3))*(lm_odom.getZ()*sin(mu_hat(4)) - mu_hat(2)*sin(mu_hat(4)) - lm_odom.getX()*cos(mu_hat(4))*cos(mu_hat(5))
+              - lm_odom.getY()*cos(mu_hat(4))*sin(mu_hat(5)) + mu_hat(0)*cos(mu_hat(4))*cos(mu_hat(5)) + mu_hat(1)*cos(mu_hat(4))*sin(mu_hat(5)));
+    H_(1,5) = mu_hat(0)*cos(mu_hat(3))*cos(mu_hat(5)) - lm_odom.getY()*cos(mu_hat(3))*sin(mu_hat(5)) - lm_odom.getX()*cos(mu_hat(3))*cos(mu_hat(5))
+            + mu_hat(1)*cos(mu_hat(3))*sin(mu_hat(5)) + lm_odom.getY()*cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3))
+            - lm_odom.getX()*sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5)) - mu_hat(1)*cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3))
+            + mu_hat(0)*sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5));
 
-    H_(2,3) = cos(mu_hat(4))*(lm_odom.getY()*cos(mu_hat(3)) - lm_odom.getZ()*sin(mu_hat(3)));
-    H_(2,4) = -1 * lm_odom.getX()*cos(mu_hat(4)) - lm_odom.getZ()*cos(mu_hat(3))*sin(mu_hat(4)) - lm_odom.getY()*sin(mu_hat(4))*sin(mu_hat(3));
-    H_(2,5) = 0;
+    H_(2,0) = - sin(mu_hat(3))*sin(mu_hat(5)) - cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4));
+    H_(2,1) = cos(mu_hat(5))*sin(mu_hat(3)) - cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5));
+    H_(2,2) = -cos(mu_hat(4))*cos(mu_hat(3));
+    H_(2,3) = lm_odom.getX()*cos(mu_hat(3))*sin(mu_hat(5)) - lm_odom.getZ()*cos(mu_hat(4))*sin(mu_hat(3)) - lm_odom.getY()*cos(mu_hat(3))*cos(mu_hat(5))
+            + mu_hat(1)*cos(mu_hat(3))*cos(mu_hat(5)) + mu_hat(2)*cos(mu_hat(4))*sin(mu_hat(3)) - mu_hat(0)*cos(mu_hat(3))*sin(mu_hat(5))
+            - lm_odom.getX()*cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3)) - lm_odom.getY()*sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5))
+            + mu_hat(0)*cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3)) + mu_hat(1)*sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5));
+    H_(2,4) = -cos(mu_hat(3))*(lm_odom.getZ()*sin(mu_hat(4)) - mu_hat(2)*sin(mu_hat(4)) - lm_odom.getX()*cos(mu_hat(4))*cos(mu_hat(5))
+              - lm_odom.getY()*cos(mu_hat(4))*sin(mu_hat(5)) + mu_hat(0)*cos(mu_hat(4))*cos(mu_hat(5)) + mu_hat(1)*cos(mu_hat(4))*sin(mu_hat(5)));
+    H_(2,5) = lm_odom.getX()*cos(mu_hat(5))*sin(mu_hat(3)) + lm_odom.getY()*sin(mu_hat(3))*sin(mu_hat(5)) - mu_hat(0)*cos(mu_hat(5))*sin(mu_hat(3))
+            - mu_hat(1)*sin(mu_hat(3))*sin(mu_hat(5)) + lm_odom.getY()*cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4))
+            - lm_odom.getX()*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5)) - mu_hat(1)*cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4))
+            + mu_hat(0)*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5));
 }
 
 void LandmarkML::computeS(const boost::numeric::ublas::matrix<double> &sigma,

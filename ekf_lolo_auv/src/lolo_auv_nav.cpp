@@ -458,7 +458,7 @@ void LoLoEKF::sequentialUpdate(LandmarkML* c_i_j){
     // Update mu_hat and sigma_hat
     aux_mat_2 = prod(K_t_i, c_i_j->nu_);
     std::cout << "Update correction for the state: " << aux_mat_2 << std::endl;
-    aux_mat_2(1) = -1*aux_mat_2(1);
+//    aux_mat_2(1) = -1*aux_mat_2(1);
     mu_hat_ += aux_mat_2;
     aux_mat = (I  - prod(K_t_i, c_i_j->H_));
     Sigma_hat_ = prod(aux_mat, Sigma_hat_);
