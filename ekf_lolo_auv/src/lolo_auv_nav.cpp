@@ -176,8 +176,6 @@ void LoLoEKF::fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_
 
 void LoLoEKF::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg,
                              const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
-//    imu_readings_.push(imu_msg);
-//    dvl_readings_.push(dvl_msg);
     coord_ = true;
 }
 
@@ -381,9 +379,6 @@ void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &la
     z_i_hat_base(1) = z_hat_sss.getY();
     z_i_hat_base(2) = z_hat_sss.getZ();
 
-//    std::cout << "Measurement in base frame: " << z_i << std::endl;
-//    std::cout << "Expected measurement in base frame: " << z_i_hat_base << std::endl;
-
     // Compute ML of observation z_i with M_j
     LandmarkML *corresp_j_ptr;
     corresp_j_ptr = new LandmarkML(landmark_j);
@@ -487,7 +482,7 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
 
             init_filter_ = true;
         }
-        // Main loop
+        // MAIN LOOP
         else{
             // Fetch latest sensor readings
             imu_msg = imu_readings_.back();
