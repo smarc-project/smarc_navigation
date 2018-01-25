@@ -23,7 +23,6 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
     nh_->param<std::string>((node_name_ + "/sss_r_link"), sssr_frame_, "/sss_link");
-
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
 
     // Synch IMU and DVL readings
@@ -78,10 +77,13 @@ void LoLoEKF::init(){
     ROS_INFO("Initialized");
     // EKF variables
     mu_ = boost::numeric::ublas::zero_vector<double>(6);
-    mu_(1) = 2; // Uncertainty in y initial position
+    mu_(1) = 2.5; // Uncertainty in y initial position
     Sigma_ = boost::numeric::ublas::identity_matrix<double>(6) * 1;
-    R_ = boost::numeric::ublas::identity_matrix<double> (6) * 0.01; // TODO: set diagonal as rosparam
-    Q_ = boost::numeric::ublas::identity_matrix<double> (3) * 0.1;
+    R_ = boost::numeric::ublas::identity_matrix<double> (6) * 0.001; // TODO: set diagonal as rosparam
+    R_(1,1) = 0.1;
+    R_(2,2) = 0.1;
+
+    Q_ = boost::numeric::ublas::identity_matrix<double> (2) * 1;
     // Outlier rejection
     delta_m_ = 0.9; // TODO: Add as rosparam
     boost::math::chi_squared chi2_dist(3);
@@ -449,17 +451,13 @@ void LoLoEKF::sequentialUpdate(LandmarkML* c_i_j){
     matrix<double> H_trans;
     identity_matrix<double> I(Sigma_hat_.size1(), Sigma_hat_.size2());
     matrix<double> aux_mat;
-    vector<double> aux_mat_2;
 
     // Compute Kalman gain
     H_trans = trans(c_i_j->H_);
     K_t_i = prod(Sigma_hat_, H_trans);
     K_t_i = prod(K_t_i, c_i_j->S_inverted_);
     // Update mu_hat and sigma_hat
-    aux_mat_2 = prod(K_t_i, c_i_j->nu_);
-    std::cout << "Update correction for the state: " << aux_mat_2 << std::endl;
-//    aux_mat_2(1) = -1*aux_mat_2(1);
-    mu_hat_ += aux_mat_2;
+    mu_hat_ += prod(K_t_i, c_i_j->nu_);
     aux_mat = (I  - prod(K_t_i, c_i_j->H_));
     Sigma_hat_ = prod(aux_mat, Sigma_hat_);
     std::cout << "Update correction for the variance: " << Sigma_hat_ << std::endl;
@@ -524,7 +522,6 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
 
             // Publish and broadcast
             this->sendOutput(dvl_msg->header.stamp);
-
             vis_pub_.publish(markers_);
         }
     }

@@ -16,7 +16,7 @@
                 <param name="dvl_frame" value="/$(arg namespace)/dvl_link"/>
                 <param name="map_srv" value="/$(arg namespace)/get_map"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
-                <param name="system_freq" value="30"/>
+                <param name="system_freq" value="50"/>
                 <param name="sss_r_link" value="/$(arg namespace)/sonarright_link"/>
             </node>
 
@@ -34,5 +34,9 @@
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
             </node>
+            <!--For experiments-->
+            <node pkg="rosbag" type="record" name="experiment_bag" output="screen"
+                  args=" record -o $(find ekf_lolo_auv)/rosbags/ /$(arg namespace)/gt_in_odom /$(arg namespace)/ekf_odom"/>
+
         </group>
 </launch>

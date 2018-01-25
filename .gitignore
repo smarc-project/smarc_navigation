@@ -7,3 +7,6 @@
 *.creator.user
 *.files
 *.includes
+
+# ROS bags
+*.bag
