@@ -1,0 +1,3 @@
+bool request_map
+---
+geometry_msgs/Point32[] map

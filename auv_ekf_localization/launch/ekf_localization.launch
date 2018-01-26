@@ -1,0 +1,43 @@
+<launch>
+    
+      <arg name="namespace" default="lolo_auv"/>
+      <arg name="run_navigation" default="false"/>
+
+        <group ns="$(arg namespace)">
+            <node pkg="auv_ekf_localization" name="lolo_auv_navigation" type="lolo_auv_nav_node" output="screen">
+                <param name="run_navigation" value="$(arg run_navigation)"/>
+                <param name="imu_topic" value="/$(arg namespace)/imu"/>
+                <param name="dvl_topic" value="/$(arg namespace)/dvl_twist"/>
+                <param name="odom_pub_topic" value="/$(arg namespace)/ekf_odom"/>
+                <param name="gt_pose_topic" value="/$(arg namespace)/pose_gt"/>
+                <param name="odom_frame" value="odom"/>
+                <param name="world_frame" value="world"/>
+                <param name="base_frame" value="/$(arg namespace)/base_link"/>
+                <param name="dvl_frame" value="/$(arg namespace)/dvl_link"/>
+                <param name="map_srv" value="/$(arg namespace)/get_map"/>
+                <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
+                <param name="system_freq" value="50"/>
+                <param name="sss_r_link" value="/$(arg namespace)/sonarright_link"/>
+            </node>
+
+            <node pkg="auv_ekf_localization" type="map_provider_node.py" name="map_provider_node" output="screen">
+                <param name="map_provider_srv" value="/$(arg namespace)/get_map"/>
+                <param name="map_file" value="$(find auv_ekf_localization)/maps/map_stones1.yaml"/>
+                <param name="rocks_depth" value="-90"/>
+            </node>
+
+            <node pkg="auv_ekf_localization" name="mbes_receptor" type="mbes_receptor_node" output="screen">
+                <param name="mbes_left_topic" value="/$(arg namespace)/sss_left"/>
+                <param name="mbes_right_topic" value="/$(arg namespace)/sss_right"/>
+                <param name="sss_r_link" value="/$(arg namespace)/sonarright_link"/>
+                <param name="sss_l_link" value="/$(arg namespace)/sonarleft_link"/>
+                <param name="base_frame" value="/$(arg namespace)/base_link"/>
+                <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
+            </node>
+
+            <!--For experiments-->
+            <!--<node pkg="rosbag" type="record" name="experiment_bag" output="screen"
+                  args=" record -o $(find auv_ekf_localization)/rosbags/ /$(arg namespace)/gt_in_odom /$(arg namespace)/ekf_odom"/>-->
+
+        </group>
+</launch>
