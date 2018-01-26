@@ -1,4 +1,4 @@
-#include "lolo_auv_nav/lolo_auv_nav.hpp"
+#include "ekf_localization/ekf_localization.hpp"
 
 #include <ros/callback_queue.h>
 
@@ -10,7 +10,7 @@ int main(int argc, char** argv){
     ros::CallbackQueue nav_queue;
     nh_nav.setCallbackQueue(&nav_queue);
 
-    LoLoEKF *lolo_auv_nav = new LoLoEKF(ros::this_node::getName(), nh_nav);
+    EKFLocalization *lolo_auv_nav = new EKFLocalization(ros::this_node::getName(), nh_nav);
 
     ros::AsyncSpinner spinner_nav(1, &nav_queue);
     spinner_nav.start();

@@ -77,20 +77,19 @@ add_library(sonar_manipulator
 #    src/mbes_receptor.cpp
 #    )
 
-add_executable(lolo_auv_nav_node
-    src/landmark_ml.cpp
-    src/lolo_auv_nav.cpp
-    src/lolo_auv_nav_node.cpp
+add_executable(ekf_localization_node
+    src/correspondence_obj.cpp
+    src/ekf_localization.cpp
+    src/ekf_localization_node.cpp
     src/mbes_receptor.cpp
     )
 
-add_dependencies(lolo_auv_nav_node
+add_dependencies(ekf_localization_node
     ${${PROJECT_NAME}_EXPORTED_TARGETS}
     ${catkin_EXPORTED_TARGETS}
-#    lolo_navigation_node_generate_messages_cpp
     )
 
-target_link_libraries(lolo_auv_nav_node
+target_link_libraries(ekf_localization_node
     utils_matrices
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
@@ -104,7 +103,6 @@ add_executable(mbes_receptor_node
 add_dependencies(mbes_receptor_node
     ${${PROJECT_NAME}_EXPORTED_TARGETS}
     ${catkin_EXPORTED_TARGETS}
-#    lolo_navigation_node_generate_messages_cpp
     )
 
 target_link_libraries(mbes_receptor_node

@@ -1,12 +1,12 @@
-#ifndef LOLO_AUV_NAV_HPP
-#define LOLO_AUV_NAV_HPP
+#ifndef EKF_LOCALIZATION_HPP
+#define EKF_LOCALIZATION_HPP
 
 #include <ros/timer.h>
 #include <ros/ros.h>
 
 #include "utils_matrices/utils_matrices.hpp"
 #include "auv_ekf_localization/map_ekf.h"
-#include "landmark_ml/landmark_ml.hpp"
+#include "correspondence_class/correspondence_class.hpp"
 
 #include <queue>
 
@@ -44,7 +44,7 @@
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu, geometry_msgs::TwistWithCovarianceStamped> MsgTimingPolicy;
 
 /**
- * @brief The LoLoEKF class
+ * @brief The EKFLocalization class
  * EKF-based localization node for LoLo
  * Inputs:
  * IMU, DVL and landmarks positions from measurements
@@ -54,13 +54,13 @@ typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu, geomet
  * updated tf transform odom --> base_link
  */
 
-class LoLoEKF{
+class EKFLocalization{
 
 public:
 
-    LoLoEKF(std::string node_name, ros::NodeHandle &nh);
+    EKFLocalization(std::string node_name, ros::NodeHandle &nh);
     void ekfLocalize(const ros::TimerEvent& e);
-    ~LoLoEKF();
+    ~EKFLocalization();
     void init();
 
 private:
@@ -136,7 +136,7 @@ private:
 //    void rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr & ptr_msg);
 
     /**
-     * @brief LoLoEKF::computeOdom
+     * @brief EKFLocalization::computeOdom
      * @param dvl_msg
      * @param gt_pose
      * @param q_auv
@@ -149,7 +149,7 @@ private:
 
 
     /**
-     * @brief LoLoEKF::predictMotion
+     * @brief EKFLocalization::predictMotion
      * @param u_t
      * Prediction step for the EKF
      */
@@ -164,7 +164,7 @@ private:
      */
     void predictMeasurement(const boost::numeric::ublas::vector<double> &landmark_j,
                                  boost::numeric::ublas::vector<double> &z_i,
-                                 std::vector<LandmarkML *> &ml_i_list);
+                                 std::vector<CorrespondenceClass *> &ml_i_list);
 
     /**
      * @brief dataAssociation
@@ -177,7 +177,7 @@ private:
      * @param c_i_j
      * Sequential update for a given match observation-landmark
      */
-    void sequentialUpdate(LandmarkML *c_i_j);
+    void sequentialUpdate(CorrespondenceClass *c_i_j);
 
 
     /**
@@ -187,7 +187,7 @@ private:
     void createMapMarkers();
 
     /**
-     * @brief LoLoEKF::sendOutput
+     * @brief EKFLocalization::sendOutput
      * @param t
      * @return
      * Publishes AUV odometry info and tf odom --> base_link
@@ -195,7 +195,7 @@ private:
     bool sendOutput(ros::Time t);
 
     /**
-     * @brief LoLoEKF::interpolateDVL
+     * @brief EKFLocalization::interpolateDVL
      * @param t_now
      * @param dvl_msg_ptr
      * Interpolates DVL (slower) inputs through Bezier curves to synch to faster sensors
@@ -205,4 +205,4 @@ private:
 
 };
 
-#endif // LOLO_AUV_NAV_HPP
+#endif // EKF_LOCALIZATION_HPP

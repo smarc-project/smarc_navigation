@@ -1,9 +1,9 @@
-#ifndef LANDMARK_ML_HPP
-#define LANDMARK_ML_HPP
+#ifndef CORRESPONDENCECLASS_HPP
+#define CORRESPONDENCECLASS_HPP
 
 #include <ros/ros.h>
-#include "ekf_general/sensors_read.h"
-#include "ekf_general/plot_map.h"
+//#include "ekf_general/sensors_read.h"
+//#include "ekf_general/plot_map.h"
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/Float32.h>
 #include <tf/tf.h>
@@ -38,11 +38,11 @@
 double angleLimit (double angle);
 
 /**
- * @brief The LandmarkML class
- * Auxiliar class containing of the info related to a correspondence
- * between a landmark j and a measurement i at time t
+ * @brief The CorrespondenceClass class
+ * Auxiliar class containing all the info related to a correspondence
+ * made between a landmark j and a measurement i at time t
  */
-class LandmarkML{
+class CorrespondenceClass{
 
 public:
 
@@ -55,7 +55,7 @@ public:
     boost::numeric::ublas::vector<double> nu_;
     int landmark_id_;
 
-    LandmarkML(const boost::numeric::ublas::vector<int> &landmark_pos);
+    CorrespondenceClass(const boost::numeric::ublas::vector<int> &landmark_pos);
     /**
      * @brief computeH
      * @param mu_hat
@@ -88,4 +88,4 @@ public:
 private:
 };
 
-#endif // LANDMARK_ML_HPP
+#endif // CORRESPONDENCECLASS_HPP
