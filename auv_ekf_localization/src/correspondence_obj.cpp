@@ -1,7 +1,7 @@
-#include "landmark_ml/landmark_ml.hpp"
+#include "correspondence_class/correspondence_class.hpp"
 
 
-LandmarkML::LandmarkML(const boost::numeric::ublas::vector<int> &landmark_pos){
+CorrespondenceClass::CorrespondenceClass(const boost::numeric::ublas::vector<int> &landmark_pos){
     landmark_id_ = landmark_pos(0);
     landmark_pos_ = boost::numeric::ublas::vector<int>(3);
     landmark_pos_(0) = landmark_pos(1);
@@ -9,7 +9,7 @@ LandmarkML::LandmarkML(const boost::numeric::ublas::vector<int> &landmark_pos){
     landmark_pos_(2) = landmark_pos(3);
 }
 
-void LandmarkML::computeH(const boost::numeric::ublas::vector<double> &mu_hat,
+void CorrespondenceClass::computeH(const boost::numeric::ublas::vector<double> &mu_hat,
                           const tf::Vector3 lm_odom){
 
     using namespace std;
@@ -44,7 +44,7 @@ void LandmarkML::computeH(const boost::numeric::ublas::vector<double> &mu_hat,
             + mu_hat(0)*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5));
 }
 
-void LandmarkML::computeS(const boost::numeric::ublas::matrix<double> &sigma,
+void CorrespondenceClass::computeS(const boost::numeric::ublas::matrix<double> &sigma,
                           const boost::numeric::ublas::matrix<double> &Q){
     // Intermidiate steps
     boost::numeric::ublas::matrix<double> mat = boost::numeric::ublas::prod(H_, sigma);
@@ -54,7 +54,7 @@ void LandmarkML::computeS(const boost::numeric::ublas::matrix<double> &sigma,
     S_ += Q;
 }
 
-void LandmarkML::computeNu(const boost::numeric::ublas::vector<double> &z_hat_i,
+void CorrespondenceClass::computeNu(const boost::numeric::ublas::vector<double> &z_hat_i,
                            const boost::numeric::ublas::vector<double> &z_i){
     nu_ = boost::numeric::ublas::vector<double>(2);
     // The innovation is only considered in y and z
@@ -62,7 +62,7 @@ void LandmarkML::computeNu(const boost::numeric::ublas::vector<double> &z_hat_i,
     nu_(1) = z_i(2) - z_hat_i(2);
 }
 
-void LandmarkML::computeLikelihood(){
+void CorrespondenceClass::computeLikelihood(){
     using namespace boost::numeric::ublas;
 
     S_inverted_ = matrix<double> (S_.size1(), S_.size2());

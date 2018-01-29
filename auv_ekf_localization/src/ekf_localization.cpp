@@ -1,4 +1,4 @@
-#include "lolo_auv_nav/lolo_auv_nav.hpp"
+#include "ekf_localization/ekf_localization.hpp"
 
 // HELPER FUNCTIONS TODO: move to aux library
 template <typename T> int sgn(T val) {
@@ -15,7 +15,7 @@ unsigned int factorial(unsigned int n)
     return ret;
 }
 
-bool sortLandmarksML(LandmarkML *ml_1, LandmarkML *ml_2){
+bool sortLandmarksML(CorrespondenceClass *ml_1, CorrespondenceClass *ml_2){
 
     return (ml_1->psi_ > ml_2->psi_)? true: false;
 }
@@ -23,7 +23,7 @@ bool sortLandmarksML(LandmarkML *ml_1, LandmarkML *ml_2){
 // END HELPER FUNCTIONS
 
 
-LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_name_(node_name){
+EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_name_(node_name){
 
     std::string imu_topic;
     std::string dvl_topic;
@@ -32,9 +32,7 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     std::string rpt_topic;
     std::string observs_topic;
     double freq;
-    bool run_nav_flag;
 
-    nh_->param<bool>((node_name_ + "/run_navigation"), run_nav_flag, "true");
     nh_->param<std::string>((node_name_ + "/imu_topic"), imu_topic, "/imu");
     nh_->param<std::string>((node_name_ + "/dvl_topic"), dvl_topic, "/dvl");
     nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
@@ -49,38 +47,34 @@ LoLoEKF::LoLoEKF(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param<std::string>((node_name_ + "/sss_r_link"), sssr_frame_, "/sss_link");
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
 
-    if(run_nav_flag){
-        // Synch IMU and DVL readings
-        imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 25);
-        dvl_subs_ = new message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>(*nh_, dvl_topic, 5);
-        msg_synch_ptr_ = new message_filters::Synchronizer<MsgTimingPolicy> (MsgTimingPolicy(5), *imu_subs_, *dvl_subs_);
-        msg_synch_ptr_->registerCallback(boost::bind(&LoLoEKF::synchSensorsCB, this, _1, _2));
+    // Synch IMU and DVL readings
+    imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 25);
+    dvl_subs_ = new message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>(*nh_, dvl_topic, 5);
+    msg_synch_ptr_ = new message_filters::Synchronizer<MsgTimingPolicy> (MsgTimingPolicy(5), *imu_subs_, *dvl_subs_);
+    msg_synch_ptr_->registerCallback(boost::bind(&EKFLocalization::synchSensorsCB, this, _1, _2));
 
-        // Subscribe to sensor msgs
-        fast_imu_sub_ = nh_->subscribe(imu_topic, 10, &LoLoEKF::fastIMUCB, this);
-        fast_dvl_sub_ = nh_->subscribe(dvl_topic, 10, &LoLoEKF::fastDVLCB, this);
-        observs_subs_ = nh_->subscribe(observs_topic, 10, &LoLoEKF::observationsCB, this);
+    // Subscribe to sensor msgs
+    fast_imu_sub_ = nh_->subscribe(imu_topic, 10, &EKFLocalization::fastIMUCB, this);
+    fast_dvl_sub_ = nh_->subscribe(dvl_topic, 10, &EKFLocalization::fastDVLCB, this);
+    observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFLocalization::observationsCB, this);
 
-        //    rpt_subs_ = nh_->subscribe(rpt_topic, 10, &LoLoEKF::rptCB, this);
-        tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &LoLoEKF::gtCB, this);
-        odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
-        // Get map service TODO: read it directly from gazebo topics?
-        map_client_ = nh_->serviceClient<auv_ekf_localization::map_ekf>(map_srv_name_);
-        // Plot map in RVIZ
-        vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/landmarks", 0 );
+    //    rpt_subs_ = nh_->subscribe(rpt_topic, 10, &EKFLocalization::rptCB, this);
+    tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &EKFLocalization::gtCB, this);
+    odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
+    // Get map service TODO: read it directly from gazebo topics?
+    map_client_ = nh_->serviceClient<auv_ekf_localization::map_ekf>(map_srv_name_);
+    // Plot map in RVIZ
+    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/landmarks", 0 );
 
-        // Initialize
-        init();
+    // Initialize
+    init();
 
-        // Main spin loop
-        timer_ = nh_->createTimer(ros::Duration(1.0 / std::max(freq, 1.0)), &LoLoEKF::ekfLocalize, this);
-    }
-    else{
-        ROS_INFO_NAMED(node_name_, "Navigation nodes set iddle ");
-    }
+    // Main spin loop
+    timer_ = nh_->createTimer(ros::Duration(1.0 / std::max(freq, 1.0)), &EKFLocalization::ekfLocalize, this);
+
 }
 
-void LoLoEKF::init(){
+void EKFLocalization::init(){
 
     // Get map from service provider
     while(!ros::service::waitForService(map_srv_name_, ros::Duration(10)) && ros::ok()){
@@ -163,18 +157,18 @@ void LoLoEKF::init(){
     ROS_INFO_NAMED(node_name_, "Initialized");
 }
 
-void LoLoEKF::observationsCB(const geometry_msgs::PointStampedPtr &observ_msg){
+void EKFLocalization::observationsCB(const geometry_msgs::PointStampedPtr &observ_msg){
     measurements_t_.push_back(observ_msg);
 }
 
-void LoLoEKF::fastIMUCB(const sensor_msgs::ImuPtr &imu_msg){
+void EKFLocalization::fastIMUCB(const sensor_msgs::ImuPtr &imu_msg){
     imu_readings_.push_back(imu_msg);
     while(imu_readings_.size() > size_imu_q_){
         imu_readings_.pop_front();
     }
 }
 
-void LoLoEKF::fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg){
+void EKFLocalization::fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg){
     boost::mutex::scoped_lock lock(msg_lock_);
     dvl_readings_.push_back(dvl_msg);
     while(dvl_readings_.size() > size_dvl_q_){
@@ -182,12 +176,12 @@ void LoLoEKF::fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_
     }
 }
 
-void LoLoEKF::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg,
+void EKFLocalization::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg,
                              const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
     coord_ = true;
 }
 
-void LoLoEKF::gtCB(const nav_msgs::OdometryPtr &pose_msg){
+void EKFLocalization::gtCB(const nav_msgs::OdometryPtr &pose_msg){
     gt_readings_.push_back(pose_msg);
     unsigned int size_gt_q = 10;
     while(gt_readings_.size() > size_gt_q){
@@ -196,11 +190,11 @@ void LoLoEKF::gtCB(const nav_msgs::OdometryPtr &pose_msg){
 }
 
 
-//void LoLoEKF::rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr &ptr_msg){
+//void EKFLocalization::rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr &ptr_msg){
 
 //}
 
-void LoLoEKF::createMapMarkers(){
+void EKFLocalization::createMapMarkers(){
 
     unsigned int i = 0;
     for (auto landmark: map_){
@@ -232,7 +226,7 @@ void LoLoEKF::createMapMarkers(){
     std::cout << "number of landmars: " << i << std::endl;
 }
 
-bool LoLoEKF::sendOutput(ros::Time t){
+bool EKFLocalization::sendOutput(ros::Time t){
 
     tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5));
     q_auv_t.normalize();
@@ -264,7 +258,7 @@ bool LoLoEKF::sendOutput(ros::Time t){
     return true;
 }
 
-void LoLoEKF::interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg_ptr){
+void EKFLocalization::interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg_ptr){
 
     geometry_msgs::Vector3 u_interp;
     u_interp.x = 0.0;
@@ -296,7 +290,7 @@ void LoLoEKF::interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCovariance
     dvl_msg_ptr->twist.twist.linear = u_interp;
 }
 
-void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const nav_msgs::OdometryPtr &gt_pose,
+void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const nav_msgs::OdometryPtr &gt_pose,
                           const tf::Quaternion& q_auv, boost::numeric::ublas::vector<double> &u_t){
 
     // Update time step
@@ -342,7 +336,7 @@ void LoLoEKF::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dv
     t_prev_ = t_now;
 }
 
-void LoLoEKF::predictMotion(boost::numeric::ublas::vector<double> &u_t){
+void EKFLocalization::predictMotion(boost::numeric::ublas::vector<double> &u_t){
 
     // Compute predicted mu
     mu_hat_ = mu_ + u_t;
@@ -356,9 +350,9 @@ void LoLoEKF::predictMotion(boost::numeric::ublas::vector<double> &u_t){
     Sigma_hat_ += R_;
 }
 
-void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &landmark_j,
+void EKFLocalization::predictMeasurement(const boost::numeric::ublas::vector<double> &landmark_j,
                                       boost::numeric::ublas::vector<double> &z_i,
-                                      std::vector<LandmarkML *> &ml_i_list){
+                                      std::vector<CorrespondenceClass *> &ml_i_list){
 
     using namespace boost::numeric::ublas;
 
@@ -380,8 +374,8 @@ void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &la
     z_i_hat_base(2) = z_hat_sss.getZ();
 
     // Compute ML of observation z_i with M_j
-    LandmarkML *corresp_j_ptr;
-    corresp_j_ptr = new LandmarkML(landmark_j);
+    CorrespondenceClass *corresp_j_ptr;
+    corresp_j_ptr = new CorrespondenceClass(landmark_j);
     corresp_j_ptr->computeH(mu_hat_, transf_odom_world_ * landmark_j_w);
     corresp_j_ptr->computeS(Sigma_hat_, Q_);
     corresp_j_ptr->computeNu(z_i_hat_base, z_i);
@@ -396,7 +390,7 @@ void LoLoEKF::predictMeasurement(const boost::numeric::ublas::vector<double> &la
     }
 }
 
-void LoLoEKF::dataAssociation(){
+void EKFLocalization::dataAssociation(){
     boost::numeric::ublas::vector<double> z_i(3);
     std::vector<boost::numeric::ublas::vector<double>> z_t;
 
@@ -414,7 +408,7 @@ void LoLoEKF::dataAssociation(){
             ROS_WARN("Cache with measurements is not empty");
         }
         // Main ML loop
-        std::vector<LandmarkML*> ml_i_list;
+        std::vector<CorrespondenceClass*> ml_i_list;
         // For each observation z_i at time t
         for(auto z_i: z_t){
             // For each possible landmark j in M
@@ -439,7 +433,7 @@ void LoLoEKF::dataAssociation(){
     }
 }
 
-void LoLoEKF::sequentialUpdate(LandmarkML* c_i_j){
+void EKFLocalization::sequentialUpdate(CorrespondenceClass* c_i_j){
 
     using namespace boost::numeric::ublas;
     matrix<double> K_t_i;
@@ -458,7 +452,7 @@ void LoLoEKF::sequentialUpdate(LandmarkML* c_i_j){
 //    std::cout << "Update correction for the variance: " << Sigma_hat_ << std::endl;
 }
 
-void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
+void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
 
     sensor_msgs::ImuPtr imu_msg;
     geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg;
@@ -538,6 +532,6 @@ void LoLoEKF::ekfLocalize(const ros::TimerEvent& e){
 
 }
 
-LoLoEKF::~LoLoEKF(){
+EKFLocalization::~EKFLocalization(){
     // TODO_NACHO: do some cleaning here
 }
