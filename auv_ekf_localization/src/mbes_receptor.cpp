@@ -71,7 +71,7 @@ void MBESReceptor::mbesReadingsCB(const sensor_msgs::LaserScanConstPtr &mbes_l_m
 //        tf::vector3StampedTFToMsg(lm_base, landmark_msg);
         geometry_msgs::PointStamped landmark_msg;
         landmark_msg.header.stamp = mbes_r_msg->header.stamp;
-        landmark_msg.header.frame_id = "lolo_auv/base_link";
+        landmark_msg.header.frame_id = base_frame_;
         landmark_msg.point.x = lm_pose.x();
         landmark_msg.point.y = lm_pose.y();
         landmark_msg.point.z = lm_pose.z();

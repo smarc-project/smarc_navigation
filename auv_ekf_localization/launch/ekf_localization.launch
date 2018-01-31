@@ -4,7 +4,7 @@
       <arg name="run_navigation" default="false"/>
 
         <group ns="$(arg namespace)">
-            <node pkg="auv_ekf_localization" name="lolo_auv_navigation" type="ekf_localization_node" output="screen">
+            <node pkg="auv_ekf_localization" name="auv_navigation_node" type="ekf_localization_node" output="screen">
                 <param name="run_navigation" value="$(arg run_navigation)"/>
                 <param name="imu_topic" value="/$(arg namespace)/imu"/>
                 <param name="dvl_topic" value="/$(arg namespace)/dvl_twist"/>
