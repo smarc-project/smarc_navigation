@@ -10,3 +10,6 @@
 
 # ROS bags
 *.bag
+
+# ekf_general aux
+ekf_general/DataSets/*

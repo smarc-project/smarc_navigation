@@ -4,13 +4,13 @@
 
 
 int main(int argc, char** argv){
-    ros::init(argc, argv, "lolo_auv_nav_node");
+    ros::init(argc, argv, "auv_nav_node");
 
     ros::NodeHandle nh_nav;
     ros::CallbackQueue nav_queue;
     nh_nav.setCallbackQueue(&nav_queue);
 
-    EKFLocalization *lolo_auv_nav = new EKFLocalization(ros::this_node::getName(), nh_nav);
+    EKFLocalization *auv_nav = new EKFLocalization(ros::this_node::getName(), nh_nav);
 
     ros::AsyncSpinner spinner_nav(1, &nav_queue);
     spinner_nav.start();
@@ -18,7 +18,7 @@ int main(int argc, char** argv){
     ros::waitForShutdown();
 
     if(!ros::ok()){
-        delete lolo_auv_nav;
+        delete auv_nav;
     }
 
     return 0;

@@ -64,7 +64,7 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     // Get map service TODO: read it directly from gazebo topics?
     map_client_ = nh_->serviceClient<auv_ekf_localization::map_ekf>(map_srv_name_);
     // Plot map in RVIZ
-    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/landmarks", 0 );
+    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/rviz/landmarks", 0 );
 
     // Initialize
     init();
@@ -201,7 +201,7 @@ void EKFLocalization::createMapMarkers(){
         visualization_msgs::Marker markers;
         markers.header.frame_id = "world";
         markers.header.stamp = ros::Time();
-        markers.ns = "lolo_auv";
+        markers.ns = "map_array";
         markers.id = i;
         markers.type = visualization_msgs::Marker::CUBE;
         markers.action = visualization_msgs::Marker::ADD;
