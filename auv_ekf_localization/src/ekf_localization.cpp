@@ -98,7 +98,6 @@ void EKFLocalization::init(){
 
     // EKF variables
     mu_ = boost::numeric::ublas::zero_vector<double>(6);
-    mu_(1) = 2.5; // Uncertainty in y initial position
     Sigma_ = boost::numeric::ublas::identity_matrix<double>(6) * 1;
     R_ = boost::numeric::ublas::identity_matrix<double> (6) * 0.001; // TODO: set diagonal as rosparam
     R_(1,1) = 0.1;
@@ -306,6 +305,7 @@ void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampe
     // Compute incremental displacements in odom frame
     double vel_t = std::sqrt(pow((l_vel_base.y()),2) +
                              pow((l_vel_base.x()),2));
+    double vel_ang_t = std::atan2(l_vel_base.y(), l_vel_base.x());
 
     tfScalar pitch_t, roll_t, yaw_t;
     tf::Matrix3x3(q_auv).getRPY(roll_t, pitch_t, yaw_t);
@@ -317,7 +317,7 @@ void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampe
     double z_t = gt_pose->pose.pose.position.z - transf_world_odom_.getOrigin().getZ(); // Simulate depth sensor input
 
     // Compute control u_t (R-K model) TODO: correct transformation of velocities between frames
-    double theta = angleLimit(mu_(5) + dtheta/2);
+    double theta = angleLimit(mu_(5) + vel_ang_t);
     double dZ = z_t - mu_(2);
     u_t(0) = std::cos(theta) * vel_t * delta_t;
     u_t(1) = std::sin(theta) * vel_t * delta_t;
@@ -386,7 +386,7 @@ void EKFLocalization::predictMeasurement(const boost::numeric::ublas::vector<dou
         ml_i_list.push_back(corresp_j_ptr);
     }
     else{
-        ROS_WARN("Outlier rejected");
+        ROS_DEBUG_NAMED(node_name_, "Outlier rejected");
     }
 }
 
@@ -473,7 +473,7 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
             // Transform IMU output world --> odom
             tf::Quaternion q_transf;
             tf::quaternionMsgToTF(gt_msg->pose.pose.orientation, q_transf);
-            q_auv = transf_world_odom_.getRotation() * q_transf;
+            q_auv = transf_odom_world_.getRotation() * q_transf;
             q_auv.normalize();
 
             // Publish and broadcast
@@ -500,7 +500,7 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
             // Transform IMU output world --> odom
             tf::Quaternion q_transf;
             tf::quaternionMsgToTF(imu_msg->orientation, q_transf);
-            q_auv = transf_world_odom_.getRotation() * q_transf;
+            q_auv = transf_odom_world_.getRotation() * q_transf;
             q_auv.normalize();
 
             // Compute displacement based on DVL and IMU orientation
@@ -510,7 +510,7 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
             predictMotion(u_t);
 
             // Data association and sequential update
-            dataAssociation();
+//            dataAssociation();
 
             // Update step
             mu_ = mu_hat_;

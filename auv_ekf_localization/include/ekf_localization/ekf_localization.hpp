@@ -41,7 +41,8 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
-typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu, geometry_msgs::TwistWithCovarianceStamped> MsgTimingPolicy;
+typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu,
+        geometry_msgs::TwistWithCovarianceStamped> MsgTimingPolicy;
 
 /**
  * @brief The EKFLocalization class
