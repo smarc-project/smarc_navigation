@@ -7,6 +7,7 @@
 #include "utils_matrices/utils_matrices.hpp"
 #include "auv_ekf_localization/map_ekf.h"
 #include "correspondence_class/correspondence_class.hpp"
+#include "noise_oneD_kf/noise_oneD_kf.hpp"
 
 #include <queue>
 
@@ -113,6 +114,10 @@ private:
     unsigned int size_imu_q_;
     unsigned int size_dvl_q_;
 
+    OneDKF* dvl_x_kf;
+    OneDKF* dvl_y_kf;
+    OneDKF* dvl_z_kf;
+
     // tf
     tf::TransformBroadcaster odom_bc_;
     tf::StampedTransform transf_dvl_base_;
@@ -133,8 +138,6 @@ private:
     void fastIMUCB(const sensor_msgs::ImuPtr &imu_msg);
     void fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg);
     void observationsCB(const geometry_msgs::PointStampedPtr &observ_msg);
-
-//    void rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr & ptr_msg);
 
     /**
      * @brief EKFLocalization::computeOdom

@@ -57,8 +57,6 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     fast_imu_sub_ = nh_->subscribe(imu_topic, 10, &EKFLocalization::fastIMUCB, this);
     fast_dvl_sub_ = nh_->subscribe(dvl_topic, 10, &EKFLocalization::fastDVLCB, this);
     observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFLocalization::observationsCB, this);
-
-    //    rpt_subs_ = nh_->subscribe(rpt_topic, 10, &EKFLocalization::rptCB, this);
     tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &EKFLocalization::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
     // Get map service TODO: read it directly from gazebo topics?
@@ -102,6 +100,7 @@ void EKFLocalization::init(){
     R_ = boost::numeric::ublas::identity_matrix<double> (6) * 0.001; // TODO: set diagonal as rosparam
     R_(1,1) = 0.1;
     R_(2,2) = 0.1;
+    R_(3,3) = 0.1;
     Q_ = boost::numeric::ublas::identity_matrix<double> (2) * 1;
 
     // Outlier rejection
@@ -153,6 +152,11 @@ void EKFLocalization::init(){
         ros::Duration(1.0).sleep();
     }
 
+    // Create 1D KF to filter input sensors
+    dvl_x_kf = new OneDKF(0,0.1,0,0.001); // Adjust noise params for each filter
+    dvl_y_kf = new OneDKF(0,0.1,0,0.001);
+    dvl_z_kf = new OneDKF(0,0.1,0,0.001);
+
     ROS_INFO_NAMED(node_name_, "Initialized");
 }
 
@@ -168,6 +172,10 @@ void EKFLocalization::fastIMUCB(const sensor_msgs::ImuPtr &imu_msg){
 }
 
 void EKFLocalization::fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg){
+//    dvl_x_kf->filter(dvl_msg->twist.twist.linear.x);
+//    dvl_y_kf->filter(dvl_msg->twist.twist.linear.y);
+//    dvl_z_kf->filter(dvl_msg->twist.twist.linear.z);
+
     boost::mutex::scoped_lock lock(msg_lock_);
     dvl_readings_.push_back(dvl_msg);
     while(dvl_readings_.size() > size_dvl_q_){
@@ -187,11 +195,6 @@ void EKFLocalization::gtCB(const nav_msgs::OdometryPtr &pose_msg){
         gt_readings_.pop_front();
     }
 }
-
-
-//void EKFLocalization::rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr &ptr_msg){
-
-//}
 
 void EKFLocalization::createMapMarkers(){
 
@@ -314,9 +317,6 @@ void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampe
     double dpitch = angleLimit(pitch_t - mu_(4));
     double dtheta = angleLimit(yaw_t - mu_(5));
 
-    // Depth readings
-//    double z_t = gt_pose->pose.pose.position.z - transf_world_odom_.getOrigin().getZ(); // Simulate depth sensor input
-
     // Incremental part of the motion model
     u_t(0) = disp_odom.x();
     u_t(1) = disp_odom.y();
@@ -418,7 +418,7 @@ void EKFLocalization::dataAssociation(){
     if(!measurements_t_.empty()){
         for(auto observ: measurements_t_){
             // Compensate for the volume of the stones*****
-            z_i(0) = observ->point.x - 0.5;
+            z_i(0) = observ->point.x;
             z_i(1) = observ->point.y - 1/std::sqrt(2);
             z_i(2) = observ->point.z - 1/std::sqrt(2);
             z_t.push_back(z_i);
@@ -434,7 +434,7 @@ void EKFLocalization::dataAssociation(){
             // For each possible landmark j in M
             for(auto landmark_j: map_){
                 // Narrow down the landmarks to be checked
-                if((landmark_j(1) < mu_(0) + 6) && (landmark_j(1) > mu_(0) - 6)){
+                if((landmark_j(1) < mu_hat_(0) + 6) && (landmark_j(1) > mu_hat_(0) - 6)){
                     predictMeasurement(landmark_j, z_i, ml_i_list);
                 }
             }
@@ -443,9 +443,7 @@ void EKFLocalization::dataAssociation(){
                 if(ml_i_list.size() > 1){
                     std::sort(ml_i_list.begin(), ml_i_list.end(), sortLandmarksML);
                 }
-//                std::cout << "Landmark selected: " << ml_i_list.front()->landmark_id_ << std::endl;
-//                std::cout << "Innovation: " << ml_i_list.front()->nu_ << std::endl;
-                // Call the sequential update here **
+                // Sequential update
                 sequentialUpdate(ml_i_list.front());
             }
             ml_i_list.clear();
@@ -469,7 +467,6 @@ void EKFLocalization::sequentialUpdate(CorrespondenceClass* c_i_j){
     mu_hat_ += prod(K_t_i, c_i_j->nu_);
     aux_mat = (I  - prod(K_t_i, c_i_j->H_));
     Sigma_hat_ = prod(aux_mat, Sigma_hat_);
-//    std::cout << "Update correction for the variance: " << Sigma_hat_ << std::endl;
 }
 
 void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
@@ -479,7 +476,7 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
     nav_msgs::OdometryPtr gt_msg;
 
     tf::Quaternion q_auv;
-    boost::numeric::ublas::vector<double> u_t = boost::numeric::ublas::vector<double>(6); // TODO: full implementation of 6 DOF movement
+    boost::numeric::ublas::vector<double> u_t = boost::numeric::ublas::vector<double>(6);
 
     if(dvl_readings_.size() >= size_dvl_q_ && imu_readings_.size() >= size_imu_q_ && !gt_readings_.empty()){
         // Init filter with initial, true pose (from GPS?)
