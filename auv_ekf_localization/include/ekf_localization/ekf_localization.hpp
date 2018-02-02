@@ -144,8 +144,7 @@ private:
      * @param u_t
      * Integrates IMU and DVL to predict an estimate of the pose
      */
-    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg,
-                     const nav_msgs::OdometryPtr &gt_pose, const tf::Quaternion &q_auv,
+    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const tf::Quaternion &q_auv,
                      boost::numeric::ublas::vector<double> &u_t);
 
 

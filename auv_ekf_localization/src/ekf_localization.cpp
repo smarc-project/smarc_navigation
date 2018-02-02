@@ -289,8 +289,8 @@ void EKFLocalization::interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCo
     dvl_msg_ptr->twist.twist.linear = u_interp;
 }
 
-void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const nav_msgs::OdometryPtr &gt_pose,
-                          const tf::Quaternion& q_auv, boost::numeric::ublas::vector<double> &u_t){
+void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg,
+                                  const tf::Quaternion& q_auv, boost::numeric::ublas::vector<double> &u_t){
 
     // Update time step
     double t_now = dvl_msg->header.stamp.toSec();
@@ -300,13 +300,14 @@ void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampe
     tf::Vector3 twist_vel(dvl_msg->twist.twist.linear.x,
                           dvl_msg->twist.twist.linear.y,
                           dvl_msg->twist.twist.linear.z);
-    tf::Vector3 l_vel_base = transf_dvl_base_ * twist_vel - transf_dvl_base_.getOrigin();
+    tf::Vector3 disp_base = transf_dvl_base_.getBasis() * twist_vel * delta_t;
 
-    // Compute incremental displacements in odom frame
-    double vel_t = std::sqrt(pow((l_vel_base.y()),2) +
-                             pow((l_vel_base.x()),2));
-    double vel_ang_t = std::atan2(l_vel_base.y(), l_vel_base.x());
+    // Compute increments in x,y,z in odom frame
+    tf::Matrix3x3 rot_base_odom;
+    rot_base_odom.setRotation(q_auv);
+    tf::Vector3 disp_odom = rot_base_odom * disp_base;
 
+    // Compute increments in roll,pitch,yaw in odom frame
     tfScalar pitch_t, roll_t, yaw_t;
     tf::Matrix3x3(q_auv).getRPY(roll_t, pitch_t, yaw_t);
     double droll = angleLimit(roll_t - mu_(3));
@@ -314,24 +315,43 @@ void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampe
     double dtheta = angleLimit(yaw_t - mu_(5));
 
     // Depth readings
-    double z_t = gt_pose->pose.pose.position.z - transf_world_odom_.getOrigin().getZ(); // Simulate depth sensor input
+//    double z_t = gt_pose->pose.pose.position.z - transf_world_odom_.getOrigin().getZ(); // Simulate depth sensor input
 
-    // Compute control u_t (R-K model) TODO: correct transformation of velocities between frames
-    double theta = angleLimit(mu_(5) + vel_ang_t);
-    double dZ = z_t - mu_(2);
-    u_t(0) = std::cos(theta) * vel_t * delta_t;
-    u_t(1) = std::sin(theta) * vel_t * delta_t;
-    u_t(2) = dZ;
+    // Incremental part of the motion model
+    u_t(0) = disp_odom.x();
+    u_t(1) = disp_odom.y();
+    u_t(2) = disp_odom.z();
     u_t(3) = droll;
     u_t(4) = dpitch;
     u_t(5) = dtheta;
 
     // Derivative of motion model in mu_ (t-1)
+    using namespace std;
     G_t_ = boost::numeric::ublas::zero_matrix<double>(6);
+
     G_t_(0,0) = 1;
+    G_t_(0,3) = disp_base.y()*(sin(roll_t)*sin(yaw_t) + cos(roll_t)*cos(yaw_t)*sin(pitch_t))
+                + disp_base.z()*(cos(roll_t)*sin(yaw_t) - cos(yaw_t)*sin(pitch_t)*sin(roll_t));
+    G_t_(0,4) = cos(yaw_t)*(disp_base.z()*cos(pitch_t)*cos(roll_t) - disp_base.x()*sin(pitch_t)
+                + disp_base.y()*cos(pitch_t)*sin(roll_t));
+    G_t_(0,5) = disp_base.z()*(cos(yaw_t)*sin(roll_t) - cos(roll_t)*sin(pitch_t)*sin(yaw_t))
+                - disp_base.y()*(cos(roll_t)*cos(yaw_t) + sin(pitch_t)*sin(roll_t)*sin(yaw_t))
+                - disp_base.x()*cos(pitch_t)*sin(yaw_t);
+
     G_t_(1,1) = 1;
-    G_t_(0,5) = -1 * vel_t * delta_t * std::sin(theta);
-    G_t_(1,5) = vel_t * delta_t * std::cos(theta);
+    G_t_(1,3) = - disp_base.y()*(cos(yaw_t)*sin(roll_t) - cos(roll_t)*sin(pitch_t)*sin(yaw_t))
+                - disp_base.z()*(cos(roll_t)*cos(yaw_t) + sin(pitch_t)*sin(roll_t)*sin(yaw_t));
+    G_t_(1,4) = sin(yaw_t)*(disp_base.z()*cos(pitch_t)*cos(roll_t) - disp_base.x()*sin(pitch_t)
+                + disp_base.y()*cos(pitch_t)*sin(roll_t));
+    G_t_(1,5) = disp_base.z()*(sin(roll_t)*sin(yaw_t) + cos(roll_t)*cos(yaw_t)*sin(pitch_t))
+               - disp_base.y()*(cos(roll_t)*sin(yaw_t) - cos(yaw_t)*sin(pitch_t)*sin(roll_t))
+               + disp_base.x()*cos(pitch_t)*cos(yaw_t);
+
+    G_t_(2,2) = 1;
+    G_t_(2,3) = cos(pitch_t)*(disp_base.y()*cos(roll_t) - disp_base.z()*sin(roll_t));
+    G_t_(2,4) = - disp_base.x()*cos(pitch_t) - disp_base.z()*cos(roll_t)*sin(pitch_t)
+                - disp_base.y()*sin(pitch_t)*sin(roll_t);
+    G_t_(2,5) = 0;
 
     t_prev_ = t_now;
 }
@@ -485,7 +505,6 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
         else{
             // Fetch latest sensor readings
             imu_msg = imu_readings_.back();
-            gt_msg = gt_readings_.back();
 
             if(coord_ == false){
                 // IMU available but not DVL
@@ -504,7 +523,7 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
             q_auv.normalize();
 
             // Compute displacement based on DVL and IMU orientation
-            computeOdom(dvl_msg, gt_msg, q_auv, u_t);
+            computeOdom(dvl_msg, q_auv, u_t);
 
             // Prediction step
             predictMotion(u_t);
