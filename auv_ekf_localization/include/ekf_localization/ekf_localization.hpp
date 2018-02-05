@@ -4,6 +4,9 @@
 #include <ros/timer.h>
 #include <ros/ros.h>
 
+#include "gazebo_msgs/GetWorldProperties.h"
+#include "gazebo_msgs/GetModelState.h"
+
 #include "utils_matrices/utils_matrices.hpp"
 #include "auv_ekf_localization/map_ekf.h"
 #include "correspondence_class/correspondence_class.hpp"
@@ -82,9 +85,10 @@ private:
     ros::Subscriber observs_subs_;
     ros::Subscriber rpt_subs_;
     ros::Publisher odom_pub_;
-    ros::ServiceClient map_client_;
     ros::Publisher vis_pub_;
     visualization_msgs::MarkerArray markers_;
+    ros::ServiceClient gazebo_client_;
+    ros::ServiceClient landmarks_client_;
 
     // Handlers for sensors
     std::deque<sensor_msgs::ImuPtr> imu_readings_; // TODO: add limit size to queues
@@ -128,8 +132,9 @@ private:
     std::string world_frame_;
     std::string base_frame_;
     std::string dvl_frame_;
-    std::string map_srv_name_;
     std::string sssr_frame_;
+    std::string map_srv_name_;
+    std::string lm_srv_name_;
 
     // Input callbacks
     void gtCB(const nav_msgs::OdometryPtr &pose_msg);

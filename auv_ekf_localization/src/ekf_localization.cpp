@@ -38,13 +38,14 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
     nh_->param<std::string>((node_name_ + "/gt_pose_topic"), gt_topic, "/gt_pose");
     nh_->param<std::string>((node_name_ + "/rpt_topic"), rpt_topic, "/rpt_topic");
-    nh_->param<std::string>((node_name_ + "/map_srv"), map_srv_name_, "/get_map");
     nh_->param<std::string>((node_name_ + "/odom_frame"), odom_frame_, "/odom");
     nh_->param<std::string>((node_name_ + "/world_frame"), world_frame_, "/world");
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
     nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
     nh_->param<std::string>((node_name_ + "/sss_r_link"), sssr_frame_, "/sss_link");
+    nh_->param<std::string>((node_name_ + "/map_srv"), map_srv_name_, "/gazebo/get_world_properties");
+    nh_->param<std::string>((node_name_ + "/landmarks_srv"), lm_srv_name_, "/gazebo/get_model_state");
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
 
     // Synch IMU and DVL readings
@@ -59,8 +60,9 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFLocalization::observationsCB, this);
     tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &EKFLocalization::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
-    // Get map service TODO: read it directly from gazebo topics?
-    map_client_ = nh_->serviceClient<auv_ekf_localization::map_ekf>(map_srv_name_);
+    // Build world map from gazebo topics
+    gazebo_client_ = nh_->serviceClient<gazebo_msgs::GetWorldProperties>(map_srv_name_);
+    landmarks_client_ = nh_->serviceClient<gazebo_msgs::GetModelState>(lm_srv_name_);
     // Plot map in RVIZ
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/rviz/landmarks", 0 );
 
@@ -74,22 +76,34 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
 
 void EKFLocalization::init(){
 
-    // Get map from service provider
+    // Get list of sim models from Gazebo
     while(!ros::service::waitForService(map_srv_name_, ros::Duration(10)) && ros::ok()){
-        ROS_INFO_NAMED(node_name_,"Waiting for the map server to come up");
+        ROS_INFO_NAMED(node_name_,"Waiting for the gazebo world prop service to come up");
     }
-    auv_ekf_localization::map_ekf map_req;
-    map_req.request.request_map = true;
-    if(map_client_.call(map_req)){
+
+    // Get states of the models from Gazebo (to build map)
+    while(!ros::service::waitForService(lm_srv_name_, ros::Duration(10)) && ros::ok()){
+        ROS_INFO_NAMED(node_name_,"Waiting for the gazebo model states service to come up");
+    }
+
+    // Build map for localization from Gazebo services
+    gazebo_msgs::GetWorldProperties world_prop_srv;
+    gazebo_msgs::GetModelState landmark_state_srv;
+    if(gazebo_client_.call(world_prop_srv)){
         int id = 0;
         boost::numeric::ublas::vector<double> aux_vec(4);
-        for (auto landmark: map_req.response.map){
-            aux_vec(0) = id;
-            aux_vec(1) = landmark.x;
-            aux_vec(2) = landmark.y;
-            aux_vec(3) = landmark.z;
-            map_.push_back(aux_vec);
-            id++;
+        for(auto landmark_name: world_prop_srv.response.model_names){
+            if(landmark_name != "lolo_auv" && landmark_name != "ned" && landmark_name != "ocean"){
+                landmark_state_srv.request.model_name = landmark_name;
+                if(landmarks_client_.call(landmark_state_srv)){
+                    aux_vec(0) = id;
+                    aux_vec(1) = landmark_state_srv.response.pose.position.x;
+                    aux_vec(2) = landmark_state_srv.response.pose.position.y;
+                    aux_vec(3) = landmark_state_srv.response.pose.position.z;
+                    map_.push_back(aux_vec);
+                    id++;
+                }
+            }
         }
     }
     createMapMarkers();
@@ -217,7 +231,7 @@ void EKFLocalization::createMapMarkers(){
         markers.scale.x = 1;
         markers.scale.y = 1;
         markers.scale.z = 1;
-        markers.color.a = 1.0; // Don't forget to set the alpha!
+        markers.color.a = 1.0;
         markers.color.r = 0.0;
         markers.color.g = 1.0;
         markers.color.b = 0.0;
@@ -480,7 +494,7 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
 
     if(dvl_readings_.size() >= size_dvl_q_ && imu_readings_.size() >= size_imu_q_ && !gt_readings_.empty()){
         // Init filter with initial, true pose (from GPS?)
-        if(!init_filter_){ // TODO: change if condition for sth faster
+        if(!init_filter_){
             ROS_INFO_NAMED(node_name_, "Starting localization node");
 
             // Compute initial pose
