@@ -44,11 +44,11 @@ endif()
 # setup.py for map_provider_node.py
 catkin_python_setup()
 
-add_service_files(
-    DIRECTORY srv
-    FILES
-    map_ekf.srv
-)
+#add_service_files(
+#    DIRECTORY srv
+#    FILES
+#    map_ekf.srv
+#)
 
 generate_messages(
     DEPENDENCIES
