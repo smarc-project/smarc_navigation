@@ -23,53 +23,67 @@ public:
 
     void processSonarInput(const sensor_msgs::LaserScanConstPtr &mbes_msg){
 
-        //    std::cout << "SSS: " << std::endl;
-        //    std::for_each(mbes_r_msg->intensities.begin(), mbes_r_msg->intensities.end(), print);
-        //    std::cout << std::endl;
+        // Print raw input
+        std::for_each(mbes_msg->intensities.begin(),mbes_msg->intensities.end(), print);
+        std::cout << std::endl;
 
-            // Mean filter
-        //    std::vector<double> filtered_right;
-        //    std::vector<double> median {0.333,0.333,0.333};
-        //    filtered_right.push_back(0);
-        //    for(unsigned int i=1; i<mbes_r_msg->intensities.size() -1; i++){
-        //        std::vector<double>aux {mbes_r_msg->intensities.at(i-1),
-        //                                mbes_r_msg->intensities.at(i),
-        //                                mbes_r_msg->intensities.at(i+1)};
-        //        filtered_right.push_back(std::inner_product(aux.begin(), aux.end(), median.begin(), 0));
-        //    }
-        //    filtered_right.push_back(0);
-
-        std::vector<double> edges_right;
-        std::vector<double> mask {-1,0,1};
-        edges_right.push_back(0);
-        for(unsigned int i=1; i<mbes_msg->intensities.size() -1; i++){
-            std::vector<double>aux {mbes_msg->intensities.at(i-1),
-                                    mbes_msg->intensities.at(i),
-                                    mbes_msg->intensities.at(i+1)};
-            edges_right.push_back(std::inner_product(aux.begin(), aux.end(), mask.begin(), 0));
+        // Mean filter to smooth intensities
+        std::vector<double> smoothed;
+        std::vector<double> mask {1/5.0,1/5.0,1/5.0,1/5.0,1/5.0};
+        std::vector<double>aux;
+        smoothed.push_back(mbes_msg->intensities.at(0));
+        smoothed.push_back(mbes_msg->intensities.at(1));
+        for(unsigned int i=2; i<mbes_msg->intensities.size()-2; i++){
+            aux = {mbes_msg->intensities.at(i-2),
+                    mbes_msg->intensities.at(i-1),
+                    mbes_msg->intensities.at(i),
+                    mbes_msg->intensities.at(i+1),
+                    mbes_msg->intensities.at(i+2)};
+            smoothed.push_back(std::inner_product(aux.begin(), aux.end(), mask.begin(), 0));
         }
-        edges_right.push_back(0);
+        smoothed.push_back(mbes_msg->intensities.at(mbes_msg->intensities.size()-2));
+        smoothed.push_back(mbes_msg->intensities.at(mbes_msg->intensities.size()-1));
 
+        std::for_each(smoothed.begin(),smoothed.end(), print);
+        std::cout << std::endl;
+
+        // Collect beams with intensity over threshold
         std::vector<int> target_pose;
+        double mean_ints = std::accumulate(smoothed.begin(), smoothed.end(), 0.0);
+        mean_ints = mean_ints/smoothed.size();
+        std::cout << "mean: " << mean_ints << std::endl;
+        std::vector<double>::iterator it_max = std::max_element(smoothed.begin(), smoothed.end());
+        double int_thres = (mean_ints >= *it_max*0.9 && mean_ints <= *it_max*1.1)? mbes_msg->range_max*10: mean_ints;
+        std::cout << "Max int: " << *it_max << std::endl;
+        std::cout << "threshold: " << int_thres << std::endl;
         int i = 0;
-        std::for_each(edges_right.begin(), edges_right.end(), [&target_pose, &i](const double &edge_i){
-                if(edge_i > 2 || edge_i < -2){
-                    target_pose.push_back(i);
-                }
+        std::for_each(smoothed.begin(), smoothed.end(), [&target_pose, &i, &int_thres](const double &intensity_i){
+                double input = (intensity_i >= int_thres*1.05)? i: 0;
+                target_pose.push_back(input);
                 i++;
         });
 
         // If any higher intensity value detected
-        if(target_pose.size() > 1){
-            // Compute polar coordinates of landmark
-            int reminder = target_pose.size()%2;
-            int landmark_idx = (reminder == 0)? target_pose.at((target_pose.size()/2)): target_pose.at(((target_pose.size()+1)/2));
-            double alpha = mbes_msg->angle_min + mbes_msg->angle_increment * landmark_idx;
-
-            tf::Vector3 point (mbes_msg->ranges.at(landmark_idx) * std::cos(alpha),
-                       mbes_msg->ranges.at(landmark_idx) * std::sin(alpha),
-                       0);
-            landmarks_.push_back(point);
+        std::vector<double> cluster_i;
+        for(unsigned int i=0; i<target_pose.size(); i++){
+            if(target_pose.at(i) != 0){
+                cluster_i.push_back(target_pose.at(i));
+            }
+            else{
+                if(!cluster_i.empty()){
+                    // Compute polar coordinates of landmark
+                    int reminder = cluster_i.size()%2;
+                    int landmark_idx = (reminder == 0)? cluster_i.at((cluster_i.size()/2)): cluster_i.at(((cluster_i.size()+1)/2));
+                    double alpha = mbes_msg->angle_min + mbes_msg->angle_increment * landmark_idx;
+                    // Store new vector3 with landmark coordinates
+                    tf::Vector3 point = tf::Vector3(mbes_msg->ranges.at(landmark_idx) * std::cos(alpha),
+                               mbes_msg->ranges.at(landmark_idx) * std::sin(alpha),
+                               0);
+                    this->landmarks_.push_back(point);
+                    // Empty cache
+                    cluster_i.clear();
+                }
+            }
         }
     }
 
