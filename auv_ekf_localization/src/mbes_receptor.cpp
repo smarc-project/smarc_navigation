@@ -23,7 +23,7 @@ MBESReceptor::MBESReceptor(std::string node_name, ros::NodeHandle &nh_right, ros
     mbes_synch_->registerCallback(boost::bind(&MBESReceptor::mbesReadingsCB, this, _1, _2));
 
     // RVIZ pcl output for testing
-    landmark_pub_ = nh_.advertise<geometry_msgs::PointStamped>(lm_detect_top, 10);
+    landmark_pub_ = nh_.advertise<geometry_msgs::PoseArray>(lm_detect_top, 10);
 
     this->init();
 
@@ -52,33 +52,47 @@ void MBESReceptor::init(){
     }
 }
 
-auto print = [](const double& n) { std::cout << " " << n; };
-
 void MBESReceptor::mbesReadingsCB(const sensor_msgs::LaserScanConstPtr &mbes_l_msg,
                                   const sensor_msgs::LaserScanConstPtr &mbes_r_msg){
 
-    // Process right input
+    // Process MBES inputs from both sides
     sss_right_.processSonarInput(mbes_r_msg);
+    sss_left_.processSonarInput(mbes_l_msg);
+
+    geometry_msgs::PoseArray lm_detected;
+    lm_detected.header.stamp = mbes_r_msg->header.stamp;
+    lm_detected.header.frame_id = base_frame_;
+    geometry_msgs::Pose landmark_pose;
+    tf::Vector3 lm_pose;
 
     // If any higher intensity value detected
-    if(sss_right_.landmarks_.size() > 0){
-        // Transform sss_right_sensor --> base_link
-        tf::Vector3 lm_pose = tf_sss_r_base_ * sss_right_.landmarks_.back();
+    if(!sss_right_.landmarks_.empty()){
+        for(auto landmark: sss_right_.landmarks_){
+            // Transform sss_right_sensor --> base_link
+            lm_pose = tf_sss_r_base_ * landmark;
+            landmark_pose.position.x = lm_pose.x();
+            landmark_pose.position.y = lm_pose.y();
+            landmark_pose.position.z = lm_pose.z();
+            lm_detected.poses.push_back(landmark_pose);
+        }
+    }
+    if(!sss_left_.landmarks_.empty()){
+        for(auto landmark: sss_left_.landmarks_){
+            // Transform sss_right_sensor --> base_link
+            lm_pose = tf_sss_l_base_ * landmark;
+            landmark_pose.position.x = lm_pose.x();
+            landmark_pose.position.y = lm_pose.y();
+            landmark_pose.position.z = lm_pose.z();
+            lm_detected.poses.push_back(landmark_pose);
+        }
+    }
 
-        // Create marker for RVIZ
-//        tf::Stamped<tf::Vector3> lm_base(tf_sss_r_base_ * aux_vec, ros::Time(0), "lolo_auv/base_link");
-//        geometry_msgs::Vector3Stamped landmark_msg;   // Move to PointCloud and expand for more than one landmark detected
-//        tf::vector3StampedTFToMsg(lm_base, landmark_msg);
-        geometry_msgs::PointStamped landmark_msg;
-        landmark_msg.header.stamp = mbes_r_msg->header.stamp;
-        landmark_msg.header.frame_id = base_frame_;
-        landmark_msg.point.x = lm_pose.x();
-        landmark_msg.point.y = lm_pose.y();
-        landmark_msg.point.z = lm_pose.z();
-
-        landmark_pub_.publish(landmark_msg);
+    // If landmarks detected, publish and clean up
+    if(!lm_detected.poses.empty()){
+        landmark_pub_.publish(lm_detected);
     }
     sss_right_.landmarks_.clear();
+    sss_left_.landmarks_.clear();
 }
 
 

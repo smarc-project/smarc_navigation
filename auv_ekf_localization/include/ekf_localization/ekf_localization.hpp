@@ -38,7 +38,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
-#include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/PoseArray.h>
 
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
@@ -93,7 +93,7 @@ private:
     std::deque<sensor_msgs::ImuPtr> imu_readings_; // TODO: add limit size to queues
     std::deque<geometry_msgs::TwistWithCovarianceStampedPtr> dvl_readings_;
     std::deque<nav_msgs::OdometryPtr> gt_readings_;
-    std::deque<geometry_msgs::PointStampedPtr> measurements_t_;
+    std::deque<geometry_msgs::PoseArrayPtr> measurements_t_;
     boost::mutex msg_lock_;
     std::vector<boost::numeric::ublas::vector<double>> map_;
     bool init_filter_;
@@ -141,7 +141,7 @@ private:
                         const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
     void fastIMUCB(const sensor_msgs::ImuPtr &imu_msg);
     void fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg);
-    void observationsCB(const geometry_msgs::PointStampedPtr &observ_msg);
+    void observationsCB(const geometry_msgs::PoseArrayPtr &observ_msg);
 
     /**
      * @brief EKFLocalization::computeOdom

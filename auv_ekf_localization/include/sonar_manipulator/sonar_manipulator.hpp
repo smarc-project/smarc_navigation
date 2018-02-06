@@ -12,6 +12,8 @@
  * It outputs Vector3 positions in the sensor frame
  */
 
+auto print = [](const double& n) { std::cout << " " << n; };
+
 class SonarManipulator{
 
 public:

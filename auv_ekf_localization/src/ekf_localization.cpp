@@ -162,7 +162,7 @@ void EKFLocalization::init(){
     ROS_INFO_NAMED(node_name_, "Initialized");
 }
 
-void EKFLocalization::observationsCB(const geometry_msgs::PointStampedPtr &observ_msg){
+void EKFLocalization::observationsCB(const geometry_msgs::PoseArrayPtr &observ_msg){
     measurements_t_.push_back(observ_msg);
 }
 
@@ -418,12 +418,14 @@ void EKFLocalization::dataAssociation(){
 
     // If observations available
     if(!measurements_t_.empty()){
-        for(auto observ: measurements_t_){
+        for(auto observ: measurements_t_){  //TODO: it should be only one z_t per measurement update
             // Compensate for the volume of the stones*****
-            z_i(0) = observ->point.x;
-            z_i(1) = observ->point.y - 1/std::sqrt(2);
-            z_i(2) = observ->point.z - 1/std::sqrt(2);
-            z_t.push_back(z_i);
+            for(auto lm_pose: observ->poses){
+                z_i(0) = lm_pose.position.x;
+                z_i(1) = lm_pose.position.y - 1/std::sqrt(2);
+                z_i(2) = lm_pose.position.z - 1/std::sqrt(2);
+                z_t.push_back(z_i);
+            }
         }
         measurements_t_.pop_front();
         if(!measurements_t_.empty()){
