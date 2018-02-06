@@ -43,7 +43,6 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
     nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
-    nh_->param<std::string>((node_name_ + "/sss_r_link"), sssr_frame_, "/sss_link");
     nh_->param<std::string>((node_name_ + "/map_srv"), map_srv_name_, "/gazebo/get_world_properties");
     nh_->param<std::string>((node_name_ + "/landmarks_srv"), lm_srv_name_, "/gazebo/get_model_state");
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
@@ -149,17 +148,6 @@ void EKFLocalization::init(){
         ROS_INFO("Locked transform world --> odom");
         // Compute inverse for later use
         transf_odom_world_ = transf_world_odom_.inverse();
-    }
-    catch(tf::TransformException &exception) {
-        ROS_ERROR("%s", exception.what());
-        ros::Duration(1.0).sleep();
-    }
-
-    // Get fixed sss_right --> odom frame
-    try{
-        tf_listener.waitForTransform(base_frame_, sssr_frame_, ros::Time(0), ros::Duration(100));
-        tf_listener.lookupTransform(base_frame_, sssr_frame_, ros::Time(0), transf_base_sssr_);
-        ROS_INFO("Locked transform sss right --> base");
     }
     catch(tf::TransformException &exception) {
         ROS_ERROR("%s", exception.what());

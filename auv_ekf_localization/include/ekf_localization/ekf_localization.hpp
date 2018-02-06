@@ -8,7 +8,6 @@
 #include "gazebo_msgs/GetModelState.h"
 
 #include "utils_matrices/utils_matrices.hpp"
-#include "auv_ekf_localization/map_ekf.h"
 #include "correspondence_class/correspondence_class.hpp"
 #include "noise_oneD_kf/noise_oneD_kf.hpp"
 

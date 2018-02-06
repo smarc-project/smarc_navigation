@@ -16,7 +16,6 @@
                 <param name="dvl_frame" value="/$(arg namespace)/dvl_link"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
                 <param name="system_freq" value="50"/>
-                <param name="sss_r_link" value="/$(arg namespace)/sonarright_link"/>
                 <param name="map_srv" value="/gazebo/get_world_properties"/>
                 <param name="landmarks_srv" value="/gazebo/get_model_state"/>
             </node>
