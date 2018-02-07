@@ -1,12 +1,8 @@
 #include "correspondence_class/correspondence_class.hpp"
 
 
-CorrespondenceClass::CorrespondenceClass(const boost::numeric::ublas::vector<int> &landmark_pos){
-    landmark_id_ = landmark_pos(0);
-    landmark_pos_ = boost::numeric::ublas::vector<int>(3);
-    landmark_pos_(0) = landmark_pos(1);
-    landmark_pos_(1) = landmark_pos(2);
-    landmark_pos_(2) = landmark_pos(3);
+CorrespondenceClass::CorrespondenceClass(const double &lm_id){
+    landmark_id_ = lm_id;
 }
 
 void CorrespondenceClass::computeH(const boost::numeric::ublas::vector<double> &mu_hat,
