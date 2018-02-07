@@ -20,11 +20,11 @@
                 <param name="landmarks_srv" value="/gazebo/get_model_state"/>
             </node>
 
-            <node pkg="auv_ekf_localization" type="map_provider_node.py" name="map_provider_node" output="screen">
+<!--            <node pkg="auv_ekf_localization" type="map_provider_node.py" name="map_provider_node" output="screen">
                 <param name="map_provider_srv" value="/$(arg namespace)/get_map"/>
                 <param name="map_file" value="$(find auv_ekf_localization)/maps/map_stones1.yaml"/>
                 <param name="rocks_depth" value="-90"/>
-            </node>
+            </node>-->
 
             <node pkg="auv_ekf_localization" name="mbes_receptor" type="mbes_receptor_node" output="screen">
                 <param name="mbes_left_topic" value="/$(arg namespace)/sss_left"/>
