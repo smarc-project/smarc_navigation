@@ -109,16 +109,23 @@ void EKFLocalization::init(){
 
     // EKF variables
     mu_ = boost::numeric::ublas::zero_vector<double>(6);
+    mu_(1) = 2;
+    mu_(2) = 3;
+
+    double size_z = 3; // TODO: add as dynamic param
     Sigma_ = boost::numeric::ublas::identity_matrix<double>(6) * 1;
     R_ = boost::numeric::ublas::identity_matrix<double> (6) * 0.001; // TODO: set diagonal as rosparam
-    R_(1,1) = 0.1;
-    R_(2,2) = 0.1;
-    R_(3,3) = 0.1;
-    Q_ = boost::numeric::ublas::identity_matrix<double> (2) * 1;
+    R_(0,0) = 0.01;
+    R_(1,1) = 0.01;
+    R_(2,2) = 0.01;
+    Q_ = boost::numeric::ublas::identity_matrix<double> (size_z) * 0.001;
+    Q_(0,0) = 10000;
+    Q_(1,1) = 0.1;
+    Q_(2,2) = 0.1;
 
     // Outlier rejection
     delta_m_ = 0.9; // TODO: Add as rosparam
-    boost::math::chi_squared chi2_dist(3);
+    boost::math::chi_squared chi2_dist(size_z);
     lambda_M_ = boost::math::quantile(chi2_dist, delta_m_);
 
     // State machine
@@ -155,9 +162,9 @@ void EKFLocalization::init(){
     }
 
     // Create 1D KF to filter input sensors
-    dvl_x_kf = new OneDKF(0,0.1,0,0.001); // Adjust noise params for each filter
-    dvl_y_kf = new OneDKF(0,0.1,0,0.001);
-    dvl_z_kf = new OneDKF(0,0.1,0,0.001);
+//    dvl_x_kf = new OneDKF(0,0.1,0,0.001); // Adjust noise params for each filter
+//    dvl_y_kf = new OneDKF(0,0.1,0,0.001);
+//    dvl_z_kf = new OneDKF(0,0.1,0,0.001);
 
     ROS_INFO_NAMED(node_name_, "Initialized");
 }
@@ -186,7 +193,7 @@ void EKFLocalization::fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedP
 }
 
 void EKFLocalization::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg,
-                             const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
+                                    const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
     coord_ = true;
 }
 
@@ -404,11 +411,12 @@ void EKFLocalization::predictMeasurement(const boost::numeric::ublas::vector<dou
     corresp_j_ptr->computeLikelihood();
 
     // Outlier rejection
+    std::cout << "mahalanobis dist: " << corresp_j_ptr->d_m_ << " vs lambda: " << lambda_M_ << std::endl;
     if(corresp_j_ptr->d_m_ < lambda_M_){
         ml_i_list.push_back(corresp_j_ptr);
     }
     else{
-        ROS_DEBUG_NAMED(node_name_, "Outlier rejected");
+        ROS_INFO_NAMED(node_name_, "Outlier rejected");
     }
 }
 
@@ -418,6 +426,7 @@ void EKFLocalization::dataAssociation(){
 
     // If observations available
     if(!measurements_t_.empty()){
+        ROS_INFO("Measurements received");
         for(auto observ: measurements_t_){  //TODO: it should be only one z_t per measurement update
             // Compensate for the volume of the stones*****
             for(auto lm_pose: observ->poses){
@@ -438,9 +447,10 @@ void EKFLocalization::dataAssociation(){
             // For each possible landmark j in M
             for(auto landmark_j: map_){
                 // Narrow down the landmarks to be checked
-                if((landmark_j(1) < mu_hat_(0) + 6) && (landmark_j(1) > mu_hat_(0) - 6)){
+//                if((landmark_j(1) < mu_hat_(0) + 6) && (landmark_j(1) > mu_hat_(0) - 6)){
+                    ROS_INFO("Predict measurement");
                     predictMeasurement(landmark_j, z_i, ml_i_list);
-                }
+//                }
             }
             // Select the association with the maximum likelihood
             if(!ml_i_list.empty()){
@@ -448,6 +458,7 @@ void EKFLocalization::dataAssociation(){
                     std::sort(ml_i_list.begin(), ml_i_list.end(), sortLandmarksML);
                 }
                 // Sequential update
+                ROS_INFO("Calling sequential update");
                 sequentialUpdate(ml_i_list.front());
             }
             ml_i_list.clear();
@@ -530,7 +541,7 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
             predictMotion(u_t);
 
             // Data association and sequential update
-//            dataAssociation();
+            dataAssociation();
 
             // Update step
             mu_ = mu_hat_;
