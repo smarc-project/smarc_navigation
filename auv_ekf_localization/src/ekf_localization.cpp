@@ -430,16 +430,16 @@ void EKFLocalization::predictMeasurement(const boost::numeric::ublas::vector<dou
     using namespace boost::numeric::ublas;
 
     // Compute transform odom --> base from current state estimate
-    tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5));
+    tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5));
     q_auv_t.normalize();
-    tf::Transform transf_odom_base = tf::Transform(q_auv_t, tf::Vector3(mu_(0), mu_(1), mu_(2)));
+    tf::Transform transf_odom_base = tf::Transform(q_auv_t, tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
 
     // Measurement model: z_hat_i
-    tf::Vector3 landmark_j_w = tf::Vector3(landmark_j(1),
-                                           landmark_j(2),
-                                           landmark_j(3));
+    tf::Vector3 landmark_j_odom = tf::Vector3(landmark_j(1),
+                                              landmark_j(2),
+                                              landmark_j(3));
     tf::Vector3 z_hat_sss;
-    z_hat_sss = transf_odom_base.inverse() * transf_odom_world_ * landmark_j_w;
+    z_hat_sss = transf_odom_base.inverse() * landmark_j_odom;
 
     vector<double> z_i_hat_base = vector<double>(3);
     z_i_hat_base(0) = z_hat_sss.getX();
