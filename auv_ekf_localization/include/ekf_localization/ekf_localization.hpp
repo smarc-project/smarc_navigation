@@ -12,6 +12,7 @@
 #include "noise_oneD_kf/noise_oneD_kf.hpp"
 
 #include <queue>
+#include <math.h>
 
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/thread/mutex.hpp>
@@ -65,7 +66,7 @@ public:
     EKFLocalization(std::string node_name, ros::NodeHandle &nh);
     void ekfLocalize(const ros::TimerEvent& e);
     ~EKFLocalization();
-    void init();
+    void init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta);
 
 private:
 
@@ -84,6 +85,7 @@ private:
     ros::Subscriber observs_subs_;
     ros::Subscriber rpt_subs_;
     ros::Publisher odom_pub_;
+    ros::Publisher odom_inertial_pub_;
     ros::Publisher vis_pub_;
     visualization_msgs::MarkerArray markers_;
     ros::ServiceClient gazebo_client_;
@@ -95,12 +97,13 @@ private:
     std::deque<nav_msgs::OdometryPtr> gt_readings_;
     std::deque<geometry_msgs::PoseArrayPtr> measurements_t_;
     boost::mutex msg_lock_;
-    std::vector<boost::numeric::ublas::vector<double>> map_;
+    std::vector<boost::numeric::ublas::vector<double>> map_odom_;
     bool init_filter_;
 
     // System state variables
     boost::numeric::ublas::vector<double> mu_;
     boost::numeric::ublas::vector<double> mu_hat_;
+    boost::numeric::ublas::vector<double> mu_pred_;
     boost::numeric::ublas::matrix<double> Sigma_;
     boost::numeric::ublas::matrix<double> Sigma_hat_;
     boost::numeric::ublas::matrix<double> G_t_;
@@ -191,7 +194,7 @@ private:
      * @brief createMapMarkers
      * Publishes the map as an array of markers for visualization in RVIZ
      */
-    void createMapMarkers();
+    void createMapMarkers(std::vector<boost::numeric::ublas::vector<double> > map_world);
 
     /**
      * @brief EKFLocalization::sendOutput
