@@ -13,6 +13,8 @@
 #include <pcl/point_types.h>
 #include <sensor_msgs/PointCloud.h>
 #include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/Pose.h>
 
 #include <tf/transform_listener.h>
 #include <tf/tf.h>

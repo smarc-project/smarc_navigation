@@ -44,11 +44,11 @@ endif()
 # setup.py for map_provider_node.py
 catkin_python_setup()
 
-add_service_files(
-    DIRECTORY srv
-    FILES
-    map_ekf.srv
-)
+#add_service_files(
+#    DIRECTORY srv
+#    FILES
+#    map_ekf.srv
+#)
 
 generate_messages(
     DEPENDENCIES
@@ -58,7 +58,7 @@ generate_messages(
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES sonar_manipulator
+  LIBRARIES sonar_manipulator noise_kf
   CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters
 #  DEPENDS system_lib
 )
@@ -71,6 +71,10 @@ include_directories(
 
 add_library(sonar_manipulator
  src/sonar_manipulator.cpp
+)
+
+add_library(noise_kf
+    src/noise_oneD_kf.cpp
 )
 
 #add_library(mbes_receptor
@@ -90,6 +94,7 @@ add_dependencies(ekf_localization_node
     )
 
 target_link_libraries(ekf_localization_node
+    noise_kf
     utils_matrices
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}

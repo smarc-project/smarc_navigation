@@ -55,7 +55,7 @@ public:
     boost::numeric::ublas::vector<double> nu_;
     int landmark_id_;
 
-    CorrespondenceClass(const boost::numeric::ublas::vector<int> &landmark_pos);
+    CorrespondenceClass(const double &lm_id);
     /**
      * @brief computeH
      * @param mu_hat

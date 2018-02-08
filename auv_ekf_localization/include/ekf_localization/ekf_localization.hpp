@@ -4,11 +4,15 @@
 #include <ros/timer.h>
 #include <ros/ros.h>
 
+#include "gazebo_msgs/GetWorldProperties.h"
+#include "gazebo_msgs/GetModelState.h"
+
 #include "utils_matrices/utils_matrices.hpp"
-#include "auv_ekf_localization/map_ekf.h"
 #include "correspondence_class/correspondence_class.hpp"
+#include "noise_oneD_kf/noise_oneD_kf.hpp"
 
 #include <queue>
+#include <math.h>
 
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/thread/mutex.hpp>
@@ -35,13 +39,14 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
-#include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/PoseArray.h>
 
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
-typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu, geometry_msgs::TwistWithCovarianceStamped> MsgTimingPolicy;
+typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu,
+        geometry_msgs::TwistWithCovarianceStamped> MsgTimingPolicy;
 
 /**
  * @brief The EKFLocalization class
@@ -61,7 +66,7 @@ public:
     EKFLocalization(std::string node_name, ros::NodeHandle &nh);
     void ekfLocalize(const ros::TimerEvent& e);
     ~EKFLocalization();
-    void init();
+    void init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta);
 
 private:
 
@@ -80,22 +85,25 @@ private:
     ros::Subscriber observs_subs_;
     ros::Subscriber rpt_subs_;
     ros::Publisher odom_pub_;
-    ros::ServiceClient map_client_;
+    ros::Publisher odom_inertial_pub_;
     ros::Publisher vis_pub_;
     visualization_msgs::MarkerArray markers_;
+    ros::ServiceClient gazebo_client_;
+    ros::ServiceClient landmarks_client_;
 
     // Handlers for sensors
     std::deque<sensor_msgs::ImuPtr> imu_readings_; // TODO: add limit size to queues
     std::deque<geometry_msgs::TwistWithCovarianceStampedPtr> dvl_readings_;
     std::deque<nav_msgs::OdometryPtr> gt_readings_;
-    std::deque<geometry_msgs::PointStampedPtr> measurements_t_;
+    std::deque<geometry_msgs::PoseArrayPtr> measurements_t_;
     boost::mutex msg_lock_;
-    std::vector<boost::numeric::ublas::vector<double>> map_;
+    std::vector<boost::numeric::ublas::vector<double>> map_odom_;
     bool init_filter_;
 
     // System state variables
     boost::numeric::ublas::vector<double> mu_;
     boost::numeric::ublas::vector<double> mu_hat_;
+    boost::numeric::ublas::vector<double> mu_pred_;
     boost::numeric::ublas::matrix<double> Sigma_;
     boost::numeric::ublas::matrix<double> Sigma_hat_;
     boost::numeric::ublas::matrix<double> G_t_;
@@ -112,6 +120,10 @@ private:
     unsigned int size_imu_q_;
     unsigned int size_dvl_q_;
 
+    OneDKF* dvl_x_kf;
+    OneDKF* dvl_y_kf;
+    OneDKF* dvl_z_kf;
+
     // tf
     tf::TransformBroadcaster odom_bc_;
     tf::StampedTransform transf_dvl_base_;
@@ -122,8 +134,9 @@ private:
     std::string world_frame_;
     std::string base_frame_;
     std::string dvl_frame_;
-    std::string map_srv_name_;
     std::string sssr_frame_;
+    std::string map_srv_name_;
+    std::string lm_srv_name_;
 
     // Input callbacks
     void gtCB(const nav_msgs::OdometryPtr &pose_msg);
@@ -131,9 +144,7 @@ private:
                         const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
     void fastIMUCB(const sensor_msgs::ImuPtr &imu_msg);
     void fastDVLCB(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg);
-    void observationsCB(const geometry_msgs::PointStampedPtr &observ_msg);
-
-//    void rptCB(const geometry_msgs::PoseWithCovarianceStampedPtr & ptr_msg);
+    void observationsCB(const geometry_msgs::PoseArrayPtr &observ_msg);
 
     /**
      * @brief EKFLocalization::computeOdom
@@ -143,8 +154,7 @@ private:
      * @param u_t
      * Integrates IMU and DVL to predict an estimate of the pose
      */
-    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg,
-                     const nav_msgs::OdometryPtr &gt_pose, const tf::Quaternion &q_auv,
+    void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const tf::Quaternion &q_auv,
                      boost::numeric::ublas::vector<double> &u_t);
 
 
@@ -184,7 +194,7 @@ private:
      * @brief createMapMarkers
      * Publishes the map as an array of markers for visualization in RVIZ
      */
-    void createMapMarkers();
+    void createMapMarkers(std::vector<boost::numeric::ublas::vector<double> > map_world);
 
     /**
      * @brief EKFLocalization::sendOutput
