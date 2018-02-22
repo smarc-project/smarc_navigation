@@ -92,8 +92,8 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
     double size_state = r_diag.size();
     double size_meas = q_diag.size();
     mu_ = boost::numeric::ublas::zero_vector<double>(size_state);
-    mu_(1) = 2;
-    mu_(2) = 3;
+//    mu_(1) = 2;
+//    mu_(2) = 3;
     mu_pred_ = mu_;
 
     Sigma_ = boost::numeric::ublas::identity_matrix<double>(size_state);
@@ -460,7 +460,7 @@ void EKFLocalization::predictMeasurement(const boost::numeric::ublas::vector<dou
         ml_i_list.push_back(corresp_j_ptr);
     }
     else{
-        ROS_INFO_NAMED(node_name_, "Outlier rejected");
+        ROS_DEBUG_NAMED(node_name_, "Outlier rejected");
     }
 }
 
@@ -468,10 +468,10 @@ void EKFLocalization::dataAssociation(){
     boost::numeric::ublas::vector<double> z_i(3);
     std::vector<boost::numeric::ublas::vector<double>> z_t;
 
-    double epsilon = 0.2;
+    double epsilon = 20;
     // If observations available
     if(!measurements_t_.empty()){
-        ROS_INFO("-----Measurements received-----");
+//        ROS_INFO("-----Measurements received-----");
         for(auto observ: measurements_t_){  //TODO: it should be only one z_t per measurement update
             // Compensate for the volume of the stones*****
             for(auto lm_pose: observ->poses){
@@ -492,9 +492,7 @@ void EKFLocalization::dataAssociation(){
             // For each possible landmark j in M
             for(auto landmark_j: map_odom_){
                 // Narrow down the landmarks to be checked
-//                std::cout << "error in line: " << std::abs((landmark_j(1) - mu_hat_(0)) * std::tan(M_PI + mu_hat_(5)) / (landmark_j(2) - mu_hat_(1))) << std::endl;
-//                if(epsilon > std::abs((landmark_j(1) - mu_hat_(0)) * std::tan(M_PI + mu_hat_(5)) / (landmark_j(2) - mu_hat_(1)))){
-//                    std::cout << "Checking landmark: " << landmark_j(0) << std::endl;
+//                if(epsilon > std::abs((landmark_j(1) - mu_hat_(0)) * std::tan(M_PI/2.0 + mu_hat_(5)) / (landmark_j(2) - mu_hat_(1)))){
                     predictMeasurement(landmark_j, z_i, ml_i_list);
 //                }
             }
@@ -503,9 +501,7 @@ void EKFLocalization::dataAssociation(){
                 if(ml_i_list.size() > 1){
                     std::sort(ml_i_list.begin(), ml_i_list.end(), sortLandmarksML);
                 }
-                // Sequential update
-                std::cout << "Correcting with landmark: " << ml_i_list.front()->landmark_id_ << std::endl;
-                std::cout << "----" << std::endl;
+                // Sequential update                
                 sequentialUpdate(ml_i_list.front());
                 ml_i_list.clear();
             }
@@ -527,6 +523,9 @@ void EKFLocalization::sequentialUpdate(CorrespondenceClass* c_i_j){
     K_t_i = prod(K_t_i, c_i_j->S_inverted_);
     // Update mu_hat and sigma_hat
     mu_hat_ += prod(K_t_i, c_i_j->nu_);
+    mu_hat_(3) = angleLimit(mu_hat_(3));
+    mu_hat_(4) = angleLimit(mu_hat_(4));
+    mu_hat_(5) = angleLimit(mu_hat_(5));
     aux_mat = (I  - prod(K_t_i, c_i_j->H_));
     Sigma_hat_ = prod(aux_mat, Sigma_hat_);
 }
