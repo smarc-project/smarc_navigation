@@ -468,7 +468,7 @@ void EKFLocalization::dataAssociation(){
     boost::numeric::ublas::vector<double> z_i(3);
     std::vector<boost::numeric::ublas::vector<double>> z_t;
 
-    double epsilon = 20;
+    double epsilon = 10;
     // If observations available
     if(!measurements_t_.empty()){
 //        ROS_INFO("-----Measurements received-----");
@@ -487,21 +487,28 @@ void EKFLocalization::dataAssociation(){
         }
         // Main ML loop
         std::vector<CorrespondenceClass*> ml_i_list;
+        int cnt = 0;
         // For each observation z_i at time t
         for(auto z_i: z_t){
             // For each possible landmark j in M
+            std::cout << "Current yaw : " << mu_hat_(5) << std::endl;
+            std::cout << "Current yaw tan : " << std::tan(angleLimit(M_PI/2.0 + mu_hat_(5))) << std::endl;
             for(auto landmark_j: map_odom_){
                 // Narrow down the landmarks to be checked
-//                if(epsilon > std::abs((landmark_j(1) - mu_hat_(0)) * std::tan(M_PI/2.0 + mu_hat_(5)) / (landmark_j(2) - mu_hat_(1)))){
+//                std::cout << "Epsilon of landmark : " << landmark_j(0) << " is " << std::abs((landmark_j(1) - mu_hat_(0)) + (mu_hat_(1) - landmark_j(2)) / std::tan(angleLimit(M_PI/2.0 + mu_hat_(5)))) << std::endl;
+                if(epsilon > std::abs((landmark_j(1) - mu_hat_(0)) + (mu_hat_(1) - landmark_j(2)) / std::tan(angleLimit(M_PI/2.0 + mu_hat_(5))))){
                     predictMeasurement(landmark_j, z_i, ml_i_list);
-//                }
+                    cnt += 1;
+                }
             }
+            std::cout << "Checked against " << cnt << " landmarks " << std::endl;
             // Select the association with the maximum likelihood
             if(!ml_i_list.empty()){
                 if(ml_i_list.size() > 1){
                     std::sort(ml_i_list.begin(), ml_i_list.end(), sortLandmarksML);
                 }
-                // Sequential update                
+                // Sequential update
+                std::cout << "Correcting pose with landmark " << ml_i_list.front()->landmark_id_ << std::endl;
                 sequentialUpdate(ml_i_list.front());
                 ml_i_list.clear();
             }
