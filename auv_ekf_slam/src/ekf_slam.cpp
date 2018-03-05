@@ -513,7 +513,6 @@ void EKFLocalization::dataAssociation(){
 
         // For each observation z_i at time t
         for(unsigned int i = 0; i<z_t.size(); i++){
-            ROS_INFO("*********************************");
             // Increase Sigma_hat_  // TODO: find more efficient way to increase/decrease Sigma here
             Sigma_hat_.resize(Sigma_hat_.size1()+3, Sigma_hat_.size2()+3, true);
             boost::numeric::ublas::subrange(Sigma_hat_, Sigma_hat_.size1()-3, Sigma_hat_.size1(), 0, Sigma_hat_.size1()) = boost::numeric::ublas::zero_matrix<double>(3, Sigma_hat_.size1());
@@ -540,7 +539,6 @@ void EKFLocalization::dataAssociation(){
                     cnt += 1;
                 }
             }
-            std::cout << "Checked against " << cnt << " landmarks" << std::endl;
 
             // Select the association with the minimum Mahalanobis distance
             if(!corresp_i_list.empty()){
@@ -559,7 +557,6 @@ void EKFLocalization::dataAssociation(){
                     map_odom_.pop_back();
                     Sigma_hat_.resize(Sigma_hat_.size1()-3, Sigma_hat_.size2()-3, true);
                     corresp_i_list.back().H_t_.resize(corresp_i_list.back().H_t_.size1(), corresp_i_list.back().H_t_.size2()-3, true);
-                    std::cout << "Landmark recognized: " << corresp_i_list.back().landmark_pos_ << std::endl;
                 }
                 else{
                     // New landmark
