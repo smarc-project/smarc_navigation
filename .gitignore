@@ -12,4 +12,4 @@
 *.bag
 
 # ekf_general aux
-ekf_general/DataSets/*
+ekf_general/*

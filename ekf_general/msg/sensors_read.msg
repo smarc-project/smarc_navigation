@@ -1,9 +1,0 @@
-Header header
-float32 acq_time
-float32[3] odom
-int32[2] encoders
-float64[3] true_pose
-int32 n
-int32[] ids
-float64[] bearings
-float64[] ranges
