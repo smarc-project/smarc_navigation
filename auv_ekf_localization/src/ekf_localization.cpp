@@ -167,7 +167,7 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
         int id = 0;
         boost::numeric::ublas::vector<double> aux_vec(4);
         for(auto landmark_name: world_prop_srv.response.model_names){
-            if(landmark_name != "lolo_auv" && landmark_name != "ned" && landmark_name != "ocean"){
+            if(landmark_name != "lolo_auv" && landmark_name != "ned" && landmark_name != "ocean" && landmark_name != "dummy_laser"){
                 landmark_state_srv.request.model_name = landmark_name;
                 if(landmarks_client_.call(landmark_state_srv)){
                     aux_vec(0) = id;
@@ -267,7 +267,7 @@ void EKFLocalization::createMapMarkers(std::vector<boost::numeric::ublas::vector
         markers_.markers.push_back(markers);
         i += 1;
     }
-    std::cout << "number of landmars: " << i << std::endl;
+    std::cout << "number of landmars in map: " << i << std::endl;
 }
 
 bool EKFLocalization::sendOutput(ros::Time t){
@@ -455,7 +455,6 @@ void EKFLocalization::predictMeasurement(const boost::numeric::ublas::vector<dou
     corresp_j_ptr->computeLikelihood();
 
     // Outlier rejection
-//    std::cout << "mahalanobis dist: " << corresp_j_ptr->d_m_ << " vs lambda: " << lambda_M_ << std::endl;
     if(corresp_j_ptr->d_m_ < lambda_M_){
         ml_i_list.push_back(corresp_j_ptr);
     }
@@ -491,24 +490,19 @@ void EKFLocalization::dataAssociation(){
         // For each observation z_i at time t
         for(auto z_i: z_t){
             // For each possible landmark j in M
-            std::cout << "Current yaw : " << mu_hat_(5) << std::endl;
-            std::cout << "Current yaw tan : " << std::tan(angleLimit(M_PI/2.0 + mu_hat_(5))) << std::endl;
             for(auto landmark_j: map_odom_){
                 // Narrow down the landmarks to be checked
-//                std::cout << "Epsilon of landmark : " << landmark_j(0) << " is " << std::abs((landmark_j(1) - mu_hat_(0)) + (mu_hat_(1) - landmark_j(2)) / std::tan(angleLimit(M_PI/2.0 + mu_hat_(5)))) << std::endl;
                 if(epsilon > std::abs((landmark_j(1) - mu_hat_(0)) + (mu_hat_(1) - landmark_j(2)) / std::tan(angleLimit(M_PI/2.0 + mu_hat_(5))))){
                     predictMeasurement(landmark_j, z_i, ml_i_list);
                     cnt += 1;
                 }
             }
-            std::cout << "Checked against " << cnt << " landmarks " << std::endl;
             // Select the association with the maximum likelihood
             if(!ml_i_list.empty()){
                 if(ml_i_list.size() > 1){
                     std::sort(ml_i_list.begin(), ml_i_list.end(), sortLandmarksML);
                 }
                 // Sequential update
-                std::cout << "Correcting pose with landmark " << ml_i_list.front()->landmark_id_ << std::endl;
                 sequentialUpdate(ml_i_list.front());
                 ml_i_list.clear();
             }
