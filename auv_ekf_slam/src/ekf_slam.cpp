@@ -86,19 +86,19 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
     // EKF variables
     double size_state = r_diag.size();
     double size_meas = q_diag.size();
-    mu_ = boost::numeric::ublas::zero_vector<double>(size_state);
+    mu_.setZero(size_state);
     mu_pred_ = mu_;
     lm_num_ = map_odom_.size(); // Initial num of landmarks in map (usually zero)
+    Sigma_ = Eigen::MatrixXd::Identity(size_state, size_state);
 
-    Sigma_ = boost::numeric::ublas::identity_matrix<double>(size_state);
     for(unsigned int i=0; i<size_state; i++){
         Sigma_(i,i) = sigma_diag.at(i);
     }
-    R_ = boost::numeric::ublas::identity_matrix<double> (size_state);
+    R_ = Eigen::MatrixXd::Identity(size_state, size_state);
     for(unsigned int i=0; i<size_state; i++){
         R_(i,i) = r_diag.at(i);
     }
-    Q_ = boost::numeric::ublas::identity_matrix<double> (size_meas);
+    Q_ = Eigen::MatrixXd::Identity(size_meas, size_meas);
     for(unsigned int i=0; i<size_meas; i++){
         Q_(i,i) = q_diag.at(i);
     }
@@ -156,10 +156,10 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
     gazebo_msgs::GetModelState landmark_state_srv;
     tf::Vector3 lm_world;
     tf::Vector3 lm_odom;
-    std::vector<boost::numeric::ublas::vector<double>> map_world;
+    std::vector<Eigen::Vector4d> map_world;
     if(gazebo_client_.call(world_prop_srv)){
         int id = 0;
-        boost::numeric::ublas::vector<double> aux_vec(4);
+        Eigen::Vector4d aux_vec;
         for(auto landmark_name: world_prop_srv.response.model_names){
             // Get poses of all objects except basic setup
             if(landmark_name != "lolo_auv" && landmark_name != "ned" && landmark_name != "ocean" && landmark_name != "dummy_laser"){
@@ -233,7 +233,7 @@ void EKFLocalization::gtCB(const nav_msgs::Odometry &pose_msg){
     }
 }
 
-void EKFLocalization::updateMapMarkers(std::vector<boost::numeric::ublas::vector<double> > map, double color){
+void EKFLocalization::updateMapMarkers(std::vector<Eigen::Vector4d> map, double color){
 
     unsigned int i = 0;
     visualization_msgs::MarkerArray marker_array;
@@ -245,9 +245,9 @@ void EKFLocalization::updateMapMarkers(std::vector<boost::numeric::ublas::vector
         marker.id = i;
         marker.type = visualization_msgs::Marker::CUBE;
         marker.action = visualization_msgs::Marker::ADD;
-        marker.pose.position.x = landmark(1);
-        marker.pose.position.y = landmark(2);
-        marker.pose.position.z = landmark(3);
+        marker.pose.position.x = landmark.coeff(1);
+        marker.pose.position.y = landmark.coeff(2);
+        marker.pose.position.z = landmark.coeff(3);
         marker.pose.orientation.x = 0.0;
         marker.pose.orientation.y = 0.0;
         marker.pose.orientation.z = 0.0;
@@ -341,8 +341,8 @@ void EKFLocalization::interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCo
 }
 
 void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg,
-                                  const tf::Quaternion& q_auv, boost::numeric::ublas::vector<double> &u_t,
-                                  boost::numeric::ublas::matrix<double> &g_t){
+                                  const tf::Quaternion& q_auv, Eigen::VectorXd &u_t,
+                                  Eigen::MatrixXd &g_t){
 
     // Update time step
     double t_now = dvl_msg->header.stamp.toSec();
@@ -376,7 +376,7 @@ void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampe
 
     // Derivative of motion model in mu_ (t-1)
     using namespace std;
-    g_t = boost::numeric::ublas::zero_matrix<double>(6);
+    g_t.setZero(6, 6);
 
     g_t(0,3) = disp_base.y()*(sin(roll_t)*sin(yaw_t) + cos(roll_t)*cos(yaw_t)*sin(pitch_t))
                 + disp_base.z()*(cos(roll_t)*sin(yaw_t) - cos(yaw_t)*sin(pitch_t)*sin(roll_t));
@@ -402,62 +402,58 @@ void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampe
     t_prev_ = t_now;
 }
 
-void EKFLocalization::predictMotion(boost::numeric::ublas::vector<double> &u_t,
-                                    boost::numeric::ublas::matrix<double> &g_t){
+void EKFLocalization::predictMotion(Eigen::VectorXd &u_t,
+                                    Eigen::MatrixXd &g_t){
 
-    using namespace boost::numeric::ublas;
     // Construct Fx (6,3N) for dimension mapping
-    matrix<double> F_x = zero_matrix<double>(6, 6 + 3*lm_num_);
-    subrange(F_x, 0,6,0,6) = identity_matrix<double>(6);
-    matrix<double> F_x_trans = trans(F_x);
+    Eigen::SparseMatrix<double> F_x(6, 6 + 3*lm_num_);
+    std::vector<Eigen::Triplet<double>> tripletList;
+    tripletList.reserve(6);
+    unsigned int j;
+    int input = 1;
+    for(unsigned int i=0; i<6; i++){
+        j = i;
+        tripletList.push_back(Eigen::Triplet<double>(i,j,input));
+    }
+    F_x.setFromTriplets(tripletList.begin(), tripletList.end());
+    Eigen::SparseMatrix<double> F_x_transp = F_x.transpose();
 
     // Compute predicted mu
-    mu_hat_ = mu_ + prod(F_x_trans, u_t);
+    mu_hat_ = mu_ + F_x_transp * u_t;
     mu_hat_(3) = angleLimit(mu_hat_(3));
     mu_hat_(4) = angleLimit(mu_hat_(4));
     mu_hat_(5) = angleLimit(mu_hat_(5));
     mu_pred_ += u_t;
 
     // Compute Jacobian G_t
-    matrix<double> I_t = identity_matrix<double>(6 + 3*lm_num_, 6 + 3*lm_num_);
-    I_t(3,3) = 0;   // G_t is zero here because the motion model uses abs values for RPY
-    I_t(4,4) = 0;
-    I_t(5,5) = 0;
-
-    matrix<double> G_t;
-    matrix<double> aux_mat = prod(g_t, F_x);
-    G_t = prod(F_x_trans, aux_mat) + I_t;
+    Eigen::MatrixXd G_t = Eigen::MatrixXd::Identity(6 + 3*lm_num_, 6 + 3*lm_num_);
+    G_t(3,3) = 0;   // G_t is zero here because the motion model uses abs values for RPY
+    G_t(4,4) = 0;
+    G_t(5,5) = 0;
+    G_t += F_x_transp * g_t * F_x;
 
     // Predicted covariance matrix
-    matrix<double> aux_mat_2;
-    aux_mat_2 = prod(G_t, Sigma_);
-    Sigma_hat_ = prod(aux_mat_2, trans(G_t));
-    matrix<double> aux_mat_3;
-    aux_mat_3 = prod(R_, F_x);
-    Sigma_hat_ += prod(F_x_trans, aux_mat_3);
+    Sigma_hat_ = G_t * Sigma_ * G_t.transpose();
+    Sigma_hat_ += F_x_transp * R_ * F_x;
 
 }
 
-void EKFLocalization::predictMeasurement(const boost::numeric::ublas::vector<double> &landmark_j,
-                                         boost::numeric::ublas::vector<double> &z_i,
+void EKFLocalization::predictMeasurement(const Eigen::Vector4d &landmark_j,
+                                         const Eigen::Vector3d &z_i,
                                          unsigned int i,
+                                         const tf::Transform &transf_base_odom,
                                          std::vector<CorrespondenceClass> &corresp_i_list){
 
     using namespace boost::numeric::ublas;
     //    auto (re1, re2, re3) = myfunc(2);
-
-    // Compute transform odom --> base from current state state estimate at time t
-    tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5));
-    q_auv_t.normalize();
-    tf::Transform transf_odom_base = tf::Transform(q_auv_t, tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
 
     // Measurement model: z_hat_i
     tf::Vector3 landmark_j_odom = tf::Vector3(landmark_j(1),
                                               landmark_j(2),
                                               landmark_j(3));
 
-    tf::Vector3 z_hat_base = transf_odom_base.inverse() * landmark_j_odom;
-    vector<double> z_k_hat_base = vector<double>(3);
+    tf::Vector3 z_hat_base = transf_base_odom * landmark_j_odom;
+    Eigen::Vector3d z_k_hat_base;
     z_k_hat_base(0) = z_hat_base.getX();
     z_k_hat_base(1) = z_hat_base.getY();
     z_k_hat_base(2) = z_hat_base.getZ();
@@ -478,8 +474,8 @@ void EKFLocalization::predictMeasurement(const boost::numeric::ublas::vector<dou
 }
 
 void EKFLocalization::dataAssociation(){
-    boost::numeric::ublas::vector<double> z_i_temp(3);
-    std::vector<boost::numeric::ublas::vector<double>> z_t;
+    Eigen::Vector3d z_i_temp(3);
+    std::vector<Eigen::Vector3d> z_t;
 
     double epsilon = 10;
     double alpha = 0.085;   // TODO: find suitable value!!
@@ -502,24 +498,26 @@ void EKFLocalization::dataAssociation(){
 
         // Main loop
         std::vector<CorrespondenceClass> corresp_i_list;
-        boost::numeric::ublas::vector<double> new_lm = boost::numeric::ublas::vector<double>(4);
+        Eigen::Vector4d new_lm;
         tf::Vector3 new_lm_aux;
         int aux_lm_num = lm_num_;
-
-        // Compute transform odom --> base from current state estimate at time t
-        tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5));
-        q_auv_t.normalize();
-        tf::Transform transf_odom_base = tf::Transform(q_auv_t, tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
+        tf::Transform transf_base_odom;
+        tf::Transform transf_odom_base;
 
         // For each observation z_i at time t
         for(unsigned int i = 0; i<z_t.size(); i++){
-            // Increase Sigma_hat_  // TODO: find more efficient way to increase/decrease Sigma here
-            Sigma_hat_.resize(Sigma_hat_.size1()+3, Sigma_hat_.size2()+3, true);
-            boost::numeric::ublas::subrange(Sigma_hat_, Sigma_hat_.size1()-3, Sigma_hat_.size1(), 0, Sigma_hat_.size1()) = boost::numeric::ublas::zero_matrix<double>(3, Sigma_hat_.size1());
-            boost::numeric::ublas::subrange(Sigma_hat_, 0, Sigma_hat_.size1(), Sigma_hat_.size1()-3, Sigma_hat_.size1()) = boost::numeric::ublas::zero_matrix<double>(Sigma_hat_.size1(), 3);
-            Sigma_hat_(Sigma_hat_.size1()-3, Sigma_hat_.size1()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
-            Sigma_hat_(Sigma_hat_.size1()-2, Sigma_hat_.size1()-2) = 100;
-            Sigma_hat_(Sigma_hat_.size1()-1, Sigma_hat_.size1()-1) = 100;
+            // Increase Sigma_hat_
+            Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
+            Sigma_hat_.bottomRows(3).setZero();
+            Sigma_hat_.rightCols(3).setZero();
+            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
+            Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
+            Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
+
+            // Compute transform odom --> base from current state state estimate at time t
+            transf_odom_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
+                                             tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
+            transf_base_odom = transf_odom_base.inverse();
 
             // Back-project new possible landmark (in odom frame)
             aux_lm_num = lm_num_ + 1;
@@ -531,12 +529,10 @@ void EKFLocalization::dataAssociation(){
             map_odom_.push_back(new_lm);
 
             // For each possible landmark j in M
-            int cnt = 0;
             for(auto landmark_j: map_odom_){
                 // TODO: Add exception for tan() values close to n*pi
                 if(epsilon > std::abs((landmark_j(1) - mu_hat_(0)) + (mu_hat_(1) - landmark_j(2)) / std::tan(angleLimit(M_PI/2.0 + mu_hat_(5))))){
-                    predictMeasurement(landmark_j, z_t.at(i), i, corresp_i_list);
-                    cnt += 1;
+                    predictMeasurement(landmark_j, z_t.at(i), i, transf_base_odom, corresp_i_list);
                 }
             }
 
@@ -553,17 +549,20 @@ void EKFLocalization::dataAssociation(){
 
                 // Update landmarks in the map
                 if(lm_num_ >= corresp_i_list.back().i_j_.second){
+                    ROS_INFO("No new landmark");
                     // No new landmark added
                     map_odom_.pop_back();
-                    Sigma_hat_.resize(Sigma_hat_.size1()-3, Sigma_hat_.size2()-3, true);
-                    corresp_i_list.back().H_t_.resize(corresp_i_list.back().H_t_.size1(), corresp_i_list.back().H_t_.size2()-3, true);
+                    Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
+                    corresp_i_list.back().H_t_.conservativeResize(corresp_i_list.back().H_t_.rows(), corresp_i_list.back().H_t_.cols()-3);
                 }
                 else{
                     // New landmark
+                    ROS_INFO("New landmark added");
                     lm_num_ = corresp_i_list.back().i_j_.second;
                     // Increase mu_hat_
+                    Eigen::VectorXd aux_mu = mu_hat_;
                     mu_hat_.resize(mu_hat_.size()+3, true);
-                    std::copy(mu_hat_.begin()+mu_hat_.size()-3, mu_hat_.end(), corresp_i_list.back().landmark_pos_.begin());
+                    mu_hat_ << aux_mu, corresp_i_list.back().landmark_pos_;
                 }
                 // Sequential update
                 sequentialUpdate(corresp_i_list.back());
@@ -571,34 +570,26 @@ void EKFLocalization::dataAssociation(){
             }
         }
         // Make sure mu and sigma have the same size at the end!
-        while(mu_hat_.size() < Sigma_hat_.size1()){
+        while(mu_hat_.size() < Sigma_hat_.rows()){
             ROS_WARN("Sizes of mu and sigma differ!!");
-            Sigma_hat_.resize(Sigma_hat_.size1()-3, Sigma_hat_.size2()-3, true);
+            Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
         }
     }
 }
 
 void EKFLocalization::sequentialUpdate(CorrespondenceClass const& c_i_j){
 
-    using namespace boost::numeric::ublas;
-    matrix<double> K_t_i;
-    matrix<double> H_trans;
-    identity_matrix<double> I(Sigma_hat_.size1());
-    matrix<double> aux_mat;
-
     // Compute Kalman gain
-    H_trans = trans(c_i_j.H_t_);
-    K_t_i = prod(Sigma_hat_, H_trans);
-    K_t_i = prod(K_t_i, c_i_j.S_inverted_);
+    Eigen::MatrixXd K_t_i = Sigma_hat_ * c_i_j.H_t_.transpose() * c_i_j.S_inverted_;
 
     // Update mu_hat and sigma_hat
-    mu_hat_ += prod(K_t_i, c_i_j.nu_);
+    mu_hat_ += K_t_i * c_i_j.nu_;
     mu_hat_(3) = angleLimit(mu_hat_(3));
     mu_hat_(4) = angleLimit(mu_hat_(4));
     mu_hat_(5) = angleLimit(mu_hat_(5));
 
-    aux_mat = (I  - prod(K_t_i, c_i_j.H_t_));
-    Sigma_hat_ = prod(aux_mat, Sigma_hat_);
+    Sigma_hat_ = (Eigen::MatrixXd::Identity(Sigma_hat_.rows(), Sigma_hat_.cols()) - K_t_i * c_i_j.H_t_) * Sigma_hat_;
+    ROS_INFO("Sequential update performed");
 }
 
 void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
@@ -607,9 +598,10 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
     geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg;
     nav_msgs::OdometryPtr gt_msg;
 
+    // TODO: predefine matrices so that they can be allocated in the stack!
     tf::Quaternion q_auv;
-    boost::numeric::ublas::vector<double> u_t = boost::numeric::ublas::vector<double>(6);
-    boost::numeric::ublas::matrix<double> g_t;
+    Eigen::VectorXd u_t(6);
+    Eigen::MatrixXd g_t(6,6);
 
     if(dvl_readings_.size() >= size_dvl_q_ && imu_readings_.size() >= size_imu_q_ && !gt_readings_.empty()){
         // Init filter with initial, true pose (from GPS?)
@@ -665,9 +657,9 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
             if (mu_.size()!= mu_hat_.size()){
                 int n_t = mu_hat_.size() - mu_.size();
                 mu_.resize(mu_.size() + n_t, true);
-                Sigma_.resize(Sigma_.size1() + n_t, Sigma_.size1() + n_t, true);
+                Sigma_.conservativeResize(Sigma_.rows() + n_t, Sigma_.cols() + n_t);
                 std::cout << "Mu updated: " << mu_.size() << std::endl;
-                std::cout << "Sigma updated: " << Sigma_.size1() << std::endl;
+                std::cout << "Sigma updated: " << Sigma_.cols() << std::endl;
                 std::cout << "Number of landmarks: " << lm_num_ << std::endl;
                 // TODO: check that Sigma_ is still semi-definite positive
             }

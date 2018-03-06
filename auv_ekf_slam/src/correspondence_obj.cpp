@@ -9,19 +9,18 @@ CorrespondenceClass::~CorrespondenceClass(){
 
 }
 
-void CorrespondenceClass::computeH(const boost::numeric::ublas::vector<double> &mu_hat,
+void CorrespondenceClass::computeH(const Eigen::VectorXd &mu_hat,
                                    const tf::Vector3 lm_odom, double lm_num_t){
 
     using namespace std;
 
     // Store the landmark position
-    this->landmark_pos_ = boost::numeric::ublas::vector<int>(3);
     this->landmark_pos_(0) = lm_odom.getX();
     this->landmark_pos_(1) = lm_odom.getY();
     this->landmark_pos_(2) = lm_odom.getZ();
 
     // Size H_t_ = 3 x (num of landmarks +1 * size_landmark * size of x_t)
-    H_t_ = boost::numeric::ublas::zero_matrix<double>(3, lm_num_t*3 + 6);
+    H_t_ = Eigen::MatrixXd::Zero(3, lm_num_t*3 + 6);
 
     // Compute high-dimensional map of the jacobian of the measurement model
     // H_t_ has been filled in manually instead of projecting h_t_ to a higher dimension due to the higher cost of the operation
@@ -76,33 +75,29 @@ void CorrespondenceClass::computeH(const boost::numeric::ublas::vector<double> &
 
 }
 
-void CorrespondenceClass::computeMHLDistance(const boost::numeric::ublas::matrix<double> &sigma,
-                                             const boost::numeric::ublas::matrix<double> &Q){
+void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
+                                             const Eigen::MatrixXd &Q){
 
-    using namespace boost::numeric::ublas;
-    matrix<double> mat = prod(H_t_, sigma);
-    matrix<double> S_mat = prod(mat, trans(H_t_)) + Q;
+    Eigen::MatrixXd S_mat = H_t_ * sigma * H_t_.transpose() + Q;
 
-    S_inverted_ = matrix<double> (S_mat.size1(), S_mat.size2());
-    bool inverted = matrices::InvertMatrix(S_mat, S_inverted_);
-    if(!inverted){
-        ROS_ERROR("Error inverting S");
-        return;
-    }
+    // TODO: check if matrix is invertible!
+    S_inverted_ = S_mat.inverse();
+//    if(!inverted){
+//        ROS_ERROR("Error inverting S");
+//        return;
+//    }
 
     // Compute Mahalanobis distance (z_i, z_hat_j)
-    vector<double> aux = prod(trans(nu_), S_inverted_);
-    d_m_ = inner_prod(trans(aux), nu_);
+    d_m_ = nu_.transpose() * S_inverted_ * nu_;
+    std::cout << "MHD computed!: " << d_m_ << std::endl;
 
 }
 
-void CorrespondenceClass::computeNu(const boost::numeric::ublas::vector<double> &z_hat_i,
-                                    const boost::numeric::ublas::vector<double> &z_i){
+void CorrespondenceClass::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){
     nu_ = z_i - z_hat_i;
 }
 
 void CorrespondenceClass::computeLikelihood(){
-    using namespace boost::numeric::ublas;
 
 //    // Calculate the determinant on the first member of the distribution
 //    matrix<double> mat_aux = 2 * M_PI_2 * S_;
