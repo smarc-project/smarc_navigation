@@ -58,7 +58,7 @@ generate_messages(
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES sonar_manipulator noise_kf
+  LIBRARIES sonar_manipulator noise_kf utils_matrices
   CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters
 #  DEPENDS system_lib
 )
@@ -68,6 +68,10 @@ include_directories(
  include
  ${catkin_INCLUDE_DIRS}
 )
+
+add_library(utils_matrices
+    src/utils_matrices.cpp
+    )
 
 add_library(sonar_manipulator
  src/sonar_manipulator.cpp
