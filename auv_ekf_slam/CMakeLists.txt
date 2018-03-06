@@ -80,7 +80,7 @@ add_dependencies(ekf_slam_node
 
 target_link_libraries(ekf_slam_node
     noise_kf
-    utils_matrices
+#    utils_matrices
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
     )
