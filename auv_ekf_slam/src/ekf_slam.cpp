@@ -442,6 +442,7 @@ void EKFLocalization::predictMeasurement(const Eigen::Vector4d &landmark_j,
                                          const Eigen::Vector3d &z_i,
                                          unsigned int i,
                                          const tf::Transform &transf_base_odom,
+                                         const Eigen::MatrixXd &temp_sigma,
                                          std::vector<CorrespondenceClass> &corresp_i_list){
 
     using namespace boost::numeric::ublas;
@@ -462,7 +463,7 @@ void EKFLocalization::predictMeasurement(const Eigen::Vector4d &landmark_j,
     CorrespondenceClass corresp_i_j(i, landmark_j(0));
     corresp_i_j.computeH(mu_hat_, landmark_j_odom, lm_num_ + 1);
     corresp_i_j.computeNu(z_k_hat_base, z_i);
-    corresp_i_j.computeMHLDistance(Sigma_hat_, Q_);
+    corresp_i_j.computeMHLDistance(temp_sigma, Q_);
 
     // Outlier rejection
     if(corresp_i_j.d_m_ < lambda_M_){
@@ -503,6 +504,7 @@ void EKFLocalization::dataAssociation(){
         int aux_lm_num = lm_num_;
         tf::Transform transf_base_odom;
         tf::Transform transf_odom_base;
+        Eigen::MatrixXd temp_sigma(9,9);
 
         // For each observation z_i at time t
         for(unsigned int i = 0; i<z_t.size(); i++){
@@ -528,11 +530,17 @@ void EKFLocalization::dataAssociation(){
             new_lm(3) = new_lm_aux.getZ();
             map_odom_.push_back(new_lm);
 
+            //
+            int j = 0;
+            temp_sigma.block(0,0,6,6) = Sigma_hat_.block(0,0,6,6);
             // For each possible landmark j in M
             for(auto landmark_j: map_odom_){
                 // TODO: Add exception for tan() values close to n*pi
                 if(epsilon > std::abs((landmark_j(1) - mu_hat_(0)) + (mu_hat_(1) - landmark_j(2)) / std::tan(angleLimit(M_PI/2.0 + mu_hat_(5))))){
-                    predictMeasurement(landmark_j, z_t.at(i), i, transf_base_odom, corresp_i_list);
+                    j += 1;
+                    temp_sigma.bottomRows(3) = Sigma_hat_.block((j - 1) * 3 + 6, (j - 1) * 3 + 9, 0, temp_sigma.cols());
+                    temp_sigma.rightCols(3) = Sigma_hat_.block( 0, temp_sigma.rows(), (j - 1) * 3 + 6, (j - 1) * 3 + 9);
+                    predictMeasurement(landmark_j, z_t.at(i), i, transf_base_odom, temp_sigma, corresp_i_list);
                 }
             }
 
@@ -553,7 +561,6 @@ void EKFLocalization::dataAssociation(){
                     // No new landmark added
                     map_odom_.pop_back();
                     Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
-                    corresp_i_list.back().H_t_.conservativeResize(corresp_i_list.back().H_t_.rows(), corresp_i_list.back().H_t_.cols()-3);
                 }
                 else{
                     // New landmark
@@ -565,7 +572,7 @@ void EKFLocalization::dataAssociation(){
                     mu_hat_ << aux_mu, corresp_i_list.back().landmark_pos_;
                 }
                 // Sequential update
-                sequentialUpdate(corresp_i_list.back());
+                sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 corresp_i_list.clear();
             }
         }
@@ -577,10 +584,10 @@ void EKFLocalization::dataAssociation(){
     }
 }
 
-void EKFLocalization::sequentialUpdate(CorrespondenceClass const& c_i_j){
+void EKFLocalization::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd temp_sigma){
 
     // Compute Kalman gain
-    Eigen::MatrixXd K_t_i = Sigma_hat_ * c_i_j.H_t_.transpose() * c_i_j.S_inverted_;
+    Eigen::MatrixXd K_t_i = temp_sigma * c_i_j.H_t_.transpose() * c_i_j.S_inverted_;
 
     // Update mu_hat and sigma_hat
     mu_hat_ += K_t_i * c_i_j.nu_;

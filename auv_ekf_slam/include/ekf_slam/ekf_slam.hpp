@@ -181,7 +181,7 @@ private:
      */
     void predictMeasurement(const Eigen::Vector4d &landmark_j,
                             const Eigen::Vector3d &z_i,
-                            unsigned int i, const tf::Transform &transf_base_odom,
+                            unsigned int i, const tf::Transform &transf_base_odom, const Eigen::MatrixXd &temp_sigma,
                             std::vector<CorrespondenceClass> &ml_i_list);
 
     /**
@@ -195,7 +195,7 @@ private:
      * @param c_i_j
      * Sequential update for a given match observation-landmark
      */
-    void sequentialUpdate(const CorrespondenceClass &c_i_j);
+    void sequentialUpdate(const CorrespondenceClass &c_i_j, Eigen::MatrixXd temp_sigma);
 
 
     /**

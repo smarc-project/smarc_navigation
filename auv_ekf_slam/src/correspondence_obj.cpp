@@ -20,7 +20,7 @@ void CorrespondenceClass::computeH(const Eigen::VectorXd &mu_hat,
     this->landmark_pos_(2) = lm_odom.getZ();
 
     // Size H_t_ = 3 x (num of landmarks +1 * size_landmark * size of x_t)
-    H_t_ = Eigen::MatrixXd::Zero(3, lm_num_t*3 + 6);
+    H_t_ = Eigen::MatrixXd(3, 9);
 
     // Compute high-dimensional map of the jacobian of the measurement model
     // H_t_ has been filled in manually instead of projecting h_t_ to a higher dimension due to the higher cost of the operation
@@ -61,17 +61,17 @@ void CorrespondenceClass::computeH(const Eigen::VectorXd &mu_hat,
             - lm_odom.getX()*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5)) - mu_hat(1)*cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4))
             + mu_hat(0)*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5));
 
-    H_t_(0,(i_j_.second - 1) * 3 + 6) = cos(mu_hat(4))*cos(mu_hat(5));
-    H_t_(0,(i_j_.second - 1) * 3 + 6 + 1) = cos(mu_hat(4))*sin(mu_hat(5));
-    H_t_(0,(i_j_.second - 1) * 3 + 6 + 2) = -sin(mu_hat(4));
+    H_t_(0,6) = cos(mu_hat(4))*cos(mu_hat(5));
+    H_t_(0,7) = cos(mu_hat(4))*sin(mu_hat(5));
+    H_t_(0,8) = -sin(mu_hat(4));
 
-    H_t_(1,(i_j_.second - 1) * 3 + 6) = cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3)) - cos(mu_hat(3))*sin(mu_hat(5));
-    H_t_(1,(i_j_.second - 1) * 3 + 6 + 1) = cos(mu_hat(3))*cos(mu_hat(5)) + sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5));
-    H_t_(1,(i_j_.second - 1) * 3 + 6 + 2) = cos(mu_hat(4))*sin(mu_hat(3));
+    H_t_(1,6) = cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3)) - cos(mu_hat(3))*sin(mu_hat(5));
+    H_t_(1,7) = cos(mu_hat(3))*cos(mu_hat(5)) + sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5));
+    H_t_(1,8) = cos(mu_hat(4))*sin(mu_hat(3));
 
-    H_t_(2,(i_j_.second - 1) * 3 + 6) = sin(mu_hat(3))*sin(mu_hat(5)) + cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4));
-    H_t_(2,(i_j_.second - 1) * 3 + 6 + 1) = cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5)) - cos(mu_hat(5))*sin(mu_hat(3));
-    H_t_(2,(i_j_.second - 1) * 3 + 6 + 2) = cos(mu_hat(4))*cos(mu_hat(3));
+    H_t_(2,6) = sin(mu_hat(3))*sin(mu_hat(5)) + cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4));
+    H_t_(2,7) = cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5)) - cos(mu_hat(5))*sin(mu_hat(3));
+    H_t_(2,8) = cos(mu_hat(4))*cos(mu_hat(3));
 
 }
 
