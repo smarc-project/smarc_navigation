@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(auv_ekf_localization)
+project(auv_ekf_slam)
 
 # check c++14 / c++0x
 include(CheckCXXCompilerFlag)
@@ -15,6 +15,10 @@ else()
     message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++14 or C++11 support. Please use a different C++ compiler.")
 endif()
 
+# Set debug flags
+# Better to compile catkin_make -DCMAKE_BUILD_TYPE=Debug
+#set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG} -Wall)
+#set(ROS_BUILD_TYPE Debug)
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
@@ -26,6 +30,7 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     message_filters
     pcl_ros
+    auv_ekf_localization
  )
 
 find_package(PCL REQUIRED)
@@ -42,13 +47,7 @@ if(Boost_FOUND)
 endif()
 
 # setup.py for map_provider_node.py
-catkin_python_setup()
-
-#add_service_files(
-#    DIRECTORY srv
-#    FILES
-#    map_ekf.srv
-#)
+#catkin_python_setup()
 
 generate_messages(
     DEPENDENCIES
@@ -58,71 +57,33 @@ generate_messages(
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES sonar_manipulator noise_kf utils_matrices
+  LIBRARIES
   CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters
 #  DEPENDS system_lib
 )
-
 
 include_directories(
  include
  ${catkin_INCLUDE_DIRS}
 )
 
-add_library(utils_matrices
-    src/utils_matrices.cpp
-    )
-
-add_library(sonar_manipulator
- src/sonar_manipulator.cpp
-)
-
-add_library(noise_kf
-    src/noise_oneD_kf.cpp
-)
-
-#add_library(mbes_receptor
-#    src/mbes_receptor.cpp
-#    )
-
-add_executable(ekf_localization_node
+add_executable(ekf_slam_node
     src/correspondence_obj.cpp
-    src/ekf_localization.cpp
-    src/ekf_localization_node.cpp
-    src/mbes_receptor.cpp
+    src/ekf_slam.cpp
+    src/ekf_slam_node.cpp
     )
 
-add_dependencies(ekf_localization_node
+add_dependencies(ekf_slam_node
     ${${PROJECT_NAME}_EXPORTED_TARGETS}
     ${catkin_EXPORTED_TARGETS}
     )
 
-target_link_libraries(ekf_localization_node
+target_link_libraries(ekf_slam_node
     noise_kf
-    utils_matrices
+#    utils_matrices
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
     )
-
-add_executable(mbes_receptor_node
-    src/mbes_receptor_node.cpp
-    src/mbes_receptor.cpp
-    )
-
-add_dependencies(mbes_receptor_node
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-    )
-
-target_link_libraries(mbes_receptor_node
-    ${catkin_LIBRARIES}
-    ${Boost_LIBRARIES}
-    ${PCL_LIBRARIES}
-    sonar_manipulator
-    utils_matrices
-    )
-
-
 
 
 

@@ -4,12 +4,12 @@
       <arg name="run_navigation" default="false"/>
 
         <group ns="$(arg namespace)">
-            <node pkg="auv_ekf_localization" name="auv_navigation_node" type="ekf_localization_node" output="screen">
-                <param name="/$(arg namespace)/system_freq" value="50"/>
-                <param name="/$(arg namespace)/delta_outlier_reject" value="0.9"/>
+            <node pkg="auv_ekf_slam" name="auv_navigation_node" type="ekf_slam_node" output="screen">
+                <param name="/$(arg namespace)/system_freq" value="10"/>
+                <param name="/$(arg namespace)/delta_outlier_reject" value="0.99"/>
                 <rosparam param="/$(arg namespace)/init_pose_cov_diag">[2.0, 2.0, 2.0, 1.0, 1.0, 1.0]</rosparam>
-                <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[1, 1, 1, 0.001, 0.001, 0.001]</rosparam>
-                <rosparam param="/$(arg namespace)/meas_noise_cov_diag">[40.0, 45.0, 40.0]</rosparam>
+                <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[0.01, 1, 1, 0.001, 0.001, 0.001]</rosparam>
+                <rosparam param="/$(arg namespace)/meas_noise_cov_diag">[1000.0, 80.0, 80.0]</rosparam>
                 <!--Topics-->
                 <param name="imu_topic" value="/$(arg namespace)/imu"/>
                 <param name="dvl_topic" value="/$(arg namespace)/dvl_twist"/>
