@@ -461,7 +461,7 @@ void EKFLocalization::predictMeasurement(const Eigen::Vector4d &landmark_j,
 
     // Compute ML of observation z_i with M_j
     CorrespondenceClass corresp_i_j(i, landmark_j(0));
-    corresp_i_j.computeH(mu_hat_, landmark_j_odom, lm_num_ + 1);
+    corresp_i_j.computeH(mu_hat_, landmark_j_odom);
     corresp_i_j.computeNu(z_k_hat_base, z_i);
     corresp_i_j.computeMHLDistance(temp_sigma, Q_);
 
@@ -470,7 +470,7 @@ void EKFLocalization::predictMeasurement(const Eigen::Vector4d &landmark_j,
         corresp_i_list.push_back(std::move(corresp_i_j));
     }
     else{
-        ROS_INFO_NAMED(node_name_, "Outlier rejected");
+        ROS_DEBUG_NAMED(node_name_, "Outlier rejected");
     }
 }
 
@@ -501,21 +501,13 @@ void EKFLocalization::dataAssociation(){
         std::vector<CorrespondenceClass> corresp_i_list;
         Eigen::Vector4d new_lm;
         tf::Vector3 new_lm_aux;
-        int aux_lm_num = lm_num_;
+        int aux_lm_num;
         tf::Transform transf_base_odom;
         tf::Transform transf_odom_base;
         Eigen::MatrixXd temp_sigma(9,9);
 
         // For each observation z_i at time t
         for(unsigned int i = 0; i<z_t.size(); i++){
-            // Increase Sigma_hat_
-            Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
-            Sigma_hat_.bottomRows(3).setZero();
-            Sigma_hat_.rightCols(3).setZero();
-            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
-            Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
-            Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
-
             // Compute transform odom --> base from current state state estimate at time t
             transf_odom_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
                                              tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
@@ -530,7 +522,14 @@ void EKFLocalization::dataAssociation(){
             new_lm(3) = new_lm_aux.getZ();
             map_odom_.push_back(new_lm);
 
-            //
+            // Increase Sigma_hat_
+            Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
+            Sigma_hat_.bottomRows(3).setZero();
+            Sigma_hat_.rightCols(3).setZero();
+            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
+            Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
+            Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
+
             int j = 0;
             temp_sigma.block(0,0,6,6) = Sigma_hat_.block(0,0,6,6);
             // For each possible landmark j in M
@@ -538,8 +537,8 @@ void EKFLocalization::dataAssociation(){
                 // TODO: Add exception for tan() values close to n*pi
                 if(epsilon > std::abs((landmark_j(1) - mu_hat_(0)) + (mu_hat_(1) - landmark_j(2)) / std::tan(angleLimit(M_PI/2.0 + mu_hat_(5))))){
                     j += 1;
-                    temp_sigma.bottomRows(3) = Sigma_hat_.block((j - 1) * 3 + 6, (j - 1) * 3 + 9, 0, temp_sigma.cols());
-                    temp_sigma.rightCols(3) = Sigma_hat_.block( 0, temp_sigma.rows(), (j - 1) * 3 + 6, (j - 1) * 3 + 9);
+                    temp_sigma.bottomRows(3) = Sigma_hat_.block((j - 1) * 3 + 6, 0, 3, temp_sigma.cols());
+                    temp_sigma.rightCols(3) = Sigma_hat_.block(0, (j - 1) * 3 + 6, temp_sigma.rows(), 3);
                     predictMeasurement(landmark_j, z_t.at(i), i, transf_base_odom, temp_sigma, corresp_i_list);
                 }
             }
@@ -557,14 +556,14 @@ void EKFLocalization::dataAssociation(){
 
                 // Update landmarks in the map
                 if(lm_num_ >= corresp_i_list.back().i_j_.second){
-                    ROS_INFO("No new landmark");
                     // No new landmark added
                     map_odom_.pop_back();
                     Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
+                    temp_sigma.bottomRows(3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
+                    temp_sigma.rightCols(3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
                 }
                 else{
                     // New landmark
-                    ROS_INFO("New landmark added");
                     lm_num_ = corresp_i_list.back().i_j_.second;
                     // Increase mu_hat_
                     Eigen::VectorXd aux_mu = mu_hat_;
@@ -587,16 +586,23 @@ void EKFLocalization::dataAssociation(){
 void EKFLocalization::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd temp_sigma){
 
     // Compute Kalman gain
+    temp_sigma.bottomRows(3) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
+    temp_sigma.rightCols(3) = Sigma_hat_.block( 0, (c_i_j.i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
+
     Eigen::MatrixXd K_t_i = temp_sigma * c_i_j.H_t_.transpose() * c_i_j.S_inverted_;
 
     // Update mu_hat and sigma_hat
-    mu_hat_ += K_t_i * c_i_j.nu_;
+    Eigen::VectorXd aux_vec = K_t_i * c_i_j.nu_;
+    mu_hat_.head(6) += aux_vec.head(6);
     mu_hat_(3) = angleLimit(mu_hat_(3));
     mu_hat_(4) = angleLimit(mu_hat_(4));
     mu_hat_(5) = angleLimit(mu_hat_(5));
+    mu_hat_.segment((c_i_j.i_j_.second - 1) * 3 + 6, 3) += aux_vec.segment(6, 3);
 
-    Sigma_hat_ = (Eigen::MatrixXd::Identity(Sigma_hat_.rows(), Sigma_hat_.cols()) - K_t_i * c_i_j.H_t_) * Sigma_hat_;
-    ROS_INFO("Sequential update performed");
+    Eigen::MatrixXd aux_mat = (Eigen::MatrixXd::Identity(temp_sigma.rows(), temp_sigma.cols()) - K_t_i * c_i_j.H_t_) * temp_sigma;
+    Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);
+    Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3) = aux_mat.block(0, aux_mat.cols()-3, aux_mat.rows(), 3);
+    Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols()) = aux_mat.block(aux_mat.rows()-3, 0, 3, aux_mat.cols());
 }
 
 void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){

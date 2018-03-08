@@ -10,7 +10,7 @@ CorrespondenceClass::~CorrespondenceClass(){
 }
 
 void CorrespondenceClass::computeH(const Eigen::VectorXd &mu_hat,
-                                   const tf::Vector3 lm_odom, double lm_num_t){
+                                   const tf::Vector3 lm_odom){
 
     using namespace std;
 
@@ -78,7 +78,7 @@ void CorrespondenceClass::computeH(const Eigen::VectorXd &mu_hat,
 void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
                                              const Eigen::MatrixXd &Q){
 
-    Eigen::MatrixXd S_mat = H_t_ * sigma * H_t_.transpose() + Q;
+    Eigen::Matrix3d S_mat = H_t_ * sigma * H_t_.transpose() + Q;
 
     // TODO: check if matrix is invertible!
     S_inverted_ = S_mat.inverse();
@@ -89,8 +89,6 @@ void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
 
     // Compute Mahalanobis distance (z_i, z_hat_j)
     d_m_ = nu_.transpose() * S_inverted_ * nu_;
-    std::cout << "MHD computed!: " << d_m_ << std::endl;
-
 }
 
 void CorrespondenceClass::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){

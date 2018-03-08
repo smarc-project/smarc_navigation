@@ -60,7 +60,7 @@ public:
     ~CorrespondenceClass();
 
     void computeH(const Eigen::VectorXd &mu_hat,
-                  const tf::Vector3 lm_odom, double N_t);
+                  const tf::Vector3 lm_odom);
     /**
      * @brief computeS
      * @param sigma
