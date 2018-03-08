@@ -443,6 +443,7 @@ void EKFLocalization::predictMeasurement(const Eigen::Vector4d &landmark_j,
                                          unsigned int i,
                                          const tf::Transform &transf_base_odom,
                                          const Eigen::MatrixXd &temp_sigma,
+                                         h_comp h_comps,
                                          std::vector<CorrespondenceClass> &corresp_i_list){
 
     using namespace boost::numeric::ublas;
@@ -461,7 +462,7 @@ void EKFLocalization::predictMeasurement(const Eigen::Vector4d &landmark_j,
 
     // Compute ML of observation z_i with M_j
     CorrespondenceClass corresp_i_j(i, landmark_j(0));
-    corresp_i_j.computeH(mu_hat_, landmark_j_odom);
+    corresp_i_j.computeH(h_comps, landmark_j_odom);
     corresp_i_j.computeNu(z_k_hat_base, z_i);
     corresp_i_j.computeMHLDistance(temp_sigma, Q_);
 
@@ -530,8 +531,24 @@ void EKFLocalization::dataAssociation(){
             Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 60;
             Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 60;
 
+
+            // Store current mu_hat_ estimate in struct for faster computation of H in DA
+            h_comp h_comps;
+            {
+                using namespace std;
+                h_comps.mu_0 = mu_hat_(0);
+                h_comps.mu_1 = mu_hat_(1);
+                h_comps.mu_2 = mu_hat_(2);
+                h_comps.c_3 = cos(mu_hat_(3));
+                h_comps.c_4 = cos(mu_hat_(4));
+                h_comps.c_5 = cos(mu_hat_(5));
+                h_comps.s_3 = sin(mu_hat_(3));
+                h_comps.s_4 = sin(mu_hat_(4));
+                h_comps.s_5 = sin(mu_hat_(5));
+            }
             int j = 0;
             temp_sigma.block(0,0,6,6) = Sigma_hat_.block(0,0,6,6);
+
             // For each possible landmark j in M
             for(auto landmark_j: map_odom_){
                 // TODO: Add exception for tan() values close to n*pi
@@ -539,7 +556,7 @@ void EKFLocalization::dataAssociation(){
                     j += 1;
                     temp_sigma.bottomRows(3) = Sigma_hat_.block((j - 1) * 3 + 6, 0, 3, temp_sigma.cols());
                     temp_sigma.rightCols(3) = Sigma_hat_.block(0, (j - 1) * 3 + 6, temp_sigma.rows(), 3);
-                    predictMeasurement(landmark_j, z_t.at(i), i, transf_base_odom, temp_sigma, corresp_i_list);
+                    predictMeasurement(landmark_j, z_t.at(i), i, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
                 }
             }
 

@@ -181,7 +181,7 @@ private:
      */
     void predictMeasurement(const Eigen::Vector4d &landmark_j,
                             const Eigen::Vector3d &z_i,
-                            unsigned int i, const tf::Transform &transf_base_odom, const Eigen::MatrixXd &temp_sigma,
+                            unsigned int i, const tf::Transform &transf_base_odom, const Eigen::MatrixXd &temp_sigma, h_comp h_comps,
                             std::vector<CorrespondenceClass> &ml_i_list);
 
     /**

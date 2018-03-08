@@ -9,7 +9,7 @@ CorrespondenceClass::~CorrespondenceClass(){
 
 }
 
-void CorrespondenceClass::computeH(const Eigen::VectorXd &mu_hat,
+void CorrespondenceClass::computeH(const h_comp h_comps,
                                    const tf::Vector3 lm_odom){
 
     using namespace std;
@@ -25,53 +25,53 @@ void CorrespondenceClass::computeH(const Eigen::VectorXd &mu_hat,
     // Compute high-dimensional map of the jacobian of the measurement model
     // H_t_ has been filled in manually instead of projecting h_t_ to a higher dimension due to the higher cost of the operation
     // and the sparsity of H_t_
-    H_t_(0,0) = -cos(mu_hat(4))*cos(mu_hat(5));
-    H_t_(0,1) = -cos(mu_hat(4))*sin(mu_hat(5));
-    H_t_(0,2) = sin(mu_hat(4));
+    H_t_(0,0) = -h_comps.c_4*h_comps.c_5;
+    H_t_(0,1) = -h_comps.c_4*h_comps.s_5;
+    H_t_(0,2) = h_comps.s_4;
     H_t_(0,3) = 0;
-    H_t_(0,4) = mu_hat(2)*cos(mu_hat(4)) - lm_odom.getZ()*cos(mu_hat(4)) - lm_odom.getX()*cos(mu_hat(5))*sin(mu_hat(4)) - lm_odom.getY()*sin(mu_hat(4))
-            *sin(mu_hat(5)) + mu_hat(0)*cos(mu_hat(5))*sin(mu_hat(4)) + mu_hat(1)*sin(mu_hat(4))*sin(mu_hat(5));
-    H_t_(0,5) = cos(mu_hat(4))*(lm_odom.getY()*cos(mu_hat(5)) - lm_odom.getX()*sin(mu_hat(5)) - mu_hat(1)*cos(mu_hat(5)) + mu_hat(0)*sin(mu_hat(5)));
+    H_t_(0,4) = h_comps.mu_2*h_comps.c_4 - lm_odom.getZ()*h_comps.c_4 - lm_odom.getX()*h_comps.c_5*h_comps.s_4 - lm_odom.getY()*h_comps.s_4
+            *h_comps.s_5 + h_comps.mu_0*h_comps.c_5*h_comps.s_4 + h_comps.mu_1*h_comps.s_4*h_comps.s_5;
+    H_t_(0,5) = h_comps.c_4*(lm_odom.getY()*h_comps.c_5 - lm_odom.getX()*h_comps.s_5 - h_comps.mu_1*h_comps.c_5 + h_comps.mu_0*h_comps.s_5);
 
-    H_t_(1,0) = cos(mu_hat(3))*sin(mu_hat(5)) - cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3));
-    H_t_(1,1) = - cos(mu_hat(3))*cos(mu_hat(5)) - sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5));
-    H_t_(1,2) = -cos(mu_hat(4))*sin(mu_hat(3));
-    H_t_(1,3) = lm_odom.getZ()*cos(mu_hat(4))*cos(mu_hat(3)) - mu_hat(2)*cos(mu_hat(4))*cos(mu_hat(3)) - lm_odom.getY()*cos(mu_hat(5))*sin(mu_hat(3))
-            + lm_odom.getX()*sin(mu_hat(3))*sin(mu_hat(5)) + mu_hat(1)*cos(mu_hat(5))*sin(mu_hat(3)) - mu_hat(0)*sin(mu_hat(3))*sin(mu_hat(5))
-            + lm_odom.getX()*cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4)) + lm_odom.getY()*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5))
-            - mu_hat(0)*cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4)) - mu_hat(1)*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5));
-    H_t_(1,4) = -sin(mu_hat(3))*(lm_odom.getZ()*sin(mu_hat(4)) - mu_hat(2)*sin(mu_hat(4)) - lm_odom.getX()*cos(mu_hat(4))*cos(mu_hat(5))
-              - lm_odom.getY()*cos(mu_hat(4))*sin(mu_hat(5)) + mu_hat(0)*cos(mu_hat(4))*cos(mu_hat(5)) + mu_hat(1)*cos(mu_hat(4))*sin(mu_hat(5)));
-    H_t_(1,5) = mu_hat(0)*cos(mu_hat(3))*cos(mu_hat(5)) - lm_odom.getY()*cos(mu_hat(3))*sin(mu_hat(5)) - lm_odom.getX()*cos(mu_hat(3))*cos(mu_hat(5))
-            + mu_hat(1)*cos(mu_hat(3))*sin(mu_hat(5)) + lm_odom.getY()*cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3))
-            - lm_odom.getX()*sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5)) - mu_hat(1)*cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3))
-            + mu_hat(0)*sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5));
+    H_t_(1,0) = h_comps.c_3*h_comps.s_5 - h_comps.c_5*h_comps.s_4*h_comps.s_3;
+    H_t_(1,1) = - h_comps.c_3*h_comps.c_5 - h_comps.s_4*h_comps.s_3*h_comps.s_5;
+    H_t_(1,2) = -h_comps.c_4*h_comps.s_3;
+    H_t_(1,3) = lm_odom.getZ()*h_comps.c_4*h_comps.c_3 - h_comps.mu_2*h_comps.c_4*h_comps.c_3 - lm_odom.getY()*h_comps.c_5*h_comps.s_3
+            + lm_odom.getX()*h_comps.s_3*h_comps.s_5 + h_comps.mu_1*h_comps.c_5*h_comps.s_3 - h_comps.mu_0*h_comps.s_3*h_comps.s_5
+            + lm_odom.getX()*h_comps.c_3*h_comps.c_5*h_comps.s_4 + lm_odom.getY()*h_comps.c_3*h_comps.s_4*h_comps.s_5
+            - h_comps.mu_0*h_comps.c_3*h_comps.c_5*h_comps.s_4 - h_comps.mu_1*h_comps.c_3*h_comps.s_4*h_comps.s_5;
+    H_t_(1,4) = -h_comps.s_3*(lm_odom.getZ()*h_comps.s_4 - h_comps.mu_2*h_comps.s_4 - lm_odom.getX()*h_comps.c_4*h_comps.c_5
+              - lm_odom.getY()*h_comps.c_4*h_comps.s_5 + h_comps.mu_0*h_comps.c_4*h_comps.c_5 + h_comps.mu_1*h_comps.c_4*h_comps.s_5);
+    H_t_(1,5) = h_comps.mu_0*h_comps.c_3*h_comps.c_5 - lm_odom.getY()*h_comps.c_3*h_comps.s_5 - lm_odom.getX()*h_comps.c_3*h_comps.c_5
+            + h_comps.mu_1*h_comps.c_3*h_comps.s_5 + lm_odom.getY()*h_comps.c_5*h_comps.s_4*h_comps.s_3
+            - lm_odom.getX()*h_comps.s_4*h_comps.s_3*h_comps.s_5 - h_comps.mu_1*h_comps.c_5*h_comps.s_4*h_comps.s_3
+            + h_comps.mu_0*h_comps.s_4*h_comps.s_3*h_comps.s_5;
 
-    H_t_(2,0) = - sin(mu_hat(3))*sin(mu_hat(5)) - cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4));
-    H_t_(2,1) = cos(mu_hat(5))*sin(mu_hat(3)) - cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5));
-    H_t_(2,2) = -cos(mu_hat(4))*cos(mu_hat(3));
-    H_t_(2,3) = lm_odom.getX()*cos(mu_hat(3))*sin(mu_hat(5)) - lm_odom.getZ()*cos(mu_hat(4))*sin(mu_hat(3)) - lm_odom.getY()*cos(mu_hat(3))*cos(mu_hat(5))
-            + mu_hat(1)*cos(mu_hat(3))*cos(mu_hat(5)) + mu_hat(2)*cos(mu_hat(4))*sin(mu_hat(3)) - mu_hat(0)*cos(mu_hat(3))*sin(mu_hat(5))
-            - lm_odom.getX()*cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3)) - lm_odom.getY()*sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5))
-            + mu_hat(0)*cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3)) + mu_hat(1)*sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5));
-    H_t_(2,4) = -cos(mu_hat(3))*(lm_odom.getZ()*sin(mu_hat(4)) - mu_hat(2)*sin(mu_hat(4)) - lm_odom.getX()*cos(mu_hat(4))*cos(mu_hat(5))
-              - lm_odom.getY()*cos(mu_hat(4))*sin(mu_hat(5)) + mu_hat(0)*cos(mu_hat(4))*cos(mu_hat(5)) + mu_hat(1)*cos(mu_hat(4))*sin(mu_hat(5)));
-    H_t_(2,5) = lm_odom.getX()*cos(mu_hat(5))*sin(mu_hat(3)) + lm_odom.getY()*sin(mu_hat(3))*sin(mu_hat(5)) - mu_hat(0)*cos(mu_hat(5))*sin(mu_hat(3))
-            - mu_hat(1)*sin(mu_hat(3))*sin(mu_hat(5)) + lm_odom.getY()*cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4))
-            - lm_odom.getX()*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5)) - mu_hat(1)*cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4))
-            + mu_hat(0)*cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5));
+    H_t_(2,0) = - h_comps.s_3*h_comps.s_5 - h_comps.c_3*h_comps.c_5*h_comps.s_4;
+    H_t_(2,1) = h_comps.c_5*h_comps.s_3 - h_comps.c_3*h_comps.s_4*h_comps.s_5;
+    H_t_(2,2) = -h_comps.c_4*h_comps.c_3;
+    H_t_(2,3) = lm_odom.getX()*h_comps.c_3*h_comps.s_5 - lm_odom.getZ()*h_comps.c_4*h_comps.s_3 - lm_odom.getY()*h_comps.c_3*h_comps.c_5
+            + h_comps.mu_1*h_comps.c_3*h_comps.c_5 + h_comps.mu_2*h_comps.c_4*h_comps.s_3 - h_comps.mu_0*h_comps.c_3*h_comps.s_5
+            - lm_odom.getX()*h_comps.c_5*h_comps.s_4*h_comps.s_3 - lm_odom.getY()*h_comps.s_4*h_comps.s_3*h_comps.s_5
+            + h_comps.mu_0*h_comps.c_5*h_comps.s_4*h_comps.s_3 + h_comps.mu_1*h_comps.s_4*h_comps.s_3*h_comps.s_5;
+    H_t_(2,4) = -h_comps.c_3*(lm_odom.getZ()*h_comps.s_4 - h_comps.mu_2*h_comps.s_4 - lm_odom.getX()*h_comps.c_4*h_comps.c_5
+              - lm_odom.getY()*h_comps.c_4*h_comps.s_5 + h_comps.mu_0*h_comps.c_4*h_comps.c_5 + h_comps.mu_1*h_comps.c_4*h_comps.s_5);
+    H_t_(2,5) = lm_odom.getX()*h_comps.c_5*h_comps.s_3 + lm_odom.getY()*h_comps.s_3*h_comps.s_5 - h_comps.mu_0*h_comps.c_5*h_comps.s_3
+            - h_comps.mu_1*h_comps.s_3*h_comps.s_5 + lm_odom.getY()*h_comps.c_3*h_comps.c_5*h_comps.s_4
+            - lm_odom.getX()*h_comps.c_3*h_comps.s_4*h_comps.s_5 - h_comps.mu_1*h_comps.c_3*h_comps.c_5*h_comps.s_4
+            + h_comps.mu_0*h_comps.c_3*h_comps.s_4*h_comps.s_5;
 
-    H_t_(0,6) = cos(mu_hat(4))*cos(mu_hat(5));
-    H_t_(0,7) = cos(mu_hat(4))*sin(mu_hat(5));
-    H_t_(0,8) = -sin(mu_hat(4));
+    H_t_(0,6) = h_comps.c_4*h_comps.c_5;
+    H_t_(0,7) = h_comps.c_4*h_comps.s_5;
+    H_t_(0,8) = -h_comps.s_4;
 
-    H_t_(1,6) = cos(mu_hat(5))*sin(mu_hat(4))*sin(mu_hat(3)) - cos(mu_hat(3))*sin(mu_hat(5));
-    H_t_(1,7) = cos(mu_hat(3))*cos(mu_hat(5)) + sin(mu_hat(4))*sin(mu_hat(3))*sin(mu_hat(5));
-    H_t_(1,8) = cos(mu_hat(4))*sin(mu_hat(3));
+    H_t_(1,6) = h_comps.c_5*h_comps.s_4*h_comps.s_3 - h_comps.c_3*h_comps.s_5;
+    H_t_(1,7) = h_comps.c_3*h_comps.c_5 + h_comps.s_4*h_comps.s_3*h_comps.s_5;
+    H_t_(1,8) = h_comps.c_4*h_comps.s_3;
 
-    H_t_(2,6) = sin(mu_hat(3))*sin(mu_hat(5)) + cos(mu_hat(3))*cos(mu_hat(5))*sin(mu_hat(4));
-    H_t_(2,7) = cos(mu_hat(3))*sin(mu_hat(4))*sin(mu_hat(5)) - cos(mu_hat(5))*sin(mu_hat(3));
-    H_t_(2,8) = cos(mu_hat(4))*cos(mu_hat(3));
+    H_t_(2,6) = h_comps.s_3*h_comps.s_5 + h_comps.c_3*h_comps.c_5*h_comps.s_4;
+    H_t_(2,7) = h_comps.c_3*h_comps.s_4*h_comps.s_5 - h_comps.c_5*h_comps.s_3;
+    H_t_(2,8) = h_comps.c_4*h_comps.c_3;
 
 }
 
