@@ -526,9 +526,9 @@ void EKFLocalization::dataAssociation(){
             Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
             Sigma_hat_.bottomRows(3).setZero();
             Sigma_hat_.rightCols(3).setZero();
-            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
-            Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
-            Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
+            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 60;  // TODO: initialize with uncertainty on the measurement in x,y,z
+            Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 60;
+            Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 60;
 
             int j = 0;
             temp_sigma.block(0,0,6,6) = Sigma_hat_.block(0,0,6,6);

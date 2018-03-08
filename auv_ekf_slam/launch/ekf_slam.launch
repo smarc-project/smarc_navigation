@@ -9,7 +9,7 @@
                 <param name="/$(arg namespace)/delta_outlier_reject" value="0.99"/>
                 <rosparam param="/$(arg namespace)/init_pose_cov_diag">[2.0, 2.0, 2.0, 1.0, 1.0, 1.0]</rosparam>
                 <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[0.01, 1, 1, 0.001, 0.001, 0.001]</rosparam>
-                <rosparam param="/$(arg namespace)/meas_noise_cov_diag">[1000.0, 60.0, 40.0]</rosparam>
+                <rosparam param="/$(arg namespace)/meas_noise_cov_diag">[1000.0, 80.0, 80.0]</rosparam>
                 <!--Topics-->
                 <param name="imu_topic" value="/$(arg namespace)/imu"/>
                 <param name="dvl_topic" value="/$(arg namespace)/dvl_twist"/>
