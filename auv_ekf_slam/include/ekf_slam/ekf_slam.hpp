@@ -101,7 +101,6 @@ private:
     std::deque<nav_msgs::Odometry> gt_readings_;
     std::deque<geometry_msgs::PoseArray> measurements_t_;
     boost::mutex msg_lock_;
-    std::vector<Eigen::Vector4d> map_odom_;
     bool init_filter_;
 
     // System state variables
@@ -179,9 +178,9 @@ private:
      * @param ml_i_list
      * Measurement prediction for a given pair measurement-landmark at time t
      */
-    void predictMeasurement(const Eigen::Vector4d &landmark_j,
+    void predictMeasurement(const Eigen::Vector3d &landmark_j,
                             const Eigen::Vector3d &z_i,
-                            unsigned int i, const tf::Transform &transf_base_odom, const Eigen::MatrixXd &temp_sigma, h_comp h_comps,
+                            unsigned int i, unsigned int j, const tf::Transform &transf_base_odom, const Eigen::MatrixXd &temp_sigma, h_comp h_comps,
                             std::vector<CorrespondenceClass> &ml_i_list);
 
     /**
@@ -202,7 +201,7 @@ private:
      * @brief createMapMarkers
      * Publishes the map as an array of markers for visualization in RVIZ
      */
-    void updateMapMarkers(std::vector<Eigen::Vector4d> map, double color);
+    void updateMapMarkers(double color);
 
     /**
      * @brief EKFLocalization::sendOutput
