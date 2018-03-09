@@ -5,7 +5,7 @@
 
         <group ns="$(arg namespace)">
             <node pkg="auv_ekf_slam" name="auv_navigation_node" type="ekf_slam_node" output="screen">
-                <param name="/$(arg namespace)/system_freq" value="10"/>
+                <param name="/$(arg namespace)/system_freq" value="1"/>
                 <param name="/$(arg namespace)/delta_outlier_reject" value="0.99"/>
                 <rosparam param="/$(arg namespace)/init_pose_cov_diag">[2.0, 2.0, 2.0, 1.0, 1.0, 1.0]</rosparam>
                 <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[0.01, 1, 1, 0.001, 0.001, 0.001]</rosparam>
@@ -41,6 +41,14 @@
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
             </node>
+
+<!--            <node pkg="rfs_slam" name="detect_rocks" type="detect_rocks" output="screen">
+                <param name="base_frame" value="/$(arg namespace)/base_link"/>
+                <param name="fls_frame" value="/$(arg namespace)/forward_sonardown_link"/>
+                <param name="image_raw_sonar" value="/$(arg namespace)/depth/image_raw_raw_sonar"/>
+                <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
+            </node>-->
+
 
             <!--For experiments-->
             <!--<node pkg="rosbag" type="record" name="experiment_bag" output="screen"

@@ -159,14 +159,11 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
     std::vector<Eigen::Vector4d> map_world;
     if(gazebo_client_.call(world_prop_srv)){
         int id = 0;
-        Eigen::Vector4d aux_vec;
         for(auto landmark_name: world_prop_srv.response.model_names){
             // Get poses of all objects except basic setup
             if(landmark_name != "lolo_auv" && landmark_name != "ned" && landmark_name != "ocean" && landmark_name != "dummy_laser"){
                 landmark_state_srv.request.model_name = landmark_name;
                 if(landmarks_client_.call(landmark_state_srv)){
-                    aux_vec(0) = id;
-
                     // Store map in world frame
 //                    aux_vec(1) = landmark_state_srv.response.pose.position.x;
 //                    aux_vec(2) = landmark_state_srv.response.pose.position.y;
@@ -178,10 +175,10 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
                                            landmark_state_srv.response.pose.position.y,
                                            landmark_state_srv.response.pose.position.z);
                     lm_odom = transf_odom_world_ * lm_world;
-                    aux_vec(1) = lm_odom.x();
-                    aux_vec(2) = lm_odom.y();
-                    aux_vec(3) = lm_odom.z();
-                    map_world.push_back(aux_vec);
+                    map_world.push_back(Eigen::Vector4d(id,
+                                                        lm_odom.x(),
+                                                        lm_odom.y(),
+                                                        lm_odom.z()));
                     id++;
                 }
             }
@@ -455,10 +452,9 @@ void EKFLocalization::predictMeasurement(const Eigen::Vector4d &landmark_j,
                                               landmark_j(3));
 
     tf::Vector3 z_hat_base = transf_base_odom * landmark_j_odom;
-    Eigen::Vector3d z_k_hat_base;
-    z_k_hat_base(0) = z_hat_base.getX();
-    z_k_hat_base(1) = z_hat_base.getY();
-    z_k_hat_base(2) = z_hat_base.getZ();
+    Eigen::Vector3d z_k_hat_base( z_hat_base.getX(),
+                                  z_hat_base.getY(),
+                                  z_hat_base.getZ());
 
     // Compute ML of observation z_i with M_j
     CorrespondenceClass corresp_i_j(i, landmark_j(0));
@@ -476,7 +472,6 @@ void EKFLocalization::predictMeasurement(const Eigen::Vector4d &landmark_j,
 }
 
 void EKFLocalization::dataAssociation(){
-    Eigen::Vector3d z_i_temp(3);
     std::vector<Eigen::Vector3d> z_t;
 
     double epsilon = 10;
@@ -489,10 +484,9 @@ void EKFLocalization::dataAssociation(){
         measurements_t_.pop_back();
 
         for(auto lm_pose: observ.poses){
-            z_i_temp(0) = lm_pose.position.x;
-            z_i_temp(1) = lm_pose.position.y - 1/std::sqrt(2); // Compensate for the volume of the stones*****
-            z_i_temp(2) = lm_pose.position.z - 1/std::sqrt(2);
-            z_t.push_back(z_i_temp);
+            z_t.push_back(Eigen::Vector3d(lm_pose.position.x,
+                                          lm_pose.position.y,
+                                          lm_pose.position.z));
         }
         if(!measurements_t_.empty()){
             ROS_WARN("Cache with measurements is not empty");
@@ -517,19 +511,18 @@ void EKFLocalization::dataAssociation(){
             // Back-project new possible landmark (in odom frame)
             aux_lm_num = lm_num_ + 1;
             new_lm_aux = transf_odom_base * tf::Vector3(z_t.at(i)(0), z_t.at(i)(1),z_t.at(i)(2));
-            new_lm(0) = aux_lm_num;
-            new_lm(1) = new_lm_aux.getX();
-            new_lm(2) = new_lm_aux.getY();
-            new_lm(3) = new_lm_aux.getZ();
-            map_odom_.push_back(new_lm);
+            map_odom_.push_back(Eigen::Vector4d(aux_lm_num,
+                                                new_lm_aux.getX(),
+                                                new_lm_aux.getY(),
+                                                new_lm_aux.getZ()));
 
             // Increase Sigma_hat_
             Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
             Sigma_hat_.bottomRows(3).setZero();
             Sigma_hat_.rightCols(3).setZero();
-            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 60;  // TODO: initialize with uncertainty on the measurement in x,y,z
-            Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 60;
-            Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 60;
+            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 10;  // TODO: initialize with uncertainty on the measurement in x,y,z
+            Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 10;
+            Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
 
 
             // Store current mu_hat_ estimate in struct for faster computation of H in DA
@@ -551,13 +544,14 @@ void EKFLocalization::dataAssociation(){
 
             // For each possible landmark j in M
             for(auto landmark_j: map_odom_){
+                // TODO: reduce number of landmark candidates to check measurements against
                 // TODO: Add exception for tan() values close to n*pi
-                if(epsilon > std::abs((landmark_j(1) - mu_hat_(0)) + (mu_hat_(1) - landmark_j(2)) / std::tan(angleLimit(M_PI/2.0 + mu_hat_(5))))){
+//                if(epsilon > std::abs((landmark_j(1) - mu_hat_(0)) + (mu_hat_(1) - landmark_j(2)) / std::tan(angleLimit(M_PI/2.0 + mu_hat_(5))))){
                     j += 1;
                     temp_sigma.bottomRows(3) = Sigma_hat_.block((j - 1) * 3 + 6, 0, 3, temp_sigma.cols());
                     temp_sigma.rightCols(3) = Sigma_hat_.block(0, (j - 1) * 3 + 6, temp_sigma.rows(), 3);
                     predictMeasurement(landmark_j, z_t.at(i), i, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
-                }
+//                }
             }
 
             // Select the association with the minimum Mahalanobis distance
@@ -586,9 +580,9 @@ void EKFLocalization::dataAssociation(){
                     Eigen::VectorXd aux_mu = mu_hat_;
                     mu_hat_.resize(mu_hat_.size()+3, true);
                     mu_hat_ << aux_mu, corresp_i_list.back().landmark_pos_;
+                    sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 }
                 // Sequential update
-                sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 corresp_i_list.clear();
             }
         }
