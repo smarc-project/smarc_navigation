@@ -49,8 +49,6 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     nh_->param<std::string>((node_name_ + "/world_frame"), world_frame_, "/world");
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
     nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
-    nh_->param<std::string>((node_name_ + "/map_srv"), map_srv_name_, "/gazebo/get_world_properties");
-    nh_->param<std::string>((node_name_ + "/landmarks_srv"), lm_srv_name_, "/gazebo/get_model_state");
 
     // Synch IMU and DVL readings
     imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 25);
@@ -65,10 +63,6 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &EKFLocalization::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
     odom_inertial_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_in_topic, 10);
-
-    // Build world map from Gazebo
-    gazebo_client_ = nh_->serviceClient<gazebo_msgs::GetWorldProperties>(map_srv_name_);
-    landmarks_client_ = nh_->serviceClient<gazebo_msgs::GetModelState>(lm_srv_name_);
 
     // Plot map in RVIZ
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/rviz/landmarks", 0 );
@@ -140,51 +134,6 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
         ROS_ERROR("%s", exception.what());
         ros::Duration(1.0).sleep();
     }
-
-    // Get list of sim models from Gazebo
-    while(!ros::service::waitForService(map_srv_name_, ros::Duration(10)) && ros::ok()){
-        ROS_INFO_NAMED(node_name_,"Waiting for the gazebo world prop service to come up");
-    }
-
-    // Get states of the models from Gazebo (to build map)
-    while(!ros::service::waitForService(lm_srv_name_, ros::Duration(10)) && ros::ok()){
-        ROS_INFO_NAMED(node_name_,"Waiting for the gazebo model states service to come up");
-    }
-
-    // Build map for localization from Gazebo services and transform to odom frame coordinates
-//    gazebo_msgs::GetWorldProperties world_prop_srv;
-//    gazebo_msgs::GetModelState landmark_state_srv;
-//    tf::Vector3 lm_world;
-//    tf::Vector3 lm_odom;
-//    std::vector<Eigen::Vector4d> map_world;
-//    if(gazebo_client_.call(world_prop_srv)){
-//        int id = 0;
-//        for(auto landmark_name: world_prop_srv.response.model_names){
-//            // Get poses of all objects except basic setup
-//            if(landmark_name != "lolo_auv" && landmark_name != "ned" && landmark_name != "ocean" && landmark_name != "dummy_laser"){
-//                landmark_state_srv.request.model_name = landmark_name;
-//                if(landmarks_client_.call(landmark_state_srv)){
-//                    // Store map in world frame
-////                    aux_vec(1) = landmark_state_srv.response.pose.position.x;
-////                    aux_vec(2) = landmark_state_srv.response.pose.position.y;
-////                    aux_vec(3) = landmark_state_srv.response.pose.position.z;
-////                    map_world.push_back(aux_vec);
-
-//                    // Test map in odom frame. Only for visualization
-//                    lm_world = tf::Vector3(landmark_state_srv.response.pose.position.x,
-//                                           landmark_state_srv.response.pose.position.y,
-//                                           landmark_state_srv.response.pose.position.z);
-//                    lm_odom = transf_odom_world_ * lm_world;
-//                    map_world.push_back(Eigen::Vector4d(id,
-//                                                        lm_odom.x(),
-//                                                        lm_odom.y(),
-//                                                        lm_odom.z()));
-//                    id++;
-//                }
-//            }
-//        }
-//    }
-//    updateMapMarkers(map_world, 0.0);
 
     // Create 1D KF to filter input sensors
 //    dvl_x_kf = new OneDKF(0,0.1,0,0.001); // Adjust noise params for each filter
@@ -570,12 +519,11 @@ void EKFLocalization::dataAssociation(){
                     Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
                     temp_sigma.bottomRows(3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
                     temp_sigma.rightCols(3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
+                    sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 }
                 else{
                     // New landmark
                     lm_num_ = corresp_i_list.back().i_j_.second;
-
-                    sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 }
                 // Sequential update
                 corresp_i_list.clear();
@@ -670,7 +618,7 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
             predictMotion(u_t, g_t);
 
             // Data association and sequential update
-            dataAssociation();
+            //dataAssociation();
 
             // Update step
             if (mu_.rows()!= mu_hat_.rows()){

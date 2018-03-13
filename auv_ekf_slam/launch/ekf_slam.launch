@@ -23,36 +23,28 @@
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="dvl_frame" value="/$(arg namespace)/dvl_link"/>
                 <!--Services-->
-                <param name="map_srv" value="/gazebo/get_world_properties"/>
-                <param name="landmarks_srv" value="/gazebo/get_model_state"/>
             </node>
 
-<!--            <node pkg="auv_ekf_localization" type="map_provider_node.py" name="map_provider_node" output="screen">
-                <param name="map_provider_srv" value="/$(arg namespace)/get_map"/>
-                <param name="map_file" value="$(find auv_ekf_localization)/maps/map_stones1.yaml"/>
-                <param name="rocks_depth" value="-90"/>
-            </node>-->
-
-            <node pkg="auv_ekf_localization" name="mbes_receptor" type="mbes_receptor_node" output="screen">
+<!--            <node pkg="auv_ekf_localization" name="mbes_receptor" type="mbes_receptor_node" output="screen">
                 <param name="mbes_left_topic" value="/$(arg namespace)/sss_left"/>
                 <param name="mbes_right_topic" value="/$(arg namespace)/sss_right"/>
                 <param name="sss_r_link" value="/$(arg namespace)/sonarright_link"/>
                 <param name="sss_l_link" value="/$(arg namespace)/sonarleft_link"/>
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
-            </node>
+            </node>-->
 
-<!--            <node pkg="rfs_slam" name="detect_rocks" type="detect_rocks" output="screen">
+            <node pkg="rfs_slam" name="detect_rocks" type="detect_rocks" output="screen">
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="fls_frame" value="/$(arg namespace)/forward_sonardown_link"/>
                 <param name="image_raw_sonar" value="/$(arg namespace)/depth/image_raw_raw_sonar"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
-            </node>-->
+            </node>
 
 
             <!--For experiments-->
-            <!--<node pkg="rosbag" type="record" name="experiment_bag" output="screen"
-                  args=" record -o $(find auv_ekf_localization)/rosbags/ /$(arg namespace)/gt_in_odom /$(arg namespace)/ekf_odom"/>-->
+<!--            <node pkg="rosbag" type="record" name="experiment_bag" output="screen"
+                  args=" record -o $(find auv_ekf_slam)/rosbags/ /$(arg namespace)/depth/image_raw_raw_sonar" />-->
 
         </group>
 </launch>
