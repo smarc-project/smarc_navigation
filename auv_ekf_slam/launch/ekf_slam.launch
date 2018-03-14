@@ -1,7 +1,7 @@
 <launch>
     
       <arg name="namespace" default="lolo_auv"/>
-      <arg name="run_navigation" default="false"/>
+      <arg name="navigation_ns" default="navigation"/>
 
         <group ns="$(arg namespace)">
             <node pkg="auv_ekf_slam" name="auv_navigation_node" type="ekf_slam_node" output="screen">
@@ -13,10 +13,10 @@
                 <!--Topics-->
                 <param name="imu_topic" value="/$(arg namespace)/imu"/>
                 <param name="dvl_topic" value="/$(arg namespace)/dvl_twist"/>
-                <param name="odom_pub_topic" value="/$(arg namespace)/ekf_odom"/>
-                <param name="odom_in_pub_topic" value="/$(arg namespace)/ekf_predict_odom"/>
                 <param name="gt_pose_topic" value="/$(arg namespace)/pose_gt"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
+                <param name="odom_pub_topic" value="/$(arg namespace)/$(arg navigation_ns)/pose_estimated"/>
+                <param name="odom_in_pub_topic" value="/$(arg namespace)/$(arg navigation_ns)/pose_predicted"/>
                 <!--tf frames-->
                 <param name="odom_frame" value="odom"/>
                 <param name="world_frame" value="world"/>
