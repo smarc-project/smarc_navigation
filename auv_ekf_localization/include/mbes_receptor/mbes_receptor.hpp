@@ -44,8 +44,8 @@ private:
     std::string sss_r_frame_;
     std::string sss_l_frame_;
     std::string base_frame_;
-    tf::StampedTransform tf_sss_r_base_;
-    tf::StampedTransform tf_sss_l_base_;
+    tf::StampedTransform tf_base_sss_r_;
+    tf::StampedTransform tf_base_sss_l_;
 
     message_filters::Subscriber<sensor_msgs::LaserScan>* mbes_l_subs_;
     message_filters::Subscriber<sensor_msgs::LaserScan>* mbes_r_subs_;

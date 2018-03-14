@@ -33,7 +33,7 @@ void MBESReceptor::init(){
     tf::TransformListener tf_listener;
     try{
         tf_listener.waitForTransform(base_frame_, sss_r_frame_, ros::Time(0), ros::Duration(100));
-        tf_listener.lookupTransform(base_frame_, sss_r_frame_, ros::Time(0), tf_sss_r_base_);
+        tf_listener.lookupTransform(base_frame_, sss_r_frame_, ros::Time(0), tf_base_sss_r_);
         ROS_INFO("Locked transform sss right --> base");
     }
     catch(tf::TransformException &exception) {
@@ -43,7 +43,7 @@ void MBESReceptor::init(){
 
     try{
         tf_listener.waitForTransform(base_frame_, sss_l_frame_, ros::Time(0), ros::Duration(100));
-        tf_listener.lookupTransform(base_frame_, sss_l_frame_, ros::Time(0), tf_sss_l_base_);
+        tf_listener.lookupTransform(base_frame_, sss_l_frame_, ros::Time(0), tf_base_sss_l_);
         ROS_INFO("Locked transform sss left --> base");
     }
     catch(tf::TransformException &exception) {
@@ -69,7 +69,7 @@ void MBESReceptor::mbesReadingsCB(const sensor_msgs::LaserScanConstPtr &mbes_l_m
     if(!sss_right_.landmarks_.empty()){
         for(auto landmark: sss_right_.landmarks_){
             // Transform sss_right_sensor --> base_link
-            lm_pose = tf_sss_r_base_ * landmark;
+            lm_pose = tf_base_sss_r_ * landmark;
             landmark_pose.position.x = lm_pose.x();
             landmark_pose.position.y = lm_pose.y();
             landmark_pose.position.z = lm_pose.z();
@@ -79,7 +79,7 @@ void MBESReceptor::mbesReadingsCB(const sensor_msgs::LaserScanConstPtr &mbes_l_m
     if(!sss_left_.landmarks_.empty()){
         for(auto landmark: sss_left_.landmarks_){
             // Transform sss_right_sensor --> base_link
-            lm_pose = tf_sss_l_base_ * landmark;
+            lm_pose = tf_base_sss_l_ * landmark;
             landmark_pose.position.x = lm_pose.x();
             landmark_pose.position.y = lm_pose.y();
             landmark_pose.position.z = lm_pose.z();

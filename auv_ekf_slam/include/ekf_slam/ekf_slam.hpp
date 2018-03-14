@@ -50,6 +50,8 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
+#include "landmark_visualizer/init_map.h"
+
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu,
         geometry_msgs::TwistWithCovarianceStamped> MsgTimingPolicy;
 
@@ -92,8 +94,7 @@ private:
     ros::Publisher odom_pub_;
     ros::Publisher odom_inertial_pub_;
     ros::Publisher vis_pub_;
-    ros::ServiceClient gazebo_client_;
-    ros::ServiceClient landmarks_client_;
+    ros::ServiceClient init_map_client_;
 
     // Handlers for sensors
     std::deque<sensor_msgs::Imu> imu_readings_; // TODO: add limit size to queues
@@ -101,7 +102,6 @@ private:
     std::deque<nav_msgs::Odometry> gt_readings_;
     std::deque<geometry_msgs::PoseArray> measurements_t_;
     boost::mutex msg_lock_;
-    std::vector<Eigen::Vector4d> map_odom_;
     bool init_filter_;
 
     // System state variables
@@ -179,9 +179,9 @@ private:
      * @param ml_i_list
      * Measurement prediction for a given pair measurement-landmark at time t
      */
-    void predictMeasurement(const Eigen::Vector4d &landmark_j,
+    void predictMeasurement(const Eigen::Vector3d &landmark_j,
                             const Eigen::Vector3d &z_i,
-                            unsigned int i, const tf::Transform &transf_base_odom, const Eigen::MatrixXd &temp_sigma,
+                            unsigned int i, unsigned int j, const tf::Transform &transf_base_odom, const Eigen::MatrixXd &temp_sigma, h_comp h_comps,
                             std::vector<CorrespondenceClass> &ml_i_list);
 
     /**
@@ -202,7 +202,7 @@ private:
      * @brief createMapMarkers
      * Publishes the map as an array of markers for visualization in RVIZ
      */
-    void updateMapMarkers(std::vector<Eigen::Vector4d> map, double color);
+    void updateMapMarkers(double color);
 
     /**
      * @brief EKFLocalization::sendOutput

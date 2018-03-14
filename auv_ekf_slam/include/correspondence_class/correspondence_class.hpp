@@ -34,6 +34,22 @@ double angleLimit (double angle);
  * Auxiliar class containing all the info related to a correspondence
  * made between a landmark j and a measurement i at time t
  */
+
+struct jacobian_components{
+    double mu_0;
+    double mu_1;
+    double mu_2;
+    double c_3;
+    double c_4;
+    double c_5;
+    double s_3;
+    double s_4;
+    double s_5;
+
+};
+
+typedef struct jacobian_components h_comp;
+
 class CorrespondenceClass{
 
 public:
@@ -59,7 +75,7 @@ public:
 
     ~CorrespondenceClass();
 
-    void computeH(const Eigen::VectorXd &mu_hat,
+    void computeH(const h_comp h_comps,
                   const tf::Vector3 lm_odom);
     /**
      * @brief computeS
