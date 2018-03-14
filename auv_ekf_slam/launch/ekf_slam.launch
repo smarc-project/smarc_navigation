@@ -9,7 +9,7 @@
                 <param name="/$(arg namespace)/delta_outlier_reject" value="0.99"/>
                 <rosparam param="/$(arg namespace)/init_pose_cov_diag">[2.0, 2.0, 2.0, 1.0, 1.0, 1.0]</rosparam>
                 <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[0.01, 1, 1, 0.001, 0.001, 0.001]</rosparam>
-                <rosparam param="/$(arg namespace)/meas_noise_cov_diag">[1000.0, 80.0, 80.0]</rosparam>
+                <rosparam param="/$(arg namespace)/meas_noise_cov_diag">[1000.0, 200.0, 300.0]</rosparam>
                 <!--Topics-->
                 <param name="imu_topic" value="/$(arg namespace)/imu"/>
                 <param name="dvl_topic" value="/$(arg namespace)/dvl_twist"/>
@@ -25,21 +25,21 @@
                 <!--Services-->
             </node>
 
-<!--            <node pkg="auv_ekf_localization" name="mbes_receptor" type="mbes_receptor_node" output="screen">
+            <node pkg="auv_ekf_localization" name="mbes_receptor" type="mbes_receptor_node" output="screen">
                 <param name="mbes_left_topic" value="/$(arg namespace)/sss_left"/>
                 <param name="mbes_right_topic" value="/$(arg namespace)/sss_right"/>
                 <param name="sss_r_link" value="/$(arg namespace)/sonarright_link"/>
                 <param name="sss_l_link" value="/$(arg namespace)/sonarleft_link"/>
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
-            </node>-->
+            </node>
 
-            <node pkg="rfs_slam" name="detect_rocks" type="detect_rocks" output="screen">
+            <!--<node pkg="rfs_slam" name="detect_rocks" type="detect_rocks" output="screen">
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="fls_frame" value="/$(arg namespace)/forward_sonardown_link"/>
                 <param name="image_raw_sonar" value="/$(arg namespace)/depth/image_raw_raw_sonar"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
-            </node>
+            </node>-->
 
 
             <!--For experiments-->

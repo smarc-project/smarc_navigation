@@ -65,7 +65,7 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     odom_inertial_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_in_topic, 10);
 
     // Plot map in RVIZ
-    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/rviz/landmarks", 0 );
+    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/rviz/landmarks", 0 );
 
     // Initialize internal params
     init(Sigma_diagonal, R_diagonal, Q_diagonal, delta);
@@ -471,8 +471,8 @@ void EKFLocalization::dataAssociation(){
             Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
             Sigma_hat_.bottomRows(3).setZero();
             Sigma_hat_.rightCols(3).setZero();
-            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 10;  // TODO: initialize with uncertainty on the measurement in x,y,z
-            Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 10;
+            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 200;  // TODO: initialize with uncertainty on the measurement in x,y,z
+            Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
             Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
 
             // Store current mu_hat_ estimate in struct for faster computation of H in DA
@@ -519,13 +519,13 @@ void EKFLocalization::dataAssociation(){
                     Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
                     temp_sigma.bottomRows(3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
                     temp_sigma.rightCols(3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
-                    sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 }
                 else{
                     // New landmark
                     lm_num_ = corresp_i_list.back().i_j_.second;
                 }
                 // Sequential update
+                sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 corresp_i_list.clear();
             }
         }
@@ -618,7 +618,7 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
             predictMotion(u_t, g_t);
 
             // Data association and sequential update
-            //dataAssociation();
+            dataAssociation();
 
             // Update step
             if (mu_.rows()!= mu_hat_.rows()){
