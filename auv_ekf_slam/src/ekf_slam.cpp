@@ -63,6 +63,7 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &EKFLocalization::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
     odom_inertial_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_in_topic, 10);
+    init_map_client_ = nh_->serviceClient<landmark_visualizer::init_map>("/lolo_auv/map_server");
 
     // Plot map in RVIZ
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/rviz/landmarks", 0 );
@@ -77,7 +78,7 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
 
 void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta){
 
-    // EKF variables
+    // Init EKF variables
     double size_state = r_diag.size();
     double size_meas = q_diag.size();
     mu_.setZero(size_state);
@@ -135,10 +136,44 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
         ros::Duration(1.0).sleep();
     }
 
-    // Create 1D KF to filter input sensors
-//    dvl_x_kf = new OneDKF(0,0.1,0,0.001); // Adjust noise params for each filter
-//    dvl_y_kf = new OneDKF(0,0.1,0,0.001);
-//    dvl_z_kf = new OneDKF(0,0.1,0,0.001);
+    // Initial map of the survey area (usually artificial beacons)
+    while(!ros::service::waitForService("/lolo_auv/map_server", ros::Duration(10)) && ros::ok()){
+        ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
+    }
+    landmark_visualizer::init_map init_map_srv;
+    init_map_srv.request.request_map = true;
+    init_map_client_.call(init_map_srv);
+
+    if(!init_map_srv.response.init_map.poses.empty()){
+        Eigen::VectorXd aux_mu;
+        tf::Vector3 beacon_pose;
+        // Add beacon landmarks to mu_
+        for(auto beacon: init_map_srv.response.init_map.poses){
+            // Transform beacon from world to odom frame
+            beacon_pose = transf_odom_world_ * tf::Vector3(beacon.position.x,
+                                                           beacon.position.y,
+                                                           beacon.position.z);
+            // Augment mu_
+            aux_mu = mu_;
+            mu_.conservativeResize(mu_.size()+3, true);
+
+            mu_ << aux_mu, Eigen::Vector3d(beacon_pose.getX(),
+                                           beacon_pose.getY(),
+                                           beacon_pose.getZ());
+
+            // Augment Sigma_
+            Sigma_.conservativeResize(Sigma_.rows()+3, Sigma_.cols()+3);
+            Sigma_.bottomRows(3).setZero();
+            Sigma_.rightCols(3).setZero();
+            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 40;
+            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 10;
+            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 10;
+        }
+    }
+    lm_num_ = (Sigma_.rows() - 6) / 3;
+    std::cout << "Initial mu: " << mu_.size() << std::endl;
+    std::cout << "Initial Sigma: " << Sigma_.cols() << std::endl;
+    std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
 
     ROS_INFO_NAMED(node_name_, "Initialized");
 }
@@ -462,7 +497,7 @@ void EKFLocalization::dataAssociation(){
 
             // Add new possible landmark to mu_hat_
             Eigen::VectorXd aux_mu = mu_hat_;
-            mu_hat_.resize(mu_hat_.size()+3, true);
+            mu_hat_.conservativeResize(mu_hat_.size()+3, true);
             mu_hat_ << aux_mu, Eigen::Vector3d(new_lm_aux.getX(),
                                                new_lm_aux.getY(),
                                                new_lm_aux.getZ());
@@ -519,13 +554,13 @@ void EKFLocalization::dataAssociation(){
                     Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
                     temp_sigma.bottomRows(3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
                     temp_sigma.rightCols(3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
+                    sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 }
                 else{
                     // New landmark
                     lm_num_ = corresp_i_list.back().i_j_.second;
                 }
                 // Sequential update
-                sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 corresp_i_list.clear();
             }
         }

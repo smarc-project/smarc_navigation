@@ -50,6 +50,8 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
+#include "landmark_visualizer/init_map.h"
+
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu,
         geometry_msgs::TwistWithCovarianceStamped> MsgTimingPolicy;
 
@@ -92,8 +94,7 @@ private:
     ros::Publisher odom_pub_;
     ros::Publisher odom_inertial_pub_;
     ros::Publisher vis_pub_;
-    ros::ServiceClient gazebo_client_;
-    ros::ServiceClient landmarks_client_;
+    ros::ServiceClient init_map_client_;
 
     // Handlers for sensors
     std::deque<sensor_msgs::Imu> imu_readings_; // TODO: add limit size to queues
