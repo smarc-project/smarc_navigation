@@ -7,9 +7,9 @@
             <node pkg="auv_ekf_slam" name="auv_navigation_node" type="ekf_slam_node" output="screen">
                 <param name="/$(arg namespace)/system_freq" value="1"/>
                 <param name="/$(arg namespace)/delta_outlier_reject" value="0.99"/>
-                <rosparam param="/$(arg namespace)/init_pose_cov_diag">[2.0, 2.0, 2.0, 1.0, 1.0, 1.0]</rosparam>
-                <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[0.01, 1, 1, 0.001, 0.001, 0.001]</rosparam>
-                <rosparam param="/$(arg namespace)/meas_noise_cov_diag">[1000.0, 200.0, 300.0]</rosparam>
+                <rosparam param="/$(arg namespace)/init_pose_cov_diag">[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]</rosparam>
+                <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[0.1, 1, 1, 0.1, 0.1, 0.1]</rosparam>
+                <rosparam param="/$(arg namespace)/meas_noise_cov_diag">[1000.0, 300.0, 300.0]</rosparam>
                 <!--Topics-->
                 <param name="imu_topic" value="/$(arg namespace)/imu"/>
                 <param name="dvl_topic" value="/$(arg namespace)/dvl_twist"/>

@@ -165,9 +165,9 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
             Sigma_.conservativeResize(Sigma_.rows()+3, Sigma_.cols()+3);
             Sigma_.bottomRows(3).setZero();
             Sigma_.rightCols(3).setZero();
-            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 40;
-            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 10;
-            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 10;
+            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 100;
+            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 100;
+            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 100;
         }
     }
     lm_num_ = (Sigma_.rows() - 6) / 3;
@@ -459,8 +459,8 @@ void EKFLocalization::predictMeasurement(const Eigen::Vector3d &landmark_j,
 void EKFLocalization::dataAssociation(){
     std::vector<Eigen::Vector3d> z_t;
 
-    double epsilon = 10;
-    double alpha = 0.085;   // TODO: find suitable value!!
+    double epsilon = 4;
+    double alpha = 0.1;   // TODO: find suitable value!!
 
     // If observations available
     if(!measurements_t_.empty()){
@@ -506,7 +506,7 @@ void EKFLocalization::dataAssociation(){
             Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
             Sigma_hat_.bottomRows(3).setZero();
             Sigma_hat_.rightCols(3).setZero();
-            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 200;  // TODO: initialize with uncertainty on the measurement in x,y,z
+            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 1000;  // TODO: initialize with uncertainty on the measurement in x,y,z
             Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
             Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
 
@@ -531,9 +531,11 @@ void EKFLocalization::dataAssociation(){
             Eigen::Vector3d landmark_j;
             for(unsigned int j=0; j<(mu_hat_.rows()-6)/3; j++){
                 landmark_j = mu_hat_.segment(3 * j + 6, 3);
-                temp_sigma.bottomRows(3) = Sigma_hat_.block(j * 3 + 6, 0, 3, temp_sigma.cols());
-                temp_sigma.rightCols(3) = Sigma_hat_.block(0, j * 3 + 6, temp_sigma.rows(), 3);
-                predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
+                if(epsilon > std::abs((landmark_j(0) - mu_hat_(0)) + (mu_hat_(1) - landmark_j(1)) / std::tan(angleLimit(M_PI/2.0 + mu_hat_(5))))){
+                    temp_sigma.bottomRows(3) = Sigma_hat_.block(j * 3 + 6, 0, 3, temp_sigma.cols());
+                    temp_sigma.rightCols(3) = Sigma_hat_.block(0, j * 3 + 6, temp_sigma.rows(), 3);
+                    predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
+                }
             }
 
             // Select the association with the minimum Mahalanobis distance
@@ -554,13 +556,13 @@ void EKFLocalization::dataAssociation(){
                     Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
                     temp_sigma.bottomRows(3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
                     temp_sigma.rightCols(3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
-                    sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 }
                 else{
                     // New landmark
                     lm_num_ = corresp_i_list.back().i_j_.second;
                 }
                 // Sequential update
+                sequentialUpdate(corresp_i_list.back(), temp_sigma);
                 corresp_i_list.clear();
             }
         }
