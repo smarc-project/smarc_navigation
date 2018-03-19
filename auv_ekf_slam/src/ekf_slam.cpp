@@ -50,7 +50,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
 
 void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta){
 
-    // EKF variables
+    // Init EKF variables
     double size_state = r_diag.size();
     double size_meas = q_diag.size();
     mu_.setZero(size_state);
@@ -74,6 +74,47 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
 
     // Aux
     size_odom_q_ = 10;
+  
+    // Initial map of the survey area (usually artificial beacons)
+    while(!ros::service::waitForService("/lolo_auv/map_server", ros::Duration(10)) && ros::ok()){
+        ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
+    }
+    landmark_visualizer::init_map init_map_srv;
+    init_map_srv.request.request_map = true;<<<<<<< master
+244
+ 
+
+    init_map_client_.call(init_map_srv);
+
+    if(!init_map_srv.response.init_map.poses.empty()){
+        Eigen::VectorXd aux_mu;
+        tf::Vector3 beacon_pose;
+        // Add beacon landmarks to mu_
+        for(auto beacon: init_map_srv.response.init_map.poses){
+            // Transform beacon from world to odom frame
+            beacon_pose = transf_odom_world_ * tf::Vector3(beacon.position.x,
+                                                           beacon.position.y,
+                                                           beacon.position.z);
+            // Augment mu_
+            aux_mu = mu_;
+            mu_.conservativeResize(mu_.size()+3, true);
+
+            mu_ << aux_mu, Eigen::Vector3d(beacon_pose.getX(),
+                                           beacon_pose.getY(),
+                                           beacon_pose.getZ());
+
+            // Augment Sigma_
+            Sigma_.conservativeResize(Sigma_.rows()+3, Sigma_.cols()+3);
+            Sigma_.bottomRows(3).setZero();
+            Sigma_.rightCols(3).setZero();
+            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 40;
+            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 10;
+            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 10;
+        }
+    }
+    std::cout << "Initial mu: " << mu_.size() << std::endl;
+    std::cout << "Initial Sigma: " << Sigma_.cols() << std::endl;
+    std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
 
     // Create EKF filter
     ekf_filter_ = new EKFCore(mu_, Sigma_, R_, Q_, lambda_M_);

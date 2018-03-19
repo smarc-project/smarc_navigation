@@ -31,6 +31,7 @@ find_package(catkin REQUIRED COMPONENTS
     message_filters
     pcl_ros
     auv_ekf_localization
+    landmark_visualizer
  )
 
 find_package(PCL REQUIRED)

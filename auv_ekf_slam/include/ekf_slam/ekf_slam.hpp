@@ -40,6 +40,7 @@
 #include "noise_oneD_kf/noise_oneD_kf.hpp"
 #include "ekf_slam_core/ekf_slam_core.hpp"
 
+
 /**
  * @brief The EKFSLAM class
  * EKF-based localization node for LoLo
@@ -72,8 +73,7 @@ private:
     ros::Subscriber observs_subs_;
     ros::Publisher map_pub_;
     ros::Publisher vis_pub_;
-    ros::ServiceClient gazebo_client_;
-    ros::ServiceClient landmarks_client_;
+    ros::ServiceClient init_map_client_;
 
     // Handlers for sensors
     std::deque<geometry_msgs::PoseArray> measurements_t_;
