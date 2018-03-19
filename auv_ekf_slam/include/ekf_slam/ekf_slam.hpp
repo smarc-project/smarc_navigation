@@ -56,7 +56,7 @@ class EKFSLAM{
 public:
 
     EKFSLAM(std::string node_name, ros::NodeHandle &nh);
-    void ekfLocalize(const ros::TimerEvent& e);
+    void ekfLocalize(const ros::TimerEvent&);
     ~EKFSLAM();
     void init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta);
 
@@ -95,7 +95,7 @@ private:
 
     // Aux
     double t_prev_;
-    int size_odom_q_;
+    unsigned int size_odom_q_;
 
     // tf
     tf::TransformBroadcaster map_bc_;

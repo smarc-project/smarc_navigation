@@ -149,6 +149,7 @@ bool EKFSLAM::sendOutput(ros::Time t){
 bool EKFSLAM::bcMapOdomTF(ros::Time t){
     // Get transform odom --> base published by odom_provider
     tf::StampedTransform tf_base_odom;
+    bool broadcasted = false;
     try {
         tf_listener_.waitForTransform(base_frame_, odom_frame_, t, ros::Duration(0.1));
         tf_listener_.lookupTransform(base_frame_, odom_frame_, t, tf_base_odom);
@@ -168,14 +169,17 @@ bool EKFSLAM::bcMapOdomTF(ros::Time t){
         geometry_msgs::TransformStamped msg_odom_map_;
         tf::transformStampedTFToMsg(tf_odom_map_stp, msg_odom_map_);
         map_bc_.sendTransform(msg_odom_map_);
+        broadcasted = true;
     }
     catch(tf::TransformException &exception) {
         ROS_WARN("%s", exception.what());
         ROS_ERROR("Skipping map --> odom broadcasting iteration");
     }
+
+    return broadcasted;
 }
 
-void EKFSLAM::ekfLocalize(const ros::TimerEvent& e){
+void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
 
     // TODO: predefine matrices so that they can be allocated in the stack!
     nav_msgs::Odometry odom_reading;

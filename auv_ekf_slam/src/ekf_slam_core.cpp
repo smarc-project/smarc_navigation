@@ -219,9 +219,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
             else{
                 // New landmark
                 lm_num_ = corresp_i_list.back().i_j_.second;
-                sequentialUpdate(corresp_i_list.back(), temp_sigma);
             }
             // Sequential update
+            sequentialUpdate(corresp_i_list.back(), temp_sigma);
             corresp_i_list.clear();
         }
     }
