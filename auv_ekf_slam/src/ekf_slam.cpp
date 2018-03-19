@@ -20,12 +20,8 @@ unsigned int factorial(unsigned int n)
 
 EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_name_(node_name){
 
-    std::string imu_topic;
-    std::string dvl_topic;
+    std::string map_topic;
     std::string odom_topic;
-    std::string odom_in_topic;
-    std::string gt_topic;
-    std::string rpt_topic;
     std::string observs_topic;
     double freq;
     double delta;
@@ -38,31 +34,18 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     nh_->param("meas_noise_cov_diag", Q_diagonal, std::vector<double>());
     nh_->param<double>((node_name_ + "/delta_outlier_reject"), delta, 0.99);
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
-    nh_->param<std::string>((node_name_ + "/imu_topic"), imu_topic, "/imu");
-    nh_->param<std::string>((node_name_ + "/dvl_topic"), dvl_topic, "/dvl");
+    nh_->param<std::string>((node_name_ + "/map_pose_topic"), map_topic, "/map_ekf");
     nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
-    nh_->param<std::string>((node_name_ + "/odom_in_pub_topic"), odom_in_topic, "/odom_ekf");
-    nh_->param<std::string>((node_name_ + "/gt_pose_topic"), gt_topic, "/gt_pose");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
-    nh_->param<std::string>((node_name_ + "/rpt_topic"), rpt_topic, "/rpt_topic");
-    nh_->param<std::string>((node_name_ + "/odom_frame"), odom_frame_, "/odom");
     nh_->param<std::string>((node_name_ + "/world_frame"), world_frame_, "/world");
+    nh_->param<std::string>((node_name_ + "/map_frame"), map_frame_, "/map");
+    nh_->param<std::string>((node_name_ + "/odom_frame"), odom_frame_, "/odom");
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
-    nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
-
-    // Synch IMU and DVL readings
-    imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 25);
-    dvl_subs_ = new message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>(*nh_, dvl_topic, 5);
-    msg_synch_ptr_ = new message_filters::Synchronizer<MsgTimingPolicy> (MsgTimingPolicy(5), *imu_subs_, *dvl_subs_);
-    msg_synch_ptr_->registerCallback(boost::bind(&EKFLocalization::synchSensorsCB, this, _1, _2));
 
     // Subscribe to sensor msgs
-    fast_imu_sub_ = nh_->subscribe(imu_topic, 10, &EKFLocalization::fastIMUCB, this);
-    fast_dvl_sub_ = nh_->subscribe(dvl_topic, 10, &EKFLocalization::fastDVLCB, this);
     observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFLocalization::observationsCB, this);
-    tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &EKFLocalization::gtCB, this);
-    odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
-    odom_inertial_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_in_topic, 10);
+    odom_subs_ = nh_->subscribe(odom_topic, 10, &EKFLocalization::odomCB, this);
+    map_pub_ = nh_->advertise<nav_msgs::Odometry>(map_topic, 10);
 
     // Plot map in RVIZ
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/rviz/landmarks", 0 );
@@ -81,7 +64,8 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
     double size_state = r_diag.size();
     double size_meas = q_diag.size();
     mu_.setZero(size_state);
-    mu_pred_ = mu_;
+    mu_hat_ = mu_;
+    mu_auv_odom_.setZero(3);
     lm_num_ = 0;
     Sigma_ = Eigen::MatrixXd::Identity(size_state, size_state);
 
@@ -105,79 +89,36 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
     // State machine
     init_filter_ = false;
     coord_ = false;
-
-    // Masks sizes for interpolation of sensor inputs
-    size_imu_q_ = 50;
-    size_dvl_q_ = 10;
-
-    // Get fixed transform dvl_link --> base_link frame
-    tf::TransformListener tf_listener;
-    try {
-        tf_listener.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
-        tf_listener.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_dvl_base_);
-        ROS_INFO("Locked transform dvl --> base");
-    }
-    catch(tf::TransformException &exception) {
-        ROS_ERROR("%s", exception.what());
-        ros::Duration(1.0).sleep();
-    }
+    size_odom_q_ = 10;
 
     // Get fixed transform world --> odom frame
-    try {
-        tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
-        tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
-        ROS_INFO("Locked transform world --> odom");
-        // Compute inverse for later use
-        transf_odom_world_ = transf_world_odom_.inverse();
-    }
-    catch(tf::TransformException &exception) {
-        ROS_ERROR("%s", exception.what());
-        ros::Duration(1.0).sleep();
-    }
-
-    // Create 1D KF to filter input sensors
-//    dvl_x_kf = new OneDKF(0,0.1,0,0.001); // Adjust noise params for each filter
-//    dvl_y_kf = new OneDKF(0,0.1,0,0.001);
-//    dvl_z_kf = new OneDKF(0,0.1,0,0.001);
+//    tf::TransformListener tf_listener;
+//    try {
+//        tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
+//        tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
+//        ROS_INFO("Locked transform world --> odom");
+//        // Compute inverse for later use
+//        transf_odom_world_ = transf_world_odom_.inverse();
+//    }
+//    catch(tf::TransformException &exception) {
+//        ROS_ERROR("%s", exception.what());
+//        ros::Duration(1.0).sleep();
+//    }
 
     ROS_INFO_NAMED(node_name_, "Initialized");
+}
+
+void EKFLocalization::odomCB(const nav_msgs::Odometry &odom_msg){
+    odom_queue_t_.push_back(odom_msg);
+    while(odom_queue_t_.size() > size_odom_q_){
+        odom_queue_t_.pop_front();
+    }
 }
 
 void EKFLocalization::observationsCB(const geometry_msgs::PoseArray &observ_msg){
     measurements_t_.push_back(observ_msg);
 }
 
-void EKFLocalization::fastIMUCB(const sensor_msgs::Imu &imu_msg){
-    imu_readings_.push_back(imu_msg);
-    while(imu_readings_.size() > size_imu_q_){
-        imu_readings_.pop_front();
-    }
-}
-
-void EKFLocalization::fastDVLCB(const geometry_msgs::TwistWithCovarianceStamped &dvl_msg){
-//    dvl_x_kf->filter(dvl_msg->twist.twist.linear.x);
-//    dvl_y_kf->filter(dvl_msg->twist.twist.linear.y);
-//    dvl_z_kf->filter(dvl_msg->twist.twist.linear.z);
-
-    boost::mutex::scoped_lock lock(msg_lock_);
-    dvl_readings_.push_back(dvl_msg);
-    while(dvl_readings_.size() > size_dvl_q_){
-        dvl_readings_.pop_front();
-    }
-}
-
-void EKFLocalization::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg,
-                                     const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
-    coord_ = true;
-}
-
-void EKFLocalization::gtCB(const nav_msgs::Odometry &pose_msg){
-    gt_readings_.push_back(pose_msg);
-    unsigned int size_gt_q = 10;
-    while(gt_readings_.size() > size_gt_q){
-        gt_readings_.pop_front();
-    }
-}
 
 void EKFLocalization::updateMapMarkers(double color){
 
@@ -186,7 +127,7 @@ void EKFLocalization::updateMapMarkers(double color){
     for(unsigned int j=0; j<(mu_.rows()-6)/3; j++){
         landmark = mu_.segment(3 * j + 6, 3);
         visualization_msgs::Marker marker;
-        marker.header.frame_id = "odom";
+        marker.header.frame_id = map_frame_;
         marker.header.stamp = ros::Time();
         marker.ns = "map_array";
         marker.id = j;
@@ -214,142 +155,55 @@ void EKFLocalization::updateMapMarkers(double color){
 
 bool EKFLocalization::sendOutput(ros::Time t){
 
-    tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5));
-    q_auv_t.normalize();
+    // Publish odom filtered msg
+    tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
     geometry_msgs::Quaternion odom_quat;
     tf::quaternionTFToMsg(q_auv_t, odom_quat);
 
-    // Broadcast transform over tf
-    geometry_msgs::TransformStamped odom_trans;
-    odom_trans.header.stamp = t;
-    odom_trans.header.frame_id = odom_frame_;
-    odom_trans.child_frame_id = base_frame_;
-    odom_trans.transform.translation.x = mu_(0);
-    odom_trans.transform.translation.y = mu_(1);
-    odom_trans.transform.translation.z = mu_(2);
-    odom_trans.transform.rotation = odom_quat;
-    odom_bc_.sendTransform(odom_trans);
-
-    // Publish odom msg
-    nav_msgs::Odometry odom_msg;
-    odom_msg.header.stamp = t;
-    odom_msg.header.frame_id = odom_frame_;
-    odom_msg.child_frame_id = base_frame_;
-    odom_msg.pose.pose.position.x = mu_(0);
-    odom_msg.pose.pose.position.y = mu_(1);
-    odom_msg.pose.pose.position.z = mu_(2);
-    odom_msg.pose.pose.orientation = odom_quat;
-    odom_pub_.publish(odom_msg);
-
-    nav_msgs::Odometry odom_inertial_msg;
-    odom_inertial_msg.header.stamp = t;
-    odom_inertial_msg.header.frame_id = odom_frame_;
-    odom_inertial_msg.child_frame_id = base_frame_;
-    odom_inertial_msg.pose.pose.position.x = mu_pred_(0);
-    odom_inertial_msg.pose.pose.position.y = mu_pred_(1);
-    odom_inertial_msg.pose.pose.position.z = mu_pred_(2);
-    odom_inertial_msg.pose.pose.orientation = odom_quat;
-    odom_inertial_pub_.publish(odom_inertial_msg);
+    nav_msgs::Odometry odom_filtered_msg;
+    odom_filtered_msg.header.stamp = t;
+    odom_filtered_msg.header.frame_id = map_frame_;
+    odom_filtered_msg.child_frame_id = base_frame_;
+    odom_filtered_msg.pose.pose.position.x = mu_(0);
+    odom_filtered_msg.pose.pose.position.y = mu_(1);
+    odom_filtered_msg.pose.pose.position.z = mu_(2);
+    odom_filtered_msg.pose.pose.orientation = odom_quat;
+    map_pub_.publish(odom_filtered_msg);
 
     return true;
 }
 
-void EKFLocalization::interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg_ptr){
+bool EKFLocalization::bcMapOdomTF(ros::Time t){
+    // Get transform odom --> base published by odom_provider
+    tf::StampedTransform tf_base_odom;
+    try {
+        tf_listener_.waitForTransform(base_frame_, odom_frame_, t, ros::Duration(0.1));
+        tf_listener_.lookupTransform(base_frame_, odom_frame_, t, tf_base_odom);
+        // Build tf map --> base from estimated pose
+        tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
+        tf::Transform tf_base_map = tf::Transform(q_auv_t, tf::Vector3(mu_(0), mu_(1), mu_(2)));
 
-    geometry_msgs::Vector3 u_interp;
-    u_interp.x = 0.0;
-    u_interp.y = 0.0;
-    u_interp.z = 0.0;
+        // Compute map --> odom transform
+        tf::Transform tf_map_odom;
+        tf_map_odom.mult(tf_base_map, tf_base_odom);
+        tf::StampedTransform tf_odom_map_stp = tf::StampedTransform(tf_map_odom,
+                                               ros::Time::now(),
+                                               map_frame_,
+                                               odom_frame_);
 
-    // Lock to prevent concurrent access to dvl_readings_
-    boost::mutex::scoped_lock lock(msg_lock_);
-    unsigned int n_fac = 1;
-    unsigned int n = dvl_readings_.size();
-    double aux[n];
-    n = n-1;
-    n_fac = factorial(n);
-
-    for(unsigned int l=0; l<=n; l++){
-        aux[l] =  (n_fac / (factorial(l) * factorial(n - l))) *
-                   std::pow(1 - (t_now.toSec() - dvl_readings_.at(n).header.stamp.toSec())/
-                            (dvl_readings_.at(n).header.stamp.toSec() - dvl_readings_.at(n - n).header.stamp.toSec()), n-l) *
-                   std::pow((t_now.toSec() - dvl_readings_.at(n).header.stamp.toSec())/
-                            (dvl_readings_.at(n).header.stamp.toSec() - dvl_readings_.at(n - n).header.stamp.toSec()), l);
-        u_interp.x += dvl_readings_.at(n - l).twist.twist.linear.x * aux[l];
-        u_interp.y += dvl_readings_.at(n - l).twist.twist.linear.y * aux[l];
-        u_interp.z += dvl_readings_.at(n - l).twist.twist.linear.z * aux[l];
+        // Broadcast map --> odom transform
+        geometry_msgs::TransformStamped msg_odom_map_;
+        tf::transformStampedTFToMsg(tf_odom_map_stp, msg_odom_map_);
+        map_bc_.sendTransform(msg_odom_map_);
     }
-
-    // New interpolated reading
-    dvl_msg_ptr.reset(new geometry_msgs::TwistWithCovarianceStamped{});
-    dvl_msg_ptr->header.stamp = t_now;
-    dvl_msg_ptr->twist.twist.linear = u_interp;
+    catch(tf::TransformException &exception) {
+        ROS_WARN("%s", exception.what());
+        ROS_ERROR("Skipping map --> odom broadcasting iteration");
+    }
 }
 
-void EKFLocalization::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg,
-                                  const tf::Quaternion& q_auv, Eigen::VectorXd &u_t,
-                                  Eigen::MatrixXd &g_t){
 
-    // Update time step
-    double t_now = dvl_msg->header.stamp.toSec();
-    double delta_t = t_now - t_prev_;
-
-    // Transform from dvl input form dvl --> base_link frame
-    tf::Vector3 twist_vel(dvl_msg->twist.twist.linear.x,
-                          dvl_msg->twist.twist.linear.y,
-                          dvl_msg->twist.twist.linear.z);
-    tf::Vector3 disp_base = transf_dvl_base_.getBasis() * twist_vel * delta_t;
-
-    // Compute increments in x,y,z in odom frame
-    tf::Matrix3x3 rot_base_odom;
-    rot_base_odom.setRotation(q_auv);
-    tf::Vector3 disp_odom = rot_base_odom * disp_base;
-
-    // Compute increments in roll,pitch,yaw in odom frame
-    tfScalar pitch_t, roll_t, yaw_t;
-    tf::Matrix3x3(q_auv).getRPY(roll_t, pitch_t, yaw_t);
-    double droll = angleLimit(roll_t - mu_(3));
-    double dpitch = angleLimit(pitch_t - mu_(4));
-    double dtheta = angleLimit(yaw_t - mu_(5));
-
-    // Incremental part of the motion model
-    u_t(0) = disp_odom.x();
-    u_t(1) = disp_odom.y();
-    u_t(2) = disp_odom.z();
-    u_t(3) = droll;
-    u_t(4) = dpitch;
-    u_t(5) = dtheta;
-
-    // Derivative of motion model in mu_ (t-1)
-    using namespace std;
-    g_t.setZero(6, 6);
-
-    g_t(0,3) = disp_base.y()*(sin(roll_t)*sin(yaw_t) + cos(roll_t)*cos(yaw_t)*sin(pitch_t))
-                + disp_base.z()*(cos(roll_t)*sin(yaw_t) - cos(yaw_t)*sin(pitch_t)*sin(roll_t));
-    g_t(0,4) = cos(yaw_t)*(disp_base.z()*cos(pitch_t)*cos(roll_t) - disp_base.x()*sin(pitch_t)
-                + disp_base.y()*cos(pitch_t)*sin(roll_t));
-    g_t(0,5) = disp_base.z()*(cos(yaw_t)*sin(roll_t) - cos(roll_t)*sin(pitch_t)*sin(yaw_t))
-                - disp_base.y()*(cos(roll_t)*cos(yaw_t) + sin(pitch_t)*sin(roll_t)*sin(yaw_t))
-                - disp_base.x()*cos(pitch_t)*sin(yaw_t);
-
-    g_t(1,3) = - disp_base.y()*(cos(yaw_t)*sin(roll_t) - cos(roll_t)*sin(pitch_t)*sin(yaw_t))
-                - disp_base.z()*(cos(roll_t)*cos(yaw_t) + sin(pitch_t)*sin(roll_t)*sin(yaw_t));
-    g_t(1,4) = sin(yaw_t)*(disp_base.z()*cos(pitch_t)*cos(roll_t) - disp_base.x()*sin(pitch_t)
-                + disp_base.y()*cos(pitch_t)*sin(roll_t));
-    g_t(1,5) = disp_base.z()*(sin(roll_t)*sin(yaw_t) + cos(roll_t)*cos(yaw_t)*sin(pitch_t))
-               - disp_base.y()*(cos(roll_t)*sin(yaw_t) - cos(yaw_t)*sin(pitch_t)*sin(roll_t))
-               + disp_base.x()*cos(pitch_t)*cos(yaw_t);
-
-    g_t(2,3) = cos(pitch_t)*(disp_base.y()*cos(roll_t) - disp_base.z()*sin(roll_t));
-    g_t(2,4) = - disp_base.x()*cos(pitch_t) - disp_base.z()*cos(roll_t)*sin(pitch_t)
-                - disp_base.y()*sin(pitch_t)*sin(roll_t);
-    g_t(2,5) = 0;
-
-    t_prev_ = t_now;
-}
-
-void EKFLocalization::predictMotion(Eigen::VectorXd &u_t,
-                                    Eigen::MatrixXd &g_t){
+void EKFLocalization::predictMotion(nav_msgs::Odometry odom_reading){
 
     // Construct Fx (6,3N) for dimension mapping
     Eigen::SparseMatrix<double> F_x(6, 6 + 3*lm_num_);
@@ -364,12 +218,58 @@ void EKFLocalization::predictMotion(Eigen::VectorXd &u_t,
     F_x.setFromTriplets(tripletList.begin(), tripletList.end());
     Eigen::SparseMatrix<double> F_x_transp = F_x.transpose();
 
-    // Compute predicted mu
-    mu_hat_ = mu_ + F_x_transp * u_t;
+    // Extract latest orientation from odom at time t
+    tf::Quaternion q_odom;
+    tf::quaternionMsgToTF(odom_reading.pose.pose.orientation, q_odom);
+    q_odom.normalize();
+
+    // Compute predicted mu_hat
+    Eigen::Vector3d u_t(odom_reading.pose.pose.position.x,
+                        odom_reading.pose.pose.position.y,
+                        odom_reading.pose.pose.position.z);
+
+    u_t -= mu_auv_odom_;    // Increment in x,y,z
+    mu_hat_.segment(0, 3) = mu_.segment(0,3);
+    mu_hat_.segment(0, 3) += u_t;
+    mu_auv_odom_ += u_t;
+
+    // Global orientation roll, pitch and yaw
+    tf::Quaternion q(
+        odom_reading.pose.pose.orientation.x,
+        odom_reading.pose.pose.orientation.y,
+        odom_reading.pose.pose.orientation.z,
+        odom_reading.pose.pose.orientation.w);
+    tf::Matrix3x3 m(q);
+    m.getRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5));
     mu_hat_(3) = angleLimit(mu_hat_(3));
     mu_hat_(4) = angleLimit(mu_hat_(4));
     mu_hat_(5) = angleLimit(mu_hat_(5));
-    mu_pred_ += u_t;
+
+    // Derivative of motion model in mu_ (t-1)
+    Eigen::MatrixXd g_t(6,6);
+    g_t.setZero(6, 6);
+    using namespace std;
+
+    g_t(0,3) = u_t(1)*(sin(mu_hat_(3))*sin(mu_hat_(5)) + cos(mu_hat_(3))*cos(mu_hat_(5))*sin(mu_hat_(4)))
+                + u_t(2)*(cos(mu_hat_(3))*sin(mu_hat_(5)) - cos(mu_hat_(5))*sin(mu_hat_(4))*sin(mu_hat_(3)));
+    g_t(0,4) = cos(mu_hat_(5))*(u_t(2)*cos(mu_hat_(4))*cos(mu_hat_(3)) - u_t(0)*sin(mu_hat_(4))
+                + u_t(1)*cos(mu_hat_(4))*sin(mu_hat_(3)));
+    g_t(0,5) = u_t(2)*(cos(mu_hat_(5))*sin(mu_hat_(3)) - cos(mu_hat_(3))*sin(mu_hat_(4))*sin(mu_hat_(5)))
+                - u_t(1)*(cos(mu_hat_(3))*cos(mu_hat_(5)) + sin(mu_hat_(4))*sin(mu_hat_(3))*sin(mu_hat_(5)))
+                - u_t(0)*cos(mu_hat_(4))*sin(mu_hat_(5));
+
+    g_t(1,3) = - u_t(1)*(cos(mu_hat_(5))*sin(mu_hat_(3)) - cos(mu_hat_(3))*sin(mu_hat_(4))*sin(mu_hat_(5)))
+                - u_t(2)*(cos(mu_hat_(3))*cos(mu_hat_(5)) + sin(mu_hat_(4))*sin(mu_hat_(3))*sin(mu_hat_(5)));
+    g_t(1,4) = sin(mu_hat_(5))*(u_t(2)*cos(mu_hat_(4))*cos(mu_hat_(3)) - u_t(0)*sin(mu_hat_(4))
+                + u_t(1)*cos(mu_hat_(4))*sin(mu_hat_(3)));
+    g_t(1,5) = u_t(2)*(sin(mu_hat_(3))*sin(mu_hat_(5)) + cos(mu_hat_(3))*cos(mu_hat_(5))*sin(mu_hat_(4)))
+               - u_t(1)*(cos(mu_hat_(3))*sin(mu_hat_(5)) - cos(mu_hat_(5))*sin(mu_hat_(4))*sin(mu_hat_(3)))
+               + u_t(0)*cos(mu_hat_(4))*cos(mu_hat_(5));
+
+    g_t(2,3) = cos(mu_hat_(4))*(u_t(1)*cos(mu_hat_(3)) - u_t(2)*sin(mu_hat_(3)));
+    g_t(2,4) = - u_t(0)*cos(mu_hat_(4)) - u_t(2)*cos(mu_hat_(3))*sin(mu_hat_(4))
+                - u_t(1)*sin(mu_hat_(4))*sin(mu_hat_(3));
+    g_t(2,5) = 0;
 
     // Compute Jacobian G_t
     Eigen::MatrixXd G_t = Eigen::MatrixXd::Identity(6 + 3*lm_num_, 6 + 3*lm_num_);
@@ -417,124 +317,107 @@ void EKFLocalization::predictMeasurement(const Eigen::Vector3d &landmark_j,
         corresp_i_list.push_back(std::move(corresp_i_j));
     }
     else{
-        ROS_DEBUG_NAMED(node_name_, "Outlier rejected");
+        ROS_INFO_NAMED(node_name_, "Outlier rejected");
     }
 }
 
-void EKFLocalization::dataAssociation(){
-    std::vector<Eigen::Vector3d> z_t;
+void EKFLocalization::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
-    double epsilon = 10;
-    double alpha = 0.085;   // TODO: find suitable value!!
+    double epsilon = 9;
+    double alpha = 0.09;   // TODO: find suitable value!!
 
-    // If observations available
-    if(!measurements_t_.empty()){
-        // Fetch latest measurement
-        auto observ = measurements_t_.back();   // TODO: make sure the system uses the latest measurement
-        measurements_t_.pop_back();
+    std::vector<CorrespondenceClass> corresp_i_list;
+    tf::Vector3 new_lm_aux;
+    tf::Transform transf_base_odom;
+    tf::Transform transf_odom_base;
+    Eigen::MatrixXd temp_sigma(9,9);
 
-        for(auto lm_pose: observ.poses){
-            z_t.push_back(Eigen::Vector3d(lm_pose.position.x,
-                                          lm_pose.position.y,
-                                          lm_pose.position.z));
+    lm_num_ = (mu_.rows() - 6) / 3;
+    // For each observation z_i at time t
+    for(unsigned int i = 0; i<z_t.size(); i++){
+        // Compute transform odom --> base from current state state estimate at time t
+        transf_odom_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
+                                         tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
+        transf_base_odom = transf_odom_base.inverse();
+
+        // Back-project new possible landmark (in odom frame)
+        new_lm_aux = transf_odom_base * tf::Vector3(z_t.at(i)(0), z_t.at(i)(1),z_t.at(i)(2));
+
+        // Add new possible landmark to mu_hat_
+        Eigen::VectorXd aux_mu = mu_hat_;
+        mu_hat_.resize(mu_hat_.size()+3, true);
+        mu_hat_ << aux_mu, Eigen::Vector3d(new_lm_aux.getX(),
+                                           new_lm_aux.getY(),
+                                           new_lm_aux.getZ());
+
+        // Increase Sigma_hat_
+        Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
+        Sigma_hat_.bottomRows(3).setZero();
+        Sigma_hat_.rightCols(3).setZero();
+        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 1000;  // TODO: initialize with uncertainty on the measurement in x,y,z
+        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 200;
+        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 200;
+
+        // Store current mu_hat_ estimate in struct for faster computation of H in DA
+        h_comp h_comps;
+        {
+            using namespace std;
+            h_comps.mu_0 = mu_hat_(0);
+            h_comps.mu_1 = mu_hat_(1);
+            h_comps.mu_2 = mu_hat_(2);
+            h_comps.c_3 = cos(mu_hat_(3));
+            h_comps.c_4 = cos(mu_hat_(4));
+            h_comps.c_5 = cos(mu_hat_(5));
+            h_comps.s_3 = sin(mu_hat_(3));
+            h_comps.s_4 = sin(mu_hat_(4));
+            h_comps.s_5 = sin(mu_hat_(5));
         }
-        if(!measurements_t_.empty()){
-            ROS_WARN("Cache with measurements is not empty");
+
+        // Store block of sigma common to all landmarks analysis
+        temp_sigma.block(0,0,6,6) = Sigma_hat_.block(0,0,6,6);
+        // For each possible landmark j in M
+        Eigen::Vector3d landmark_j;
+        for(unsigned int j=0; j<(mu_hat_.rows()-6)/3; j++){
+            landmark_j = mu_hat_.segment(3 * j + 6, 3);
+            temp_sigma.bottomRows(3) = Sigma_hat_.block(j * 3 + 6, 0, 3, temp_sigma.cols());
+            temp_sigma.rightCols(3) = Sigma_hat_.block(0, j * 3 + 6, temp_sigma.rows(), 3);
+            predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
         }
 
-        // Main loop
-        std::vector<CorrespondenceClass> corresp_i_list;
-        tf::Vector3 new_lm_aux;
-        tf::Transform transf_base_odom;
-        tf::Transform transf_odom_base;
-        Eigen::MatrixXd temp_sigma(9,9);
+        // Select the association with the minimum Mahalanobis distance
+        if(!corresp_i_list.empty()){
 
-        lm_num_ = (mu_.rows() - 6) / 3;
-        // For each observation z_i at time t
-        for(unsigned int i = 0; i<z_t.size(); i++){
-            // Compute transform odom --> base from current state state estimate at time t
-            transf_odom_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
-                                             tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
-            transf_base_odom = transf_odom_base.inverse();
+            // Set init Mahalanobis distance for new possible landmark
+            corresp_i_list.back().d_m_ = alpha;
 
-            // Back-project new possible landmark (in odom frame)
-            new_lm_aux = transf_odom_base * tf::Vector3(z_t.at(i)(0), z_t.at(i)(1),z_t.at(i)(2));
+            // Select correspondance with minimum Mh distance
+            std::sort(corresp_i_list.begin(), corresp_i_list.end(), [](const CorrespondenceClass& corresp_1, const CorrespondenceClass& corresp_2){
+                return corresp_1.d_m_ > corresp_2.d_m_;
+            });
 
-            // Add new possible landmark to mu_hat_
-            Eigen::VectorXd aux_mu = mu_hat_;
-            mu_hat_.resize(mu_hat_.size()+3, true);
-            mu_hat_ << aux_mu, Eigen::Vector3d(new_lm_aux.getX(),
-                                               new_lm_aux.getY(),
-                                               new_lm_aux.getZ());
-
-            // Increase Sigma_hat_
-            Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
-            Sigma_hat_.bottomRows(3).setZero();
-            Sigma_hat_.rightCols(3).setZero();
-            Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 200;  // TODO: initialize with uncertainty on the measurement in x,y,z
-            Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
-            Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
-
-            // Store current mu_hat_ estimate in struct for faster computation of H in DA
-            h_comp h_comps;
-            {
-                using namespace std;
-                h_comps.mu_0 = mu_hat_(0);
-                h_comps.mu_1 = mu_hat_(1);
-                h_comps.mu_2 = mu_hat_(2);
-                h_comps.c_3 = cos(mu_hat_(3));
-                h_comps.c_4 = cos(mu_hat_(4));
-                h_comps.c_5 = cos(mu_hat_(5));
-                h_comps.s_3 = sin(mu_hat_(3));
-                h_comps.s_4 = sin(mu_hat_(4));
-                h_comps.s_5 = sin(mu_hat_(5));
+            // Update landmarks in the map
+            if(lm_num_ >= corresp_i_list.back().i_j_.second){
+                // No new landmark added --> remove candidate from mu_hat_ and sigma_hat_
+                mu_hat_.conservativeResize(mu_hat_.rows()-3);
+                Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
+                temp_sigma.bottomRows(3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
+                temp_sigma.rightCols(3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
             }
-
-            // Store block of sigma common to all landmarks analysis
-            temp_sigma.block(0,0,6,6) = Sigma_hat_.block(0,0,6,6);
-            // For each possible landmark j in M
-            Eigen::Vector3d landmark_j;
-            for(unsigned int j=0; j<(mu_hat_.rows()-6)/3; j++){
-                landmark_j = mu_hat_.segment(3 * j + 6, 3);
-                temp_sigma.bottomRows(3) = Sigma_hat_.block(j * 3 + 6, 0, 3, temp_sigma.cols());
-                temp_sigma.rightCols(3) = Sigma_hat_.block(0, j * 3 + 6, temp_sigma.rows(), 3);
-                predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
+            else{
+                // New landmark
+                lm_num_ = corresp_i_list.back().i_j_.second;
             }
-
-            // Select the association with the minimum Mahalanobis distance
-            if(!corresp_i_list.empty()){
-
-                // Set init Mahalanobis distance for new possible landmark
-                corresp_i_list.back().d_m_ = alpha;
-
-                // Select correspondance with minimum Mh distance
-                std::sort(corresp_i_list.begin(), corresp_i_list.end(), [](const CorrespondenceClass& corresp_1, const CorrespondenceClass& corresp_2){
-                    return corresp_1.d_m_ > corresp_2.d_m_;
-                });
-
-                // Update landmarks in the map
-                if(lm_num_ >= corresp_i_list.back().i_j_.second){
-                    // No new landmark added --> remove candidate from mu_hat_ and sigma_hat_
-                    mu_hat_.conservativeResize(mu_hat_.rows()-3);
-                    Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
-                    temp_sigma.bottomRows(3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
-                    temp_sigma.rightCols(3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
-                }
-                else{
-                    // New landmark
-                    lm_num_ = corresp_i_list.back().i_j_.second;
-                }
-                // Sequential update
-                sequentialUpdate(corresp_i_list.back(), temp_sigma);
-                corresp_i_list.clear();
-            }
-        }
-        // Make sure mu and sigma have the same size at the end!
-        while(mu_hat_.size() < Sigma_hat_.rows()){
-            ROS_WARN("Sizes of mu and sigma differ!!");
-            Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
+            // Sequential update
+            sequentialUpdate(corresp_i_list.back(), temp_sigma);
+            corresp_i_list.clear();
         }
     }
+    // Make sure mu and sigma have the same size at the end!
+    while(mu_hat_.size() < Sigma_hat_.rows()){
+        ROS_WARN("Sizes of mu and sigma differ!!");
+        Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
+    }
+
 }
 
 void EKFLocalization::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd temp_sigma){
@@ -561,106 +444,76 @@ void EKFLocalization::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::
 
 void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
 
-    sensor_msgs::ImuPtr imu_msg;
-    geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg;
-    nav_msgs::OdometryPtr gt_msg;
-
     // TODO: predefine matrices so that they can be allocated in the stack!
-    tf::Quaternion q_auv;
-    Eigen::VectorXd u_t(6);
-    Eigen::MatrixXd g_t(6,6);
+    nav_msgs::Odometry odom_reading;
+    std::vector<Eigen::Vector3d> z_t;
 
-    if(dvl_readings_.size() >= size_dvl_q_ && imu_readings_.size() >= size_imu_q_ && !gt_readings_.empty()){
-        // Init filter with initial, true pose (from GPS?)
-        if(!init_filter_){
-            ROS_INFO_NAMED(node_name_, "Starting navigation node");
+    if(!odom_queue_t_.empty()){
+        // Fetch latest measurement
+        odom_reading = odom_queue_t_.back();
+        odom_queue_t_.pop_back();
 
-            // Compute initial pose
-            gt_msg = boost::make_shared<nav_msgs::Odometry>(gt_readings_.back());
-            t_prev_ = gt_msg->header.stamp.toSec();
+        // Prediction step
+        predictMotion(odom_reading);
 
-            // Transform IMU output world --> odom
-            tf::Quaternion q_transf;
-            tf::quaternionMsgToTF(gt_msg->pose.pose.orientation, q_transf);
-            q_auv = transf_odom_world_.getRotation() * q_transf;
-            q_auv.normalize();
+        // If observations available: data association and sequential update
+        if(!measurements_t_.empty()){
+            // Fetch latest measurement
+            auto observ = measurements_t_.back();
+            measurements_t_.pop_back();
+            if(!measurements_t_.empty()){
+                ROS_WARN("Cache with measurements is not empty");
+            }
 
-            // Publish and broadcast
-            this->sendOutput(gt_msg->header.stamp);
-
-            init_filter_ = true;
+            for(auto lm_pose: observ.poses){
+                z_t.push_back(Eigen::Vector3d(lm_pose.position.x,
+                                              lm_pose.position.y,
+                                              lm_pose.position.z));
+            }
+            dataAssociation(z_t);
+            z_t.clear();
         }
-        // MAIN LOOP
-        else{
-            // Fetch latest sensor readings
-            imu_msg = boost::make_shared<sensor_msgs::Imu>(imu_readings_.back());
 
-            if(coord_ == false){
-                // IMU available but not DVL
-                this->interpolateDVL(imu_msg->header.stamp, dvl_msg);
-            }
-            else{
-                // Sensor input available on both channels
-                coord_ = false;
-                dvl_msg = boost::make_shared<geometry_msgs::TwistWithCovarianceStamped>(dvl_readings_.back());
-            }
-
-            // Transform IMU output world --> odom
-            tf::Quaternion q_transf;
-            tf::quaternionMsgToTF(imu_msg->orientation, q_transf);
-            q_auv = transf_odom_world_.getRotation() * q_transf;
-            q_auv.normalize();
-
-            // Compute displacement based on DVL and IMU orientation
-            computeOdom(dvl_msg, q_auv, u_t, g_t);
-
-            // Prediction step
-            predictMotion(u_t, g_t);
-
-            // Data association and sequential update
-            dataAssociation();
-
-            // Update step
-            if (mu_.rows()!= mu_hat_.rows()){
-                int n_t = mu_hat_.rows() - mu_.rows();
-                mu_.conservativeResize(mu_.size() + n_t, true);
-                Sigma_.conservativeResize(Sigma_.rows() + n_t, Sigma_.cols() + n_t);
-                std::cout << "Mu updated: " << mu_.size() << std::endl;
-                std::cout << "Sigma updated: " << Sigma_.cols() << std::endl;
-                std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
-                // TODO: check that Sigma_ is still semi-definite positive
-            }
-            mu_ = mu_hat_;
-            Sigma_ = Sigma_hat_;
-
-            // Publish and broadcast
-            this->sendOutput(dvl_msg->header.stamp);
-            this->updateMapMarkers(1.0);
+        // Update step
+        if (mu_.rows()!= mu_hat_.rows()){
+            int n_t = mu_hat_.rows() - mu_.rows();
+            mu_.conservativeResize(mu_.size() + n_t, true);
+            Sigma_.conservativeResize(Sigma_.rows() + n_t, Sigma_.cols() + n_t);
+            std::cout << "Mu updated: " << mu_.size() << std::endl;
+            std::cout << "Sigma updated: " << Sigma_.cols() << std::endl;
+            std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
+            // TODO: check that Sigma_ is still semi-definite positive
         }
+        mu_ = mu_hat_;
+        Sigma_ = Sigma_hat_;
+        // Publish and broadcast
+        this->sendOutput(ros::Time::now());
+        this->bcMapOdomTF(ros::Time::now());
+        this->updateMapMarkers(1.0);
     }
     else{
-        gt_msg = boost::make_shared<nav_msgs::Odometry>(gt_readings_.back());
-        this->sendOutput(gt_msg->header.stamp);
-        ROS_WARN("No sensory update, broadcasting latest known pose");
+        ROS_WARN("No odometry info received, bc identity map --> odom transform");
+        this->sendOutput(ros::Time::now());
+
+        // Build tf map --> base from latest update or identity
+        tf::StampedTransform tf_odom_map_stp;
+        tf::Transform tf_map_odom = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
+        tf_odom_map_stp = tf::StampedTransform(tf_map_odom,
+                                               ros::Time::now(),
+                                               map_frame_,
+                                               odom_frame_);
+        // Broadcast map --> odom transform
+        map_bc_.sendTransform(tf_odom_map_stp);
     }
 
-    // Empty the pointers
-    imu_msg.reset();
-    dvl_msg.reset();
-    gt_msg.reset();
 
 }
 
 EKFLocalization::~EKFLocalization(){
     // Empty queues
-    imu_readings_.clear();
     measurements_t_.clear();
-    dvl_readings_.clear();
-    gt_readings_.clear();
+    odom_queue_t_.clear();
 
     // Delete instance pointers
     delete(nh_);
-    delete(msg_synch_ptr_);
-    delete(imu_subs_);
-    delete(dvl_subs_);
 }
