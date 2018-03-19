@@ -80,9 +80,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
         ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
     }
     landmark_visualizer::init_map init_map_srv;
-    init_map_srv.request.request_map = true;<<<<<<< master
-244
- 
+    init_map_srv.request.request_map = true;
 
     init_map_client_.call(init_map_srv);
 
