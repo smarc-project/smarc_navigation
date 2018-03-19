@@ -62,6 +62,10 @@ catkin_package(
 #  DEPENDS system_lib
 )
 
+add_library(ekf_core
+    src/ekf_slam_core.cpp
+    )
+
 include_directories(
  include
  ${catkin_INCLUDE_DIRS}
@@ -80,6 +84,7 @@ add_dependencies(ekf_slam_node
 
 target_link_libraries(ekf_slam_node
     noise_kf
+    ekf_core
 #    utils_matrices
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}

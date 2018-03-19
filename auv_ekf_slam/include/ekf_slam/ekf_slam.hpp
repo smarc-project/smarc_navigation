@@ -11,9 +11,6 @@
 #include "gazebo_msgs/GetWorldProperties.h"
 #include "gazebo_msgs/GetModelState.h"
 
-#include "correspondence_class/correspondence_class.hpp"
-#include "noise_oneD_kf/noise_oneD_kf.hpp"
-
 #include <queue>
 #include <math.h>
 
@@ -26,7 +23,6 @@
 #include <boost/math/distributions/inverse_chi_squared.hpp>
 
 #include <nav_msgs/Odometry.h>
-
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/TwistWithCovarianceStamped.h>
 #include <geometry_msgs/Quaternion.h>
@@ -41,6 +37,8 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
+#include "noise_oneD_kf/noise_oneD_kf.hpp"
+#include "ekf_slam_core/ekf_slam_core.hpp"
 
 /**
  * @brief The EKFLocalization class
@@ -81,19 +79,14 @@ private:
     std::deque<geometry_msgs::PoseArray> measurements_t_;
     std::deque<nav_msgs::Odometry> odom_queue_t_;
     boost::mutex msg_lock_;
-    bool init_filter_;
 
-    // System state variables
-    Eigen::MatrixXd Sigma_;
-    Eigen::MatrixXd Sigma_hat_;
+    // EKF state variables
     Eigen::VectorXd mu_;
-    Eigen::VectorXd mu_hat_;
-    Eigen::Vector3d mu_auv_odom_;
-
-    double delta_m_;
-    double lambda_M_;
+    Eigen::MatrixXd Sigma_;
+    EKFCore* ekf_filter_;
 
     // Mapping variables
+    double lambda_M_;
     int lm_num_;
 
     // Noise models
@@ -102,7 +95,6 @@ private:
 
     // Aux
     double t_prev_;
-    bool coord_;
     int size_odom_q_;
 
     // tf
@@ -124,39 +116,6 @@ private:
     void odomCB(const nav_msgs::Odometry &odom_msg);
 
     void observationsCB(const geometry_msgs::PoseArray &observ_msg);
-
-    /**
-     * @brief EKFLocalization::predictMotion
-     * @param u_t
-     * Prediction step for the EKF
-     */
-    void predictMotion(nav_msgs::Odometry odom_reading);
-
-    /**
-     * @brief predictMeasurement
-     * @param landmark_j
-     * @param z_i
-     * @param ml_i_list
-     * Measurement prediction for a given pair measurement-landmark at time t
-     */
-    void predictMeasurement(const Eigen::Vector3d &landmark_j,
-                            const Eigen::Vector3d &z_i,
-                            unsigned int i, unsigned int j, const tf::Transform &transf_base_odom, const Eigen::MatrixXd &temp_sigma, h_comp h_comps,
-                            std::vector<CorrespondenceClass> &ml_i_list);
-
-    /**
-     * @brief dataAssociation
-     * Maximum likelihood data association with outlier rejection
-     */
-    void dataAssociation(std::vector<Eigen::Vector3d> z_t);
-
-    /**
-     * @brief sequentialUpdate
-     * @param c_i_j
-     * Sequential update for a given match observation-landmark
-     */
-    void sequentialUpdate(const CorrespondenceClass &c_i_j, Eigen::MatrixXd temp_sigma);
-
 
     /**
      * @brief createMapMarkers
