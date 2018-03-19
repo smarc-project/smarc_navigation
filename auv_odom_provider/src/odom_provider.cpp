@@ -83,11 +83,9 @@ void OdomProvider::init(){
 
     // Get fixed transform world --> odom frame
     try {
-        tf_listener.waitForTransform(world_frame_, odom_frame_, ros::Time(0), ros::Duration(10.0) );
-        tf_listener.lookupTransform(world_frame_, odom_frame_, ros::Time(0), transf_world_odom_);
+        tf_listener.waitForTransform(odom_frame_, world_frame_, ros::Time(0), ros::Duration(10.0) );
+        tf_listener.lookupTransform(odom_frame_, world_frame_, ros::Time(0), transf_odom_world_);
         ROS_INFO("Locked transform world --> odom");
-        // Compute inverse for later use
-        transf_odom_world_ = transf_world_odom_.inverse();
     }
     catch(tf::TransformException &exception) {
         ROS_ERROR("%s", exception.what());
@@ -245,7 +243,7 @@ void OdomProvider::provideOdom(const ros::TimerEvent& e){
     if(dvl_readings_.size() >= size_dvl_q_ && imu_readings_.size() >= size_imu_q_ && !gt_readings_.empty()){
         // Init filter with initial, true pose (from GPS?)
         if(!init_filter_){
-            ROS_INFO_NAMED(node_name_, "Starting navigation node");
+            ROS_INFO_NAMED(node_name_, "Starting odom provider node");
 
             // Compute initial pose
             gt_msg = boost::make_shared<nav_msgs::Odometry>(gt_readings_.back());
@@ -304,5 +302,14 @@ void OdomProvider::provideOdom(const ros::TimerEvent& e){
 }
 
 OdomProvider::~OdomProvider(){
+    // Empty queues
+    imu_readings_.clear();
+    dvl_readings_.clear();
+    gt_readings_.clear();
 
+    // Delete instance pointers
+    delete(nh_);
+    delete(msg_synch_ptr_);
+    delete(imu_subs_);
+    delete(dvl_subs_);
 }
