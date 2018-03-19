@@ -136,7 +136,7 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
 
 void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
-    double epsilon = 9;
+//    double epsilon = 9;
     double alpha = 0.09;   // TODO: find suitable value!!
 
     std::vector<CorrespondenceClass> corresp_i_list;

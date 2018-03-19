@@ -111,8 +111,8 @@ void OdomProvider::fastDVLCB(const geometry_msgs::TwistWithCovarianceStamped &dv
     }
 }
 
-void OdomProvider::synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg,
-                                  const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg){
+void OdomProvider::synchSensorsCB(const sensor_msgs::ImuConstPtr &,
+                                  const geometry_msgs::TwistWithCovarianceStampedConstPtr &){
     coord_ = true;
 }
 
@@ -230,7 +230,7 @@ bool OdomProvider::sendOutput(ros::Time t){
     return true;
 }
 
-void OdomProvider::provideOdom(const ros::TimerEvent& e){
+void OdomProvider::provideOdom(const ros::TimerEvent&){
 
     sensor_msgs::ImuPtr imu_msg;
     geometry_msgs::TwistWithCovarianceStampedPtr dvl_msg;

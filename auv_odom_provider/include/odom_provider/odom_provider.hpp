@@ -32,7 +32,7 @@ public:
     OdomProvider(std::string node_name, ros::NodeHandle &nh);
     ~OdomProvider();
     void init();
-    void provideOdom(const ros::TimerEvent& e);
+    void provideOdom(const ros::TimerEvent&);
 
 private:
     ros::NodeHandle* nh_;
@@ -75,8 +75,7 @@ private:
 
     // Input callbacks
     void gtCB(const nav_msgs::Odometry &pose_msg);
-    void synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg,
-                        const geometry_msgs::TwistWithCovarianceStampedConstPtr &dvl_msg);
+    void synchSensorsCB(const sensor_msgs::ImuConstPtr &imu_msg, const geometry_msgs::TwistWithCovarianceStampedConstPtr &);
     void fastIMUCB(const sensor_msgs::Imu &imu_msg);
     void fastDVLCB(const geometry_msgs::TwistWithCovarianceStamped &dvl_msg);
 

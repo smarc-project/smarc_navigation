@@ -51,11 +51,6 @@ private:
     double lambda_M_;
     int lm_num_;
 
-
-    // Aux
-    double t_prev_;
-
-
     void predictMeasurement(const Eigen::Vector3d &landmark_j,
                             const Eigen::Vector3d &z_i,
                             unsigned int i, unsigned int j, const tf::Transform &transf_base_odom, const Eigen::MatrixXd &temp_sigma, h_comp h_comps,

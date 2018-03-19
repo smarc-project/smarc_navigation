@@ -94,7 +94,6 @@ private:
     Eigen::MatrixXd Q_;
 
     // Aux
-    double t_prev_;
     unsigned int size_odom_q_;
 
     // tf
