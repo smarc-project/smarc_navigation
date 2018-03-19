@@ -10,7 +10,7 @@ int main(int argc, char** argv){
     ros::CallbackQueue nav_queue;
     nh_nav.setCallbackQueue(&nav_queue);
 
-    boost::shared_ptr<EKFLocalization> auv_nav(new EKFLocalization(ros::this_node::getName(), nh_nav));
+    boost::shared_ptr<EKFSLAM> auv_nav(new EKFSLAM(ros::this_node::getName(), nh_nav));
 
     ros::AsyncSpinner spinner_nav(1, &nav_queue);
     spinner_nav.start();

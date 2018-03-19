@@ -41,7 +41,7 @@
 #include "ekf_slam_core/ekf_slam_core.hpp"
 
 /**
- * @brief The EKFLocalization class
+ * @brief The EKFSLAM class
  * EKF-based localization node for LoLo
  * Inputs:
  * IMU, DVL and landmarks positions from measurements
@@ -51,13 +51,13 @@
  * updated tf transform odom --> base_link
  */
 
-class EKFLocalization{
+class EKFSLAM{
 
 public:
 
-    EKFLocalization(std::string node_name, ros::NodeHandle &nh);
+    EKFSLAM(std::string node_name, ros::NodeHandle &nh);
     void ekfLocalize(const ros::TimerEvent& e);
-    ~EKFLocalization();
+    ~EKFSLAM();
     void init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta);
 
 private:
@@ -124,7 +124,7 @@ private:
     void updateMapMarkers(double color);
 
     /**
-     * @brief EKFLocalization::sendOutput
+     * @brief EKFSLAM::sendOutput
      * @param t
      * @return
      * Publishes AUV odometry info and tf odom --> base_link

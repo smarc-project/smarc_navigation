@@ -8,7 +8,7 @@ template <typename T> int sgn(T val) {
 // END HELPER FUNCTIONS
 
 
-EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_name_(node_name){
+EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_name_(node_name){
 
     std::string map_topic;
     std::string odom_topic;
@@ -33,8 +33,8 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
 
     // Subscribe to sensor msgs
-    observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFLocalization::observationsCB, this);
-    odom_subs_ = nh_->subscribe(odom_topic, 10, &EKFLocalization::odomCB, this);
+    observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFSLAM::observationsCB, this);
+    odom_subs_ = nh_->subscribe(odom_topic, 10, &EKFSLAM::odomCB, this);
     map_pub_ = nh_->advertise<nav_msgs::Odometry>(map_topic, 10);
 
     // Plot map in RVIZ
@@ -44,11 +44,11 @@ EKFLocalization::EKFLocalization(std::string node_name, ros::NodeHandle &nh): nh
     init(Sigma_diagonal, R_diagonal, Q_diagonal, delta);
 
     // Main spin loop
-    timer_ = nh_->createTimer(ros::Duration(1.0 / std::max(freq, 1.0)), &EKFLocalization::ekfLocalize, this);
+    timer_ = nh_->createTimer(ros::Duration(1.0 / std::max(freq, 1.0)), &EKFSLAM::ekfLocalize, this);
 
 }
 
-void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta){
+void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta){
 
     // EKF variables
     double size_state = r_diag.size();
@@ -81,19 +81,19 @@ void EKFLocalization::init(std::vector<double> sigma_diag, std::vector<double> r
     ROS_INFO_NAMED(node_name_, "EKF SLAM Initialized");
 }
 
-void EKFLocalization::odomCB(const nav_msgs::Odometry &odom_msg){
+void EKFSLAM::odomCB(const nav_msgs::Odometry &odom_msg){
     odom_queue_t_.push_back(odom_msg);
     while(odom_queue_t_.size() > size_odom_q_){
         odom_queue_t_.pop_front();
     }
 }
 
-void EKFLocalization::observationsCB(const geometry_msgs::PoseArray &observ_msg){
+void EKFSLAM::observationsCB(const geometry_msgs::PoseArray &observ_msg){
     measurements_t_.push_back(observ_msg);
 }
 
 
-void EKFLocalization::updateMapMarkers(double color){
+void EKFSLAM::updateMapMarkers(double color){
 
     visualization_msgs::MarkerArray marker_array;
     Eigen::Vector3d landmark;
@@ -126,7 +126,7 @@ void EKFLocalization::updateMapMarkers(double color){
     vis_pub_.publish(marker_array);
 }
 
-bool EKFLocalization::sendOutput(ros::Time t){
+bool EKFSLAM::sendOutput(ros::Time t){
 
     // Publish odom filtered msg
     tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
@@ -146,7 +146,7 @@ bool EKFLocalization::sendOutput(ros::Time t){
     return true;
 }
 
-bool EKFLocalization::bcMapOdomTF(ros::Time t){
+bool EKFSLAM::bcMapOdomTF(ros::Time t){
     // Get transform odom --> base published by odom_provider
     tf::StampedTransform tf_base_odom;
     try {
@@ -175,7 +175,7 @@ bool EKFLocalization::bcMapOdomTF(ros::Time t){
     }
 }
 
-void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
+void EKFSLAM::ekfLocalize(const ros::TimerEvent& e){
 
     // TODO: predefine matrices so that they can be allocated in the stack!
     nav_msgs::Odometry odom_reading;
@@ -233,7 +233,7 @@ void EKFLocalization::ekfLocalize(const ros::TimerEvent& e){
     }
 }
 
-EKFLocalization::~EKFLocalization(){
+EKFSLAM::~EKFSLAM(){
     // Empty queues
     measurements_t_.clear();
     odom_queue_t_.clear();
