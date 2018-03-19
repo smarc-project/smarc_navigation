@@ -1,28 +1,40 @@
 <launch>
     
       <arg name="namespace" default="lolo_auv"/>
-      <arg name="navigation_ns" default="navigation"/>
+      <arg name="run_navigation" default="false"/>
+      <arg name="nav_name" default="navigation"/>
+
 
         <group ns="$(arg namespace)">
-            <node pkg="auv_ekf_slam" name="auv_navigation_node" type="ekf_slam_node" output="screen">
-                <param name="/$(arg namespace)/system_freq" value="1"/>
-                <param name="/$(arg namespace)/delta_outlier_reject" value="0.99"/>
-                <rosparam param="/$(arg namespace)/init_pose_cov_diag">[2.0, 2.0, 2.0, 1.0, 1.0, 1.0]</rosparam>
-                <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[0.01, 1, 1, 0.001, 0.001, 0.001]</rosparam>
-                <rosparam param="/$(arg namespace)/meas_noise_cov_diag">[1000.0, 200.0, 300.0]</rosparam>
+            <node pkg="auv_odom_provider" name="odom_provider_node" type="odom_provider_node" output="screen">
+                <param name="system_freq" value="50"/>
                 <!--Topics-->
                 <param name="imu_topic" value="/$(arg namespace)/imu"/>
                 <param name="dvl_topic" value="/$(arg namespace)/dvl_twist"/>
                 <param name="gt_pose_topic" value="/$(arg namespace)/pose_gt"/>
-                <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
-                <param name="odom_pub_topic" value="/$(arg namespace)/$(arg navigation_ns)/pose_estimated"/>
-                <param name="odom_in_pub_topic" value="/$(arg namespace)/$(arg navigation_ns)/pose_predicted"/>
+                <param name="odom_pub_topic" value="/$(arg namespace)/pose_odom"/>
                 <!--tf frames-->
-                <param name="odom_frame" value="odom"/>
                 <param name="world_frame" value="world"/>
+                <param name="odom_frame" value="odom"/>
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="dvl_frame" value="/$(arg namespace)/dvl_link"/>
-                <!--Services-->
+            </node>
+
+            <node pkg="auv_ekf_slam" name="auv_navigation_node" type="ekf_slam_node" output="screen">
+                <param name="system_freq" value="50"/>
+                <param name="delta_outlier_reject" value="0.9"/>
+                <rosparam param="/$(arg namespace)/init_pose_cov_diag">[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]</rosparam>
+                <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[0.01, 1, 1, 0.1, 0.1, 0.1]</rosparam>
+                <rosparam param="/$(arg namespace)/meas_noise_cov_diag">[1000.0, 200.0, 200.0]</rosparam>
+                <!--Topics-->
+                <param name="odom_pub_topic" value="/$(arg namespace)/pose_odom"/>
+                <param name="map_pose_topic" value="/$(arg namespace)/$(arg nav_name)/pose_estimate"/>
+                <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
+                <!--tf frames-->
+                <param name="world_frame" value="world"/>
+                <param name="map_frame" value="map"/>
+                <param name="odom_frame" value="odom"/>
+                <param name="base_frame" value="/$(arg namespace)/base_link"/>
             </node>
 
             <node pkg="auv_ekf_localization" name="mbes_receptor" type="mbes_receptor_node" output="screen">
