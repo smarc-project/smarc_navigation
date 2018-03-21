@@ -73,7 +73,7 @@ void OdomProvider::init(){
     tf::TransformListener tf_listener;
     try {
         tf_listener.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
-        tf_listener.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_dvl_base_);
+        tf_listener.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_base_dvl_);
         ROS_INFO("Locked transform dvl --> base");
     }
     catch(tf::TransformException &exception) {
@@ -168,7 +168,7 @@ void OdomProvider::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPt
     tf::Vector3 twist_vel(dvl_msg->twist.twist.linear.x,
                           dvl_msg->twist.twist.linear.y,
                           dvl_msg->twist.twist.linear.z);
-    tf::Vector3 disp_base = transf_dvl_base_.getBasis() * twist_vel * delta_t;
+    tf::Vector3 disp_base = transf_base_dvl_.getBasis() * twist_vel * delta_t;
 
     // Compute increments in x,y,z in odom frame
     tf::Matrix3x3 rot_base_odom;
