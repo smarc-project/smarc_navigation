@@ -14,22 +14,37 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
 
     using namespace std;
 
+    Eigen::SparseMatrix<double> F_x(3, 9);
+    std::vector<Eigen::Triplet<double>> tripletList;
+    tripletList.reserve(6);
+    unsigned int i = 0;
+    int input = 1;
+    for(unsigned int j=6; j<9; j++){
+        tripletList.push_back(Eigen::Triplet<double>(i,j,input));
+        i += 1;
+    }
+    F_x.setFromTriplets(tripletList.begin(), tripletList.end());
+
     // Store the landmark position
     this->landmark_pos_(0) = lm_odom.getX();
     this->landmark_pos_(1) = lm_odom.getY();
     this->landmark_pos_(2) = lm_odom.getZ();
 
     // Size H_t_ = 3 x (num of landmarks +1 * size_landmark * size of x_t)
-    H_t_.setZero(3,3);
+    Eigen::MatrixXd h_t;
+    h_t.setZero(3,3);
 
     // Compute high-dimensional map of the jacobian of the measurement model
     // H_t_ has been filled in manually instead of projecting h_t_ to a higher dimension due to the higher cost of the operation
     // and the sparsity of H_t_
-    H_t_(0,0) = 1;
+    h_t(0,0) = 1;
     Eigen::Vector3d zprime(0.0, lm_odom.getY(), lm_odom.getZ());
-    H_t_.row(1) = (1.0/zprime.norm()) * zprime;
-//    H_t_ *= 400.0/17.0;
+    h_t.row(1) = (1.0/zprime.norm()) * zprime;
+    h_t(2,2) = 1;
 
+    // Map h_t_ to the correct dimension
+    this->H_t_ = h_t * F_x;
+    H_t_ *= 400.0/17.0;
 }
 
 void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
@@ -43,7 +58,7 @@ void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
 }
 
 void CorrespondenceClass::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){
-    nu_ = (z_i - z_hat_i) * 17.0/400.0; // nu in metters
+    nu_ = z_i - z_hat_i; // nu in metters
 }
 
 void CorrespondenceClass::computeLikelihood(){

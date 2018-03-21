@@ -28,6 +28,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
     nh_->param<std::string>((node_name_ + "/world_frame"), world_frame_, "/world");
+    nh_->param<std::string>((node_name_ + "/sensor_frame"), sensor_frame_, "/forward_sonardown_link");
     nh_->param<std::string>((node_name_ + "/map_frame"), map_frame_, "/map");
     nh_->param<std::string>((node_name_ + "/odom_frame"), odom_frame_, "/odom");
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
@@ -74,9 +75,20 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
 
     // Aux
     size_odom_q_ = 10;
+    size_measurements_q_ = 10;
+
+    tf::StampedTransform tf_base_sensor;
+    try {
+        tf_listener_.waitForTransform(base_frame_, sensor_frame_, ros::Time(0), ros::Duration(10));
+        tf_listener_.lookupTransform(base_frame_, sensor_frame_, ros::Time(0), tf_base_sensor);
+        ROS_INFO("Locked transform sensor --> frame");
+    }
+    catch(tf::TransformException &exception) {
+        ROS_WARN("%s", exception.what());
+    }
 
     // Create EKF filter
-    ekf_filter_ = new EKFCore(mu_, Sigma_, R_, Q_, lambda_M_);
+    ekf_filter_ = new EKFCore(mu_, Sigma_, R_, Q_, lambda_M_, tf_base_sensor);
 
     ROS_INFO_NAMED(node_name_, "EKF SLAM Initialized");
 }
@@ -90,6 +102,9 @@ void EKFSLAM::odomCB(const nav_msgs::Odometry &odom_msg){
 
 void EKFSLAM::observationsCB(const geometry_msgs::PoseArray &observ_msg){
     measurements_t_.push_back(observ_msg);
+    while(measurements_t_.size() > size_odom_q_){
+         measurements_t_.pop_front();
+    }
 }
 
 
@@ -100,7 +115,7 @@ void EKFSLAM::updateMapMarkers(double color){
     for(unsigned int j=0; j<(mu_.rows()-6)/3; j++){
         landmark = mu_.segment(3 * j + 6, 3);
         visualization_msgs::Marker marker;
-        marker.header.frame_id = map_frame_;
+        marker.header.frame_id = odom_frame_;
         marker.header.stamp = ros::Time();
         marker.ns = "map_array";
         marker.id = j;
@@ -195,12 +210,10 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
 
         // If observations available:
         if(!measurements_t_.empty()){
+            ROS_INFO("----New measurements received----");
             // Fetch latest measurement
             auto observ = measurements_t_.back();
             measurements_t_.pop_back();
-            if(!measurements_t_.empty()){
-                ROS_WARN("Cache with measurements is not empty");
-            }
 
             for(auto lm_pose: observ.poses){
                 z_t.push_back(Eigen::Vector3d(lm_pose.position.x,

@@ -1,6 +1,6 @@
 #include "ekf_slam_core/ekf_slam_core.hpp"
 
-EKFCore::EKFCore(Eigen::VectorXd mu, Eigen::MatrixXd Sigma, Eigen::MatrixXd R, Eigen::MatrixXd Q, double lambda){
+EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R, Eigen::MatrixXd &Q, double &lambda, tf::StampedTransform &tf_base_sensor){
 
     // Initialize internal params
     mu_ = mu;
@@ -12,7 +12,8 @@ EKFCore::EKFCore(Eigen::VectorXd mu, Eigen::MatrixXd Sigma, Eigen::MatrixXd R, E
     Q_ = Q;
     lambda_M_ = lambda;
     lm_num_ = (mu_.rows() - 6) / 3;
-
+    tf_base_sensor_ = tf_base_sensor;
+    tf_sensor_base_ = tf_base_sensor.inverse();
 }
 
 
@@ -114,62 +115,78 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
                                 landmark_j(1),
                                 landmark_j(2));
 
-    tf::Vector3 z_hat_base = transf_base_odom * landmark_j_odom;
-    Eigen::Vector3d z_k_hat_base( z_hat_base.getX(),
-                                  z_hat_base.getY(),
-                                  z_hat_base.getZ());
+    tf::Vector3 z_hat_fls = tf_sensor_base_ * transf_base_odom * landmark_j_odom;   // Expected meas in fls frame and m
+    double arccos_azimut = 1/std::cos(std::atan2(z_hat_fls.getZ(), z_hat_fls.getX()));
+    double scaling = 400.0/17.0;    // TODO: check this value
+
+    Eigen::Vector3d z_hat_fls_m(arccos_azimut * z_hat_fls.getX(), arccos_azimut * z_hat_fls.getY(), 0);
+//    z_hat_fls_pix *= scaling;   // Expected meas in fls frame and pixels
 
     // Compute ML of observation z_i with M_j
     CorrespondenceClass corresp_i_j(i, j);
-    corresp_i_j.computeH(h_comps, landmark_j_odom);
-    corresp_i_j.computeNu(z_k_hat_base, z_i);
+    corresp_i_j.computeH(h_comps, z_hat_fls);
+    corresp_i_j.computeNu(z_hat_fls_m, z_i);  // The innovation is now computed in pixels
     corresp_i_j.computeMHLDistance(temp_sigma, Q_);
+
+    ROS_INFO_STREAM("Mahalanobis dist: " << corresp_i_j.d_m_);
 
     // Outlier rejection
     if(corresp_i_j.d_m_ < lambda_M_){
         corresp_i_list.push_back(std::move(corresp_i_j));
     }
     else{
-        ROS_DEBUG("Outlier rejected");
+        ROS_INFO("Outlier rejected");
     }
 }
 
 void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
-    double epsilon = 9;
-    double alpha = 0.09;   // TODO: find suitable value!!
+//    double epsilon = 9;
+    double alpha = 0.3;   // TODO: find suitable value!!
+    lm_num_ = (mu_.rows() - 6) / 3;
 
     std::vector<CorrespondenceClass> corresp_i_list;
-    tf::Vector3 new_lm_aux;
+    tf::Vector3 new_lm_fls;
     tf::Transform transf_base_odom;
     tf::Transform transf_odom_base;
     Eigen::MatrixXd temp_sigma(9,9);
-
-    lm_num_ = (mu_.rows() - 6) / 3;
+    double theta;
+    double rho;
+    double rho_scaled;
     // For each observation z_i at time t
     for(unsigned int i = 0; i<z_t.size(); i++){
         // Compute transform odom --> base from current state state estimate at time t
         transf_odom_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
                                          tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
-        transf_base_odom = transf_odom_base.inverse();
+        transf_base_odom  = transf_odom_base.inverse();
 
         // Back-project new possible landmark (in odom frame)
-        new_lm_aux = transf_odom_base * tf::Vector3(z_t.at(i)(0), z_t.at(i)(1),z_t.at(i)(2));
+        new_lm_fls = tf::Vector3(z_t.at(i)(0), z_t.at(i)(1),z_t.at(i)(2));  // To polar coordinates to scale from pixels to meters
+        theta = std::atan2(new_lm_fls.getY(), new_lm_fls.getX());
+        rho = std::sqrt(std::pow(new_lm_fls.getX(),2) + std::pow(new_lm_fls.getY(),2));
+        rho_scaled = 17.0/400.0 * rho;
+
+        tf::Vector3 lm_fls_real(rho_scaled * std::cos(theta),
+                                rho_scaled * std::sin(theta),
+                                0);
+
+        // Transform to odom frame
+        tf::Vector3 new_lm_odom = transf_odom_base  * tf_base_sensor_ *  lm_fls_real;
 
         // Add new possible landmark to mu_hat_
         Eigen::VectorXd aux_mu = mu_hat_;
         mu_hat_.resize(mu_hat_.size()+3, true);
-        mu_hat_ << aux_mu, Eigen::Vector3d(new_lm_aux.getX(),
-                                           new_lm_aux.getY(),
-                                           new_lm_aux.getZ());
+        mu_hat_ << aux_mu, Eigen::Vector3d(new_lm_odom.getX(),
+                                           new_lm_odom.getY(),
+                                           new_lm_odom.getZ());
 
         // Increase Sigma_hat_
         Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
         Sigma_hat_.bottomRows(3).setZero();
         Sigma_hat_.rightCols(3).setZero();
-        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 1000;  // TODO: initialize with uncertainty on the measurement in x,y,z
-        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 200;
-        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 200;
+        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
+        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
+        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 1000;
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
         h_comp h_comps;
@@ -190,11 +207,13 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         temp_sigma.block(0,0,6,6) = Sigma_hat_.block(0,0,6,6);
         // For each possible landmark j in M
         Eigen::Vector3d landmark_j;
+        Eigen::Vector3d lm_fls_real_vec(lm_fls_real.getX(), lm_fls_real.getY(), lm_fls_real.getZ());
         for(unsigned int j=0; j<(mu_hat_.rows()-6)/3; j++){
             landmark_j = mu_hat_.segment(3 * j + 6, 3);
-            temp_sigma.bottomRows(3) = Sigma_hat_.block(j * 3 + 6, 0, 3, temp_sigma.cols());
-            temp_sigma.rightCols(3) = Sigma_hat_.block(0, j * 3 + 6, temp_sigma.rows(), 3);
-            predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
+            temp_sigma.block(6,0,3,6) = Sigma_hat_.block(j * 3 + 6, 0, 3, 6);
+            temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, j * 3 + 6, 6, 3);
+            temp_sigma.block(6,6,3,3) = Sigma_hat_.block(j * 3 + 6, j * 3 + 6, 3, 3);
+            predictMeasurement(landmark_j, lm_fls_real_vec, i, j + 1, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
         }
 
         // Select the association with the minimum Mahalanobis distance
@@ -210,17 +229,28 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
             // Update landmarks in the map
             if(lm_num_ >= corresp_i_list.back().i_j_.second){
+                ROS_INFO("Known landmark detected");
                 // No new landmark added --> remove candidate from mu_hat_ and sigma_hat_
                 mu_hat_.conservativeResize(mu_hat_.rows()-3);
                 Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
-                temp_sigma.bottomRows(3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
-                temp_sigma.rightCols(3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
+                temp_sigma.block(6,0,3,6) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, 6);
+                temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 6, 3);
+                temp_sigma.block(6,6,3,3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 3, 3);
             }
             else{
                 // New landmark
+                ROS_INFO("Added new landmark");
+//                std::cout << "Size of H_t_ " << corresp_i_list.back().H_t_.rows() << ", " << corresp_i_list.back().H_t_.cols() << std::endl;
+//                std::cout << "Size of Sigma temp " << temp_sigma.rows() << ", " << temp_sigma.cols() << std::endl;
                 lm_num_ = corresp_i_list.back().i_j_.second;
             }
             // Sequential update
+            std::cout << "Mu_hat: " << std::endl;
+            std::cout << mu_hat_ << std::endl;
+            std::cout << "Sigma_hat: " << std::endl;
+            std::cout << Sigma_hat_ << std::endl;
+            std::cout << "Number of landmarks: " << std::endl;
+            std::cout << lm_num_ << std::endl;
             sequentialUpdate(corresp_i_list.back(), temp_sigma);
             corresp_i_list.clear();
         }
@@ -236,13 +266,31 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd temp_sigma){
 
     // Compute Kalman gain
-    temp_sigma.bottomRows(3) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
-    temp_sigma.rightCols(3) = Sigma_hat_.block( 0, (c_i_j.i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
+    temp_sigma.block(6,0,3,6) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, 6);
+    temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3);
+    temp_sigma.block(6,6,3,3) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, (c_i_j.i_j_.second - 1) * 3 + 6, 3, 3);
+
+    std::cout << "H_t : " << std::endl;
+    std::cout << c_i_j.H_t_ << std::endl;
+    std::cout << "S_inverted : " << std::endl;
+    std::cout << c_i_j.S_inverted_ << std::endl;
+    std::cout << "temp_sigma: " << std::endl;
+    std::cout << temp_sigma << std::endl;
+
 
     Eigen::MatrixXd K_t_i = temp_sigma * c_i_j.H_t_.transpose() * c_i_j.S_inverted_;
+    std::cout << "Kalman gain: " << std::endl;
+    std::cout << K_t_i << std::endl;
+
+    // Transf nu to the base frame
+    tf::Vector3 nu_base = tf_sensor_base_.inverse() * tf::Vector3 (c_i_j.nu_(0), c_i_j.nu_(1), c_i_j.nu_(2));
+    Eigen::Vector3d nu_base_vec(nu_base.getX(), nu_base.getY(), nu_base.getZ());
+
+    std::cout << "Innovation in base frame: " << std::endl;
+    std::cout << nu_base_vec << std::endl;
 
     // Update mu_hat and sigma_hat
-    Eigen::VectorXd aux_vec = K_t_i * c_i_j.nu_;
+    Eigen::VectorXd aux_vec = K_t_i * nu_base_vec;
     mu_hat_.head(6) += aux_vec.head(6);
     mu_hat_(3) = angleLimit(mu_hat_(3));
     mu_hat_(4) = angleLimit(mu_hat_(4));
@@ -262,8 +310,10 @@ std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
         int n_t = mu_hat_.rows() - mu_.rows();
         mu_.conservativeResize(mu_.size() + n_t, true);
         Sigma_.conservativeResize(Sigma_.rows() + n_t, Sigma_.cols() + n_t);
-        std::cout << "Mu updated: " << mu_.size() << std::endl;
-        std::cout << "Sigma updated: " << Sigma_.cols() << std::endl;
+        std::cout << "Mu: " << std::endl;
+        std::cout << mu_<< std::endl;
+        std::cout << "Sigma: " << std::endl;
+        std::cout << Sigma_ << std::endl;
         std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
         // TODO: check that Sigma_ is still semi-definite positive
     }

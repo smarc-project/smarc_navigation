@@ -96,6 +96,7 @@ private:
     // Aux
     double t_prev_;
     unsigned int size_odom_q_;
+    unsigned int size_measurements_q_;
 
     // tf
     tf::TransformBroadcaster map_bc_;
@@ -103,8 +104,8 @@ private:
     tf::StampedTransform transf_dvl_base_;
     tf::StampedTransform transf_world_odom_;
     tf::Transform transf_odom_world_;
-    tf::StampedTransform transf_base_sssr_;
     std::string odom_frame_;
+    std::string sensor_frame_;
     std::string map_frame_;
     std::string world_frame_;
     std::string base_frame_;
