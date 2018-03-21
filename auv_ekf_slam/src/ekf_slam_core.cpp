@@ -167,9 +167,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
         Sigma_hat_.bottomRows(3).setZero();
         Sigma_hat_.rightCols(3).setZero();
-        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 1000;  // TODO: initialize with uncertainty on the measurement in x,y,z
-        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 200;
-        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 200;
+        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
+        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
+        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 300;
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
         h_comp h_comps;
@@ -195,9 +195,6 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
             temp_sigma.block(6,0,3,6) = Sigma_hat_.block(j * 3 + 6, 0, 3, 6);
             temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, j * 3 + 6, 6, 3);
             temp_sigma.block(6,6,3,3) = Sigma_hat_.block(j * 3 + 6, j * 3 + 6, 3, 3);
-//            ROS_INFO("Predicting measurement");
-//            std::cout << "temp sigma: " << std::endl;
-//            std::cout << temp_sigma << std::endl;
             predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
         }
 
@@ -220,11 +217,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
                 temp_sigma.block(6,0,3,6) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, 6);
                 temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 6, 3);
                 temp_sigma.block(6,6,3,3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 3, 3);
-                ROS_INFO("Knows landmark seen");
             }
             else{
                 // New landmark
-                ROS_INFO("New landmark seen");
                 lm_num_ = corresp_i_list.back().i_j_.second;
             }
             // Sequential update
@@ -246,13 +241,8 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
     temp_sigma.block(6,0,3,6) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, 6);
     temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3);
     temp_sigma.block(6,6,3,3) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, (c_i_j.i_j_.second - 1) * 3 + 6, 3, 3);
-    ROS_INFO("Computing K");
-//    std::cout << "temp sigma: " << std::endl;
-//    std::cout << temp_sigma << std::endl;
 
     Eigen::MatrixXd K_t_i = temp_sigma * c_i_j.H_t_.transpose() * c_i_j.S_inverted_;
-//    std::cout << "Kalman gain: " << std::endl;
-//    std::cout << K_t_i << std::endl;
 
     // Update mu_hat and sigma_hat
     Eigen::VectorXd aux_vec = K_t_i * c_i_j.nu_;
@@ -261,7 +251,6 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
     mu_hat_(4) = angleLimit(mu_hat_(4));
     mu_hat_(5) = angleLimit(mu_hat_(5));
     mu_hat_.segment((c_i_j.i_j_.second - 1) * 3 + 6, 3) += aux_vec.segment(6, 3);
-    ROS_INFO("Computing mu");
 
     Eigen::MatrixXd aux_mat = (Eigen::MatrixXd::Identity(temp_sigma.rows(), temp_sigma.cols()) - K_t_i * c_i_j.H_t_) * temp_sigma;
     Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);    
@@ -269,9 +258,6 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
 
     Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, 6) = aux_mat.block(6,0,3,6);
     Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3) = aux_mat.block(0,6,6,3);
-    ROS_INFO("Computing sigma");
-
-
 }
 
 std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
@@ -284,16 +270,9 @@ std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
         std::cout << "Mu updated: " << mu_.size() << std::endl;
         std::cout << "Sigma updated: " << Sigma_.cols() << std::endl;
         std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
-        // TODO: check that Sigma_ is still semi-definite positive
     }
     mu_ = mu_hat_;
     Sigma_ = Sigma_hat_;
-
-//    std::cout << "mu: " << std::endl;
-//    std::cout << mu_ << std::endl;
-
-//    std::cout << "Sigma: " << std::endl;
-//    std::cout << Sigma_ << std::endl;
 
     return std::make_pair(mu_, Sigma_);
 
