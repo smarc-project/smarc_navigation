@@ -137,7 +137,7 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
 void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
 //    double epsilon = 9;
-    double alpha = 0.09;   // TODO: find suitable value!!
+    double alpha = 0.05;   // TODO: find suitable value!!
 
     std::vector<CorrespondenceClass> corresp_i_list;
     tf::Vector3 new_lm_aux;
@@ -167,9 +167,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
         Sigma_hat_.bottomRows(3).setZero();
         Sigma_hat_.rightCols(3).setZero();
-        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 1000;  // TODO: initialize with uncertainty on the measurement in x,y,z
-        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 200;
-        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 200;
+        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
+        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
+        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 300;
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
         h_comp h_comps;
@@ -192,8 +192,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         Eigen::Vector3d landmark_j;
         for(unsigned int j=0; j<(mu_hat_.rows()-6)/3; j++){
             landmark_j = mu_hat_.segment(3 * j + 6, 3);
-            temp_sigma.bottomRows(3) = Sigma_hat_.block(j * 3 + 6, 0, 3, temp_sigma.cols());
-            temp_sigma.rightCols(3) = Sigma_hat_.block(0, j * 3 + 6, temp_sigma.rows(), 3);
+            temp_sigma.block(6,0,3,6) = Sigma_hat_.block(j * 3 + 6, 0, 3, 6);
+            temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, j * 3 + 6, 6, 3);
+            temp_sigma.block(6,6,3,3) = Sigma_hat_.block(j * 3 + 6, j * 3 + 6, 3, 3);
             predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
         }
 
@@ -213,8 +214,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
                 // No new landmark added --> remove candidate from mu_hat_ and sigma_hat_
                 mu_hat_.conservativeResize(mu_hat_.rows()-3);
                 Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
-                temp_sigma.bottomRows(3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
-                temp_sigma.rightCols(3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
+                temp_sigma.block(6,0,3,6) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, 6);
+                temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 6, 3);
+                temp_sigma.block(6,6,3,3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 3, 3);
             }
             else{
                 // New landmark
@@ -236,8 +238,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd temp_sigma){
 
     // Compute Kalman gain
-    temp_sigma.bottomRows(3) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
-    temp_sigma.rightCols(3) = Sigma_hat_.block( 0, (c_i_j.i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
+    temp_sigma.block(6,0,3,6) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, 6);
+    temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3);
+    temp_sigma.block(6,6,3,3) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, (c_i_j.i_j_.second - 1) * 3 + 6, 3, 3);
 
     Eigen::MatrixXd K_t_i = temp_sigma * c_i_j.H_t_.transpose() * c_i_j.S_inverted_;
 
@@ -250,9 +253,11 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
     mu_hat_.segment((c_i_j.i_j_.second - 1) * 3 + 6, 3) += aux_vec.segment(6, 3);
 
     Eigen::MatrixXd aux_mat = (Eigen::MatrixXd::Identity(temp_sigma.rows(), temp_sigma.cols()) - K_t_i * c_i_j.H_t_) * temp_sigma;
-    Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);
-    Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3) = aux_mat.block(0, aux_mat.cols()-3, aux_mat.rows(), 3);
-    Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols()) = aux_mat.block(aux_mat.rows()-3, 0, 3, aux_mat.cols());
+    Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);    
+    Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, (c_i_j.i_j_.second - 1) * 3 + 6, 3, 3) = aux_mat.block(6, 6, 3, 3);
+
+    Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, 6) = aux_mat.block(6,0,3,6);
+    Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3) = aux_mat.block(0,6,6,3);
 }
 
 std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
@@ -265,7 +270,6 @@ std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
         std::cout << "Mu updated: " << mu_.size() << std::endl;
         std::cout << "Sigma updated: " << Sigma_.cols() << std::endl;
         std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
-        // TODO: check that Sigma_ is still semi-definite positive
     }
     mu_ = mu_hat_;
     Sigma_ = Sigma_hat_;
