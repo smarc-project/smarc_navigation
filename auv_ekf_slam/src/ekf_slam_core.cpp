@@ -137,7 +137,7 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
 void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
 //    double epsilon = 9;
-    double alpha = 0.09;   // TODO: find suitable value!!
+    double alpha = 0.05;   // TODO: find suitable value!!
 
     std::vector<CorrespondenceClass> corresp_i_list;
     tf::Vector3 new_lm_aux;
@@ -192,8 +192,12 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         Eigen::Vector3d landmark_j;
         for(unsigned int j=0; j<(mu_hat_.rows()-6)/3; j++){
             landmark_j = mu_hat_.segment(3 * j + 6, 3);
-            temp_sigma.bottomRows(3) = Sigma_hat_.block(j * 3 + 6, 0, 3, temp_sigma.cols());
-            temp_sigma.rightCols(3) = Sigma_hat_.block(0, j * 3 + 6, temp_sigma.rows(), 3);
+            temp_sigma.block(6,0,3,6) = Sigma_hat_.block(j * 3 + 6, 0, 3, 6);
+            temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, j * 3 + 6, 6, 3);
+            temp_sigma.block(6,6,3,3) = Sigma_hat_.block(j * 3 + 6, j * 3 + 6, 3, 3);
+//            ROS_INFO("Predicting measurement");
+//            std::cout << "temp sigma: " << std::endl;
+//            std::cout << temp_sigma << std::endl;
             predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
         }
 
@@ -213,11 +217,14 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
                 // No new landmark added --> remove candidate from mu_hat_ and sigma_hat_
                 mu_hat_.conservativeResize(mu_hat_.rows()-3);
                 Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
-                temp_sigma.bottomRows(3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
-                temp_sigma.rightCols(3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
+                temp_sigma.block(6,0,3,6) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, 6);
+                temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 6, 3);
+                temp_sigma.block(6,6,3,3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 3, 3);
+                ROS_INFO("Knows landmark seen");
             }
             else{
                 // New landmark
+                ROS_INFO("New landmark seen");
                 lm_num_ = corresp_i_list.back().i_j_.second;
             }
             // Sequential update
@@ -236,10 +243,16 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd temp_sigma){
 
     // Compute Kalman gain
-    temp_sigma.bottomRows(3) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols());
-    temp_sigma.rightCols(3) = Sigma_hat_.block( 0, (c_i_j.i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3);
+    temp_sigma.block(6,0,3,6) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, 6);
+    temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3);
+    temp_sigma.block(6,6,3,3) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, (c_i_j.i_j_.second - 1) * 3 + 6, 3, 3);
+    ROS_INFO("Computing K");
+//    std::cout << "temp sigma: " << std::endl;
+//    std::cout << temp_sigma << std::endl;
 
     Eigen::MatrixXd K_t_i = temp_sigma * c_i_j.H_t_.transpose() * c_i_j.S_inverted_;
+//    std::cout << "Kalman gain: " << std::endl;
+//    std::cout << K_t_i << std::endl;
 
     // Update mu_hat and sigma_hat
     Eigen::VectorXd aux_vec = K_t_i * c_i_j.nu_;
@@ -248,11 +261,17 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
     mu_hat_(4) = angleLimit(mu_hat_(4));
     mu_hat_(5) = angleLimit(mu_hat_(5));
     mu_hat_.segment((c_i_j.i_j_.second - 1) * 3 + 6, 3) += aux_vec.segment(6, 3);
+    ROS_INFO("Computing mu");
 
     Eigen::MatrixXd aux_mat = (Eigen::MatrixXd::Identity(temp_sigma.rows(), temp_sigma.cols()) - K_t_i * c_i_j.H_t_) * temp_sigma;
-    Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);
-    Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, temp_sigma.rows(), 3) = aux_mat.block(0, aux_mat.cols()-3, aux_mat.rows(), 3);
-    Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, temp_sigma.cols()) = aux_mat.block(aux_mat.rows()-3, 0, 3, aux_mat.cols());
+    Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);    
+    Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, (c_i_j.i_j_.second - 1) * 3 + 6, 3, 3) = aux_mat.block(6, 6, 3, 3);
+
+    Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, 6) = aux_mat.block(6,0,3,6);
+    Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3) = aux_mat.block(0,6,6,3);
+    ROS_INFO("Computing sigma");
+
+
 }
 
 std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
@@ -269,6 +288,12 @@ std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
     }
     mu_ = mu_hat_;
     Sigma_ = Sigma_hat_;
+
+//    std::cout << "mu: " << std::endl;
+//    std::cout << mu_ << std::endl;
+
+//    std::cout << "Sigma: " << std::endl;
+//    std::cout << Sigma_ << std::endl;
 
     return std::make_pair(mu_, Sigma_);
 
