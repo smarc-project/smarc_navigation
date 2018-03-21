@@ -66,13 +66,16 @@ add_library(ekf_core
     src/ekf_slam_core.cpp
     )
 
+add_library(corresp_mbes
+    src/correspondence_obj_lfs.cpp
+    )
+
 include_directories(
  include
  ${catkin_INCLUDE_DIRS}
 )
 
 add_executable(ekf_slam_node
-    src/correspondence_obj.cpp
     src/ekf_slam.cpp
     src/ekf_slam_node.cpp
     )
@@ -85,6 +88,7 @@ add_dependencies(ekf_slam_node
 target_link_libraries(ekf_slam_node
     noise_kf
     ekf_core
+    corresp_mbes
 #    utils_matrices
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
