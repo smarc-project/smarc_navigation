@@ -125,7 +125,7 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
 
     // Compute ML of observation z_i with M_j
     CorrespondenceClass corresp_i_j(i, j);
-    corresp_i_j.computeH(h_comps, landmark_j_odom, z_hat_fls_m);
+    corresp_i_j.computeH(h_comps, landmark_j_odom, Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ()));
     corresp_i_j.computeNu(z_hat_fls_pix, z_i);  // The innovation is now computed in pixels
     corresp_i_j.computeMHLDistance(temp_sigma, Q_);
 
@@ -247,9 +247,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 //                std::cout << "Size of H_t_ " << corresp_i_list.back().H_t_.rows() << ", " << corresp_i_list.back().H_t_.cols() << std::endl;
 //                std::cout << "Size of Sigma temp " << temp_sigma.rows() << ", " << temp_sigma.cols() << std::endl;
                 lm_num_ = corresp_i_list.back().i_j_.second;
-                sequentialUpdate(corresp_i_list.back(), temp_sigma);
             }
             // Sequential update
+            sequentialUpdate(corresp_i_list.back(), temp_sigma);
             corresp_i_list.clear();
         }
     }

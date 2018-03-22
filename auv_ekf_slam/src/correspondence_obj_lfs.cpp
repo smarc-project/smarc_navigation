@@ -29,8 +29,8 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
 
     // First component of the jacobian
     h_2.setZero(2,3);
-    h_2(0,0) = 1;
-    Eigen::Vector3d zprime(0.0, z_hat_fls_m(1), z_hat_fls_m(2));
+    h_2(0,1) = 1;
+    Eigen::Vector3d zprime(z_hat_fls_m(0), 0, z_hat_fls_m(2));
     h_2.row(1) = (1.0/zprime.norm()) * zprime;
     h_2 *= 400.0/17.0;
 
