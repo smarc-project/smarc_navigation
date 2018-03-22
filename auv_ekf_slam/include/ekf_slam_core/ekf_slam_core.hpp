@@ -6,6 +6,10 @@
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/Dense>
 #include <Eigen/SparseCore>
+#include <tf/transform_datatypes.h>
+#include <tf_conversions/tf_eigen.h>
+#include <tf/tf.h>
+
 
 #include "correspondence_class/correspondence_class.hpp"
 #include "noise_oneD_kf/noise_oneD_kf.hpp"

@@ -108,18 +108,20 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
                                  std::vector<CorrespondenceClass> &corresp_i_list){
 
     using namespace boost::numeric::ublas;
-    //    auto (re1, re2, re3) = myfunc(2);
-
-    // Measurement model: z_hat_i
     tf::Vector3 landmark_j_odom(landmark_j(0),
                                 landmark_j(1),
                                 landmark_j(2));
 
     double scaling = 400.0/17.0;    // TODO: check this value
+
+    // Measurement model: z_hat_i
     tf::Vector3 z_hat_fls = tf_sensor_base_ * transf_base_odom * landmark_j_odom;   // Expected meas in fls frame and m
     double arccos_azimut = 1/std::cos(std::atan2(z_hat_fls.getZ(), z_hat_fls.getX()));
     Eigen::Vector3d z_hat_fls_m(arccos_azimut * z_hat_fls.getX(), arccos_azimut * z_hat_fls.getY(), 0);
     Eigen::Vector3d z_hat_fls_pix = z_hat_fls_m * scaling;   // Expected meas in fls frame and pixels
+
+    std::cout << "Predicted meas: " << z_hat_fls_pix << std::endl;
+    std::cout << "Real meas: " << z_i << std::endl;
 
     // Compute ML of observation z_i with M_j
     CorrespondenceClass corresp_i_j(i, j);
@@ -141,7 +143,7 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
 void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
 //    double epsilon = 9;
-    double alpha = 0.008;   // TODO: find suitable value!!
+    double alpha = 0.5;   // TODO: find suitable value!!
     lm_num_ = (mu_.rows() - 6) / 3;
 
     std::vector<CorrespondenceClass> corresp_i_list;
@@ -183,9 +185,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
         Sigma_hat_.bottomRows(3).setZero();
         Sigma_hat_.rightCols(3).setZero();
-        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
-        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
-        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 500;
+        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 20;  // TODO: initialize with uncertainty on the measurement in x,y,z
+        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 20;
+        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
         h_comp h_comps;
@@ -245,15 +247,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 //                std::cout << "Size of H_t_ " << corresp_i_list.back().H_t_.rows() << ", " << corresp_i_list.back().H_t_.cols() << std::endl;
 //                std::cout << "Size of Sigma temp " << temp_sigma.rows() << ", " << temp_sigma.cols() << std::endl;
                 lm_num_ = corresp_i_list.back().i_j_.second;
+                sequentialUpdate(corresp_i_list.back(), temp_sigma);
             }
             // Sequential update
-//            std::cout << "Mu_hat: " << std::endl;
-//            std::cout << mu_hat_ << std::endl;
-//            std::cout << "Sigma_hat: " << std::endl;
-//            std::cout << Sigma_hat_ << std::endl;
-//            std::cout << "Number of landmarks: " << std::endl;
-            sequentialUpdate(corresp_i_list.back(), temp_sigma);
-            std::cout << lm_num_ << std::endl;
             corresp_i_list.clear();
         }
     }
@@ -283,15 +279,15 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
     std::cout << "Kalman gain: " << std::endl;
     std::cout << K_t_i << std::endl;
 
-    // Transf nu to the base frame
-//    tf::Vector3 nu_base = tf_sensor_base_.inverse() * tf::Vector3 (c_i_j.nu_(0), c_i_j.nu_(1), c_i_j.nu_(2));
-//    Eigen::Vector3d nu_base_vec(nu_base.getX(), nu_base.getY(), nu_base.getZ());
-
     std::cout << "Innovation: " << std::endl;
     std::cout << c_i_j.nu_ << std::endl;
 
     // Update mu_hat and sigma_hat
     Eigen::VectorXd aux_vec = K_t_i * c_i_j.nu_;
+
+    std::cout << "Correction for mu_hat: " << std::endl;
+    std::cout << aux_vec << std::endl;
+
     mu_hat_.head(6) += aux_vec.head(6);
     mu_hat_(3) = angleLimit(mu_hat_(3));
     mu_hat_(4) = angleLimit(mu_hat_(4));
@@ -318,11 +314,11 @@ std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
     }
     mu_ = mu_hat_;
     Sigma_ = Sigma_hat_;
-//    std::cout << "Mu: " << std::endl;
-//    std::cout << mu_<< std::endl;
-//    std::cout << "Sigma: " << std::endl;
-//    std::cout << Sigma_ << std::endl;
-    std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
+    std::cout << "Mu: " << std::endl;
+    std::cout << mu_<< std::endl;
+    std::cout << "Sigma: " << std::endl;
+    std::cout << Sigma_ << std::endl;
+    std::cout << "Number of landmarks: " << lm_num_ << " or " << (Sigma_.rows() - 6) / 3 << std::endl;
 
     return std::make_pair(mu_, Sigma_);
 

@@ -58,6 +58,8 @@
   <depend>message_filters</depend>
   <depend>pcl_ros</depend>
   <depend>tf_conversions</depend>
+  <depend>landmark_visualizer</depend>
+
 <!--   <build_depend>genmsg</build_depend>
   <exec_depend>genmsg</exec_depend>
   <build_depend>message_generation</build_depend>

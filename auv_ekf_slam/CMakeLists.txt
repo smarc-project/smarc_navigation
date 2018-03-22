@@ -32,6 +32,7 @@ find_package(catkin REQUIRED COMPONENTS
     message_filters
     pcl_ros
     auv_ekf_localization
+    landmark_visualizer
  )
 
 find_package(PCL REQUIRED)
@@ -59,7 +60,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES
-  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters
+  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters landmark_visualizer
 #  DEPENDS system_lib
 )
 
