@@ -76,7 +76,9 @@ void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
 }
 
 void CorrespondenceClass::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){
-    nu_ = z_i - z_hat_i; // nu in metters
+    nu_(0) = z_i(0) - z_hat_i(0); // nu in pixels
+    nu_(1) = z_i(1) - z_hat_i(1);
+    nu_ *= 17.0/400.0;  // nu in meters
 }
 
 void CorrespondenceClass::computeLikelihood(){

@@ -10,7 +10,8 @@ CorrespondenceClass::~CorrespondenceClass(){
 }
 
 void CorrespondenceClass::computeH(const h_comp h_comps,
-                                   const tf::Vector3 lm_odom){
+                                   const tf::Vector3 lm_odom,
+                                   const Eigen::Vector3d z_hat_fls_m){
 
     using namespace std;
 
