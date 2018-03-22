@@ -25,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
     rospy
     std_msgs
     tf
+    tf_conversions
     message_generation
     geometry_msgs
     sensor_msgs

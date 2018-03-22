@@ -186,10 +186,13 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         Sigma_hat_.rightCols(3).setZero();
         Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
         Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
-        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 1000;
+        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 500;
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
         h_comp h_comps;
+        tf::Matrix3x3 m;
+        m.setRotation(tf_sensor_base_.getRotation());
+        tf::matrixTFToEigen(m, h_comps.R_fls_base_);
         {
             using namespace std;
             h_comps.mu_0 = mu_hat_(0);
@@ -245,13 +248,13 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
                 lm_num_ = corresp_i_list.back().i_j_.second;
             }
             // Sequential update
-            std::cout << "Mu_hat: " << std::endl;
-            std::cout << mu_hat_ << std::endl;
-            std::cout << "Sigma_hat: " << std::endl;
-            std::cout << Sigma_hat_ << std::endl;
-            std::cout << "Number of landmarks: " << std::endl;
-            std::cout << lm_num_ << std::endl;
+//            std::cout << "Mu_hat: " << std::endl;
+//            std::cout << mu_hat_ << std::endl;
+//            std::cout << "Sigma_hat: " << std::endl;
+//            std::cout << Sigma_hat_ << std::endl;
+//            std::cout << "Number of landmarks: " << std::endl;
             sequentialUpdate(corresp_i_list.back(), temp_sigma);
+            std::cout << lm_num_ << std::endl;
             corresp_i_list.clear();
         }
     }
@@ -260,7 +263,6 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         ROS_WARN("Sizes of mu and sigma differ!!");
         Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
     }
-
 }
 
 void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd temp_sigma){
@@ -310,15 +312,15 @@ std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
         int n_t = mu_hat_.rows() - mu_.rows();
         mu_.conservativeResize(mu_.size() + n_t, true);
         Sigma_.conservativeResize(Sigma_.rows() + n_t, Sigma_.cols() + n_t);
-        std::cout << "Mu: " << std::endl;
-        std::cout << mu_<< std::endl;
-        std::cout << "Sigma: " << std::endl;
-        std::cout << Sigma_ << std::endl;
-        std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
         // TODO: check that Sigma_ is still semi-definite positive
     }
     mu_ = mu_hat_;
     Sigma_ = Sigma_hat_;
+//    std::cout << "Mu: " << std::endl;
+//    std::cout << mu_<< std::endl;
+//    std::cout << "Sigma: " << std::endl;
+//    std::cout << Sigma_ << std::endl;
+    std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
 
     return std::make_pair(mu_, Sigma_);
 

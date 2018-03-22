@@ -57,6 +57,7 @@
   <depend>rospy</depend>
   <depend>message_filters</depend>
   <depend>pcl_ros</depend>
+  <depend>tf_conversions</depend>
 <!--   <build_depend>genmsg</build_depend>
   <exec_depend>genmsg</exec_depend>
   <build_depend>message_generation</build_depend>

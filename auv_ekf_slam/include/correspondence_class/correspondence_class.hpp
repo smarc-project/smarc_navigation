@@ -5,6 +5,7 @@
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/Float32.h>
 #include <tf/tf.h>
+#include <tf/transform_datatypes.h>
 
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/Dense>
@@ -45,7 +46,7 @@ struct jacobian_components{
     double s_3;
     double s_4;
     double s_5;
-
+    Eigen::Matrix3d R_fls_base_;
 };
 
 typedef struct jacobian_components h_comp;
@@ -57,9 +58,9 @@ public:
     double psi_;
     double d_m_;
     Eigen::MatrixXd H_t_;
-    Eigen::Matrix3d S_inverted_;
+    Eigen::Matrix2d S_inverted_;
     Eigen::Vector3d landmark_pos_;
-    Eigen::Vector3d nu_;
+    Eigen::Vector2d nu_;
     std::pair<int, double> i_j_;
 
     CorrespondenceClass(const int &z_id, const double &lm_id);
@@ -76,7 +77,7 @@ public:
     ~CorrespondenceClass();
 
     void computeH(const h_comp h_comps,
-                  const tf::Vector3 lm_odom);
+                  const tf::Vector3 lm_odom, const Eigen::Vector3d z_hat_fls_m);
     /**
      * @brief computeS
      * @param sigma
