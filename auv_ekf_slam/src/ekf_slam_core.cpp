@@ -167,12 +167,15 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
                                            new_lm_aux.getZ());
 
         // Increase Sigma_hat_
+        sigma_x = sigma_uncertain * std::abs(std::cos(mu_hat_(5))) / (std::abs(std::cos(mu_hat_(5))) + std::abs(std::sin(mu_hat_(5))));
+        sigma_y = sigma_uncertain * std::abs(std::sin(mu_hat_(5))) / (std::abs(std::cos(mu_hat_(5))) + std::abs(std::sin(mu_hat_(5))));
+
         Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
         Sigma_hat_.bottomRows(3).setZero();
         Sigma_hat_.rightCols(3).setZero();
-        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
-        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
-        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 300;
+        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = sigma_x;  // TODO: initialize with uncertainty on the measurement in x,y,z
+        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = sigma_y;
+        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
         h_comp h_comps;
@@ -216,13 +219,13 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
             if(lm_num_ >= corresp_i_list.back().i_j_.second){
                 mu_hat_.conservativeResize(mu_hat_.rows()-3);
                 Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
-                if(map_lm_num_ >= corresp_i_list.back().i_j_.second){
+//                if(map_lm_num_ >= corresp_i_list.back().i_j_.second){
                     // No new landmark added --> remove candidate from mu_hat_ and sigma_hat_
                     temp_sigma.block(6,0,3,6) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, 6);
                     temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 6, 3);
                     temp_sigma.block(6,6,3,3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 3, 3);
                     sequentialUpdate(corresp_i_list.back(), temp_sigma);
-                }
+//                }
             }
             else{
                 // New landmark
