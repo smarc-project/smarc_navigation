@@ -102,7 +102,7 @@ private:
     tf::TransformListener tf_listener_;
     tf::StampedTransform transf_dvl_base_;
     tf::StampedTransform transf_world_odom_;
-    tf::Transform transf_odom_world_;
+    tf::StampedTransform transf_map_world_;
     tf::StampedTransform transf_base_sssr_;
     std::string odom_frame_;
     std::string map_frame_;

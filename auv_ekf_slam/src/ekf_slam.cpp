@@ -40,6 +40,9 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     // Plot map in RVIZ
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/rviz/landmarks", 0 );
 
+    // Service to get initial map
+    init_map_client_ = nh_->serviceClient<landmark_visualizer::init_map>("/lolo_auv/map_server");
+
     // Initialize internal params
     init(Sigma_diagonal, R_diagonal, Q_diagonal, delta);
 
@@ -74,11 +77,22 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
 
     // Aux
     size_odom_q_ = 10;
-  
+
     // Initial map of the survey area (usually artificial beacons)
     while(!ros::service::waitForService("/lolo_auv/map_server", ros::Duration(10)) && ros::ok()){
         ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
     }
+
+    try {
+        tf_listener_.waitForTransform(map_frame_, world_frame_, ros::Time(0), ros::Duration(10));
+        tf_listener_.lookupTransform(map_frame_, world_frame_, ros::Time(0), transf_map_world_);
+        ROS_INFO("Locked transform world --> map");
+    }
+    catch(tf::TransformException &exception) {
+        ROS_ERROR("%s", exception.what());
+        ros::Duration(1.0).sleep();
+    }
+
     landmark_visualizer::init_map init_map_srv;
     init_map_srv.request.request_map = true;
 
@@ -90,7 +104,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
         // Add beacon landmarks to mu_
         for(auto beacon: init_map_srv.response.init_map.poses){
             // Transform beacon from world to odom frame
-            beacon_pose = transf_odom_world_ * tf::Vector3(beacon.position.x,
+            beacon_pose = transf_map_world_ * tf::Vector3(beacon.position.x,
                                                            beacon.position.y,
                                                            beacon.position.z);
             // Augment mu_
