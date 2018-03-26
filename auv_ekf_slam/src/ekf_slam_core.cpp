@@ -12,7 +12,7 @@ EKFCore::EKFCore(Eigen::VectorXd mu, Eigen::MatrixXd Sigma, Eigen::MatrixXd R, E
     Q_ = Q;
     lambda_M_ = lambda;
     lm_num_ = (mu_.rows() - 6) / 3;
-
+    map_lm_num_ = lm_num_;
 }
 
 
@@ -211,19 +211,22 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
             // Update landmarks in the map
             if(lm_num_ >= corresp_i_list.back().i_j_.second){
-                // No new landmark added --> remove candidate from mu_hat_ and sigma_hat_
                 mu_hat_.conservativeResize(mu_hat_.rows()-3);
                 Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
-                temp_sigma.block(6,0,3,6) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, 6);
-                temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 6, 3);
-                temp_sigma.block(6,6,3,3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 3, 3);
+                if(map_lm_num_ >= corresp_i_list.back().i_j_.second){
+                    // No new landmark added --> remove candidate from mu_hat_ and sigma_hat_
+                    temp_sigma.block(6,0,3,6) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, 6);
+                    temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 6, 3);
+                    temp_sigma.block(6,6,3,3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 3, 3);
+                    sequentialUpdate(corresp_i_list.back(), temp_sigma);
+                }
             }
             else{
                 // New landmark
                 lm_num_ = corresp_i_list.back().i_j_.second;
+                sequentialUpdate(corresp_i_list.back(), temp_sigma);
             }
             // Sequential update
-            sequentialUpdate(corresp_i_list.back(), temp_sigma);
             corresp_i_list.clear();
         }
     }

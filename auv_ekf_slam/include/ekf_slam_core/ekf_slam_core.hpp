@@ -50,6 +50,7 @@ private:
     // Mapping variables
     double lambda_M_;
     int lm_num_;
+    int map_lm_num_;
 
     void predictMeasurement(const Eigen::Vector3d &landmark_j,
                             const Eigen::Vector3d &z_i,
