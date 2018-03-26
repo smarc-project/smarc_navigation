@@ -101,7 +101,7 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
                                  const Eigen::Vector3d &z_i,
                                  unsigned int i,
                                  unsigned int j,
-                                 const tf::Transform &transf_base_odom,
+                                 const tf::Transform &transf_base_map,
                                  const Eigen::MatrixXd &temp_sigma,
                                  h_comp h_comps,
                                  std::vector<CorrespondenceClass> &corresp_i_list){
@@ -110,18 +110,18 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
     //    auto (re1, re2, re3) = myfunc(2);
 
     // Measurement model: z_hat_i
-    tf::Vector3 landmark_j_odom(landmark_j(0),
+    tf::Vector3 landmark_j_map(landmark_j(0),
                                 landmark_j(1),
                                 landmark_j(2));
 
-    tf::Vector3 z_hat_base = transf_base_odom * landmark_j_odom;
+    tf::Vector3 z_hat_base = transf_base_map * landmark_j_map;
     Eigen::Vector3d z_k_hat_base( z_hat_base.getX(),
                                   z_hat_base.getY(),
                                   z_hat_base.getZ());
 
     // Compute ML of observation z_i with M_j
     CorrespondenceClass corresp_i_j(i, j);
-    corresp_i_j.computeH(h_comps, landmark_j_odom);
+    corresp_i_j.computeH(h_comps, landmark_j_map);
     corresp_i_j.computeNu(z_k_hat_base, z_i);
     corresp_i_j.computeMHLDistance(temp_sigma, Q_);
 
@@ -137,24 +137,27 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
 void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
 //    double epsilon = 9;
-    double alpha = 0.05;   // TODO: find suitable value!!
+    double alpha = 0.002;   // TODO: find suitable value!!
 
     std::vector<CorrespondenceClass> corresp_i_list;
     tf::Vector3 new_lm_aux;
-    tf::Transform transf_base_odom;
-    tf::Transform transf_odom_base;
+    tf::Transform transf_base_map;
+    tf::Transform transf_map_base;
     Eigen::MatrixXd temp_sigma(9,9);
+
+    double sigma_x, sigma_y;
+    double sigma_uncertain = 30000;
 
     lm_num_ = (mu_.rows() - 6) / 3;
     // For each observation z_i at time t
     for(unsigned int i = 0; i<z_t.size(); i++){
-        // Compute transform odom --> base from current state state estimate at time t
-        transf_odom_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
+        // Compute transform map --> base from current state state estimate at time t
+        transf_map_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
                                          tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
-        transf_base_odom = transf_odom_base.inverse();
+        transf_base_map = transf_map_base.inverse();
 
-        // Back-project new possible landmark (in odom frame)
-        new_lm_aux = transf_odom_base * tf::Vector3(z_t.at(i)(0), z_t.at(i)(1),z_t.at(i)(2));
+        // Back-project new possible landmark (in map frame)
+        new_lm_aux = transf_map_base * tf::Vector3(z_t.at(i)(0), z_t.at(i)(1),z_t.at(i)(2));
 
         // Add new possible landmark to mu_hat_
         Eigen::VectorXd aux_mu = mu_hat_;
@@ -164,12 +167,15 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
                                            new_lm_aux.getZ());
 
         // Increase Sigma_hat_
+        sigma_x = sigma_uncertain * std::abs(std::cos(mu_hat_(5))) / (std::abs(std::cos(mu_hat_(5))) + std::abs(std::sin(mu_hat_(5))));
+        sigma_y = sigma_uncertain * std::abs(std::sin(mu_hat_(5))) / (std::abs(std::cos(mu_hat_(5))) + std::abs(std::sin(mu_hat_(5))));
+
         Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
         Sigma_hat_.bottomRows(3).setZero();
         Sigma_hat_.rightCols(3).setZero();
-        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
-        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
-        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 300;
+        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = sigma_x;  // TODO: initialize with uncertainty on the measurement in x,y,z
+        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = sigma_y;
+        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
         h_comp h_comps;
@@ -195,7 +201,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
             temp_sigma.block(6,0,3,6) = Sigma_hat_.block(j * 3 + 6, 0, 3, 6);
             temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, j * 3 + 6, 6, 3);
             temp_sigma.block(6,6,3,3) = Sigma_hat_.block(j * 3 + 6, j * 3 + 6, 3, 3);
-            predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_odom, temp_sigma, h_comps, corresp_i_list);
+            predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_map, temp_sigma, h_comps, corresp_i_list);
         }
 
         // Select the association with the minimum Mahalanobis distance
@@ -213,13 +219,13 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
             if(lm_num_ >= corresp_i_list.back().i_j_.second){
                 mu_hat_.conservativeResize(mu_hat_.rows()-3);
                 Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
-                if(map_lm_num_ >= corresp_i_list.back().i_j_.second){
+//                if(map_lm_num_ >= corresp_i_list.back().i_j_.second){
                     // No new landmark added --> remove candidate from mu_hat_ and sigma_hat_
                     temp_sigma.block(6,0,3,6) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, 0, 3, 6);
                     temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 6, 3);
                     temp_sigma.block(6,6,3,3) = Sigma_hat_.block((corresp_i_list.back().i_j_.second - 1) * 3 + 6, (corresp_i_list.back().i_j_.second - 1) * 3 + 6, 3, 3);
                     sequentialUpdate(corresp_i_list.back(), temp_sigma);
-                }
+//                }
             }
             else{
                 // New landmark
