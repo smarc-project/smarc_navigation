@@ -23,6 +23,8 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
+#include "noise_oneD_kf/noise_oneD_kf.hpp"
+
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu,
         geometry_msgs::TwistWithCovarianceStamped> MsgTimingPolicy;
 
@@ -49,7 +51,13 @@ private:
     ros::Subscriber tf_gt_subs_;
     ros::Publisher odom_pub_;
     ros::Publisher odom_inertial_pub_;
+    ros::Publisher dvl_interpolated_;
     ros::Timer timer_;
+
+    // Noise filters
+    OneDKF* dvl_filter_x_;
+    OneDKF* dvl_filter_y_;
+    OneDKF* dvl_filter_z_;
 
     // Handlers for sensors
     std::deque<sensor_msgs::Imu> imu_readings_; // TODO: add limit size to queues
@@ -60,6 +68,7 @@ private:
 
     // Aux
     double t_prev_;
+    int dvl_cnt_;
     bool coord_;
     unsigned int size_imu_q_;
     unsigned int size_dvl_q_;

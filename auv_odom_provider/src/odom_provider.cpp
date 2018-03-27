@@ -93,8 +93,14 @@ void OdomProvider::init(){
     }
 
     ROS_INFO_NAMED(node_name_, "Initialized");
-}
 
+    // Initialize DVL filters
+    dvl_filter_x_ = new OneDKF(0, 1, 10, 20);
+    dvl_filter_y_ = new OneDKF(0, 1, 10, 20);
+    dvl_filter_z_ = new OneDKF(0, 1, 10, 20);
+
+    dvl_cnt_ = 0;
+}
 
 void OdomProvider::fastIMUCB(const sensor_msgs::Imu &imu_msg){
     imu_readings_.push_back(imu_msg);
@@ -240,39 +246,46 @@ void OdomProvider::provideOdom(const ros::TimerEvent&){
     tf::Quaternion q_auv;
     Eigen::VectorXd u_t(6);
 
-    if(dvl_readings_.size() >= size_dvl_q_ && imu_readings_.size() >= size_imu_q_ && !gt_readings_.empty()){
+    if(!imu_readings_.empty()){
         // Init filter with initial, true pose (from GPS?)
         if(!init_filter_){
-            ROS_INFO_NAMED(node_name_, "Starting odom provider node");
-
             // Compute initial pose
-            gt_msg = boost::make_shared<nav_msgs::Odometry>(gt_readings_.back());
-            t_prev_ = gt_msg->header.stamp.toSec();
+            if(!gt_readings_.empty()){
+                gt_msg = boost::make_shared<nav_msgs::Odometry>(gt_readings_.back());
+                t_prev_ = gt_msg->header.stamp.toSec();
 
-            // Transform IMU output world --> odom
-            tf::Quaternion q_transf;
-            tf::quaternionMsgToTF(gt_msg->pose.pose.orientation, q_transf);
-            q_auv = transf_odom_world_.getRotation() * q_transf;
-            q_auv.normalize();
+                // Transform IMU output world --> odom
+                tf::Quaternion q_transf;
+                tf::quaternionMsgToTF(gt_msg->pose.pose.orientation, q_transf);
+                q_auv = transf_odom_world_.getRotation() * q_transf;
+                q_auv.normalize();
 
-            // Publish odom increment
-            this->sendOutput(gt_msg->header.stamp);
+                // Publish odom increment
+                this->sendOutput(gt_msg->header.stamp);
+            }
 
-            init_filter_ = true;
+            // Sensor queues initialized
+            if(dvl_readings_.size() == size_dvl_q_ && imu_readings_.size() == size_imu_q_){
+                ROS_INFO_NAMED(node_name_, "Starting odom provider node");
+                init_filter_ = true;
+            }
         }
         // MAIN LOOP
         else{
             // Fetch latest sensor readings
             imu_msg = boost::make_shared<sensor_msgs::Imu>(imu_readings_.back());
+            imu_readings_.pop_back();
 
-            if(coord_ == false){
+            if(std::abs(imu_msg->header.stamp.toSec() - dvl_readings_.back().header.stamp.toSec()) >= 0.02){
                 // IMU available but not DVL
                 this->interpolateDVL(imu_msg->header.stamp, dvl_msg);
+                dvl_cnt_ += 1;
+                ROS_INFO("Interpolating dvl");
             }
             else{
                 // Sensor input available on both channels
-                coord_ = false;
                 dvl_msg = boost::make_shared<geometry_msgs::TwistWithCovarianceStamped>(dvl_readings_.back());
+                dvl_cnt_ = 0;
             }
 
             // Transform IMU output world --> odom
@@ -282,16 +295,32 @@ void OdomProvider::provideOdom(const ros::TimerEvent&){
             q_auv.normalize();
 
             // Compute displacement based on DVL and IMU orientation
+            // Filter input signals
+            dvl_msg->twist.twist.linear.x = dvl_filter_x_->filter(dvl_msg->twist.twist.linear.x);
+            dvl_msg->twist.twist.linear.y = dvl_filter_y_->filter(dvl_msg->twist.twist.linear.y);
+            dvl_msg->twist.twist.linear.z = dvl_filter_z_->filter(dvl_msg->twist.twist.linear.z);
+
+            geometry_msgs::TwistWithCovarianceStamped dvl_filtered_msg;
+            dvl_filtered_msg.header.frame_id = "odom";
+            dvl_filtered_msg.header.stamp = ros::Time::now();
+            dvl_filtered_msg.twist.twist.linear = dvl_msg->twist.twist.linear;
+            dvl_interpolated_.publish(dvl_filtered_msg);
+
             computeOdom(dvl_msg, q_auv, u_t);
 
             // Publish odom increment
-            this->sendOutput(dvl_msg->header.stamp);
+            this->sendOutput(ros::Time::now());
+            ROS_INFO("Publishing odom");
+
+            if(dvl_cnt_ > 6){
+                ROS_ERROR("Not receiving DVL signal");
+            }
         }
     }
     else{
         gt_msg = boost::make_shared<nav_msgs::Odometry>(gt_readings_.back());
         this->sendOutput(gt_msg->header.stamp);
-        ROS_WARN("No sensory update, broadcasting latest known pose");
+        ROS_WARN("No sensors update, broadcasting latest known pose");
     }
 
     // Empty the pointers
