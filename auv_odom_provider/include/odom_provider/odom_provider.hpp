@@ -75,7 +75,8 @@ private:
 
     // tf
     tf::TransformBroadcaster odom_bc_;
-    tf::StampedTransform transf_dvl_base_;
+    tf::TransformListener tf_listener_;
+    tf::StampedTransform transf_base_dvl_;
     tf::StampedTransform transf_odom_world_;
     std::string odom_frame_;
     std::string world_frame_;

@@ -60,32 +60,19 @@ void OdomProvider::init(){
 
     // State machine
     init_filter_ = false;
-    coord_ = false;
 
     // Initialize odometry
     cumul_odom_.setZero(6);
 
     // Masks sizes for interpolation of sensor inputs
     size_imu_q_ = 50;
-    size_dvl_q_ = 10;
+    size_dvl_q_ = 5;
 
     // Get fixed transform dvl_link --> base_link frame
-    tf::TransformListener tf_listener;
     try {
-        tf_listener.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
-        tf_listener.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_dvl_base_);
+        tf_listener_.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
+        tf_listener_.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_base_dvl_);
         ROS_INFO("Locked transform dvl --> base");
-    }
-    catch(tf::TransformException &exception) {
-        ROS_ERROR("%s", exception.what());
-        ros::Duration(1.0).sleep();
-    }
-
-    // Get fixed transform world --> odom frame
-    try {
-        tf_listener.waitForTransform(odom_frame_, world_frame_, ros::Time(0), ros::Duration(10.0) );
-        tf_listener.lookupTransform(odom_frame_, world_frame_, ros::Time(0), transf_odom_world_);
-        ROS_INFO("Locked transform world --> odom");
     }
     catch(tf::TransformException &exception) {
         ROS_ERROR("%s", exception.what());
@@ -157,24 +144,33 @@ void OdomProvider::interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCovar
         u_interp.z += dvl_readings_.at(n - l).twist.twist.linear.z * aux[l];
     }
 
+//    double weight;
+//    for(unsigned int l=7; l<dvl_readings_.size(); l++){
+//        weight = 1.0/3.0;
+//        u_interp.x += dvl_readings_.at(l).twist.twist.linear.x * weight;
+//        u_interp.y += dvl_readings_.at(l).twist.twist.linear.y * weight;
+//        u_interp.z += dvl_readings_.at(l).twist.twist.linear.z * weight;
+//    }
+
     // New interpolated reading
     dvl_msg_ptr.reset(new geometry_msgs::TwistWithCovarianceStamped{});
     dvl_msg_ptr->header.stamp = t_now;
     dvl_msg_ptr->twist.twist.linear = u_interp;
+
 }
 
 void OdomProvider::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg,
                                const tf::Quaternion& q_auv, Eigen::VectorXd &u_t){
 
     // Update time step
-    double t_now = dvl_msg->header.stamp.toSec();
+    double t_now = ros::Time::now().toSec();
     double delta_t = t_now - t_prev_;
 
     // Transform from dvl input form dvl --> base_link frame
     tf::Vector3 twist_vel(dvl_msg->twist.twist.linear.x,
                           dvl_msg->twist.twist.linear.y,
                           dvl_msg->twist.twist.linear.z);
-    tf::Vector3 disp_base = transf_dvl_base_.getBasis() * twist_vel * delta_t;
+    tf::Vector3 disp_base = transf_base_dvl_.getBasis() * twist_vel * delta_t;
 
     // Compute increments in x,y,z in odom frame
     tf::Matrix3x3 rot_base_odom;
@@ -245,6 +241,17 @@ void OdomProvider::provideOdom(const ros::TimerEvent&){
     // TODO: predefine matrices so that they can be allocated in the stack!
     tf::Quaternion q_auv;
     Eigen::VectorXd u_t(6);
+
+    // Get transform world --> odom frame
+    try {
+        tf_listener_.waitForTransform(odom_frame_, world_frame_, ros::Time(0), ros::Duration(0.1) );
+        tf_listener_.lookupTransform(odom_frame_, world_frame_, ros::Time(0), transf_odom_world_);
+//        ROS_INFO("Locked transform world --> odom");
+    }
+    catch(tf::TransformException &exception) {
+        ROS_ERROR("%s", exception.what());
+        ros::Duration(1.0).sleep();
+    }
 
     if(!imu_readings_.empty()){
         // Init filter with initial, true pose (from GPS?)
