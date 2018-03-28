@@ -104,6 +104,9 @@ private:
     tf::StampedTransform transf_world_odom_;
     tf::StampedTransform transf_map_world_;
     tf::StampedTransform transf_base_sssr_;
+    geometry_msgs::TransformStamped msg_odom_map_;
+
+
     std::string odom_frame_;
     std::string map_frame_;
     std::string world_frame_;

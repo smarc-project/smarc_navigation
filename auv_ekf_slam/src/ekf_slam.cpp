@@ -78,11 +78,6 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     // Aux
     size_odom_q_ = 10;
 
-    // Initial map of the survey area (usually artificial beacons)
-    while(!ros::service::waitForService("/lolo_auv/map_server", ros::Duration(10)) && ros::ok()){
-        ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
-    }
-
     try {
         tf_listener_.waitForTransform(map_frame_, world_frame_, ros::Time(0), ros::Duration(10));
         tf_listener_.lookupTransform(map_frame_, world_frame_, ros::Time(0), transf_map_world_);
@@ -91,6 +86,21 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     catch(tf::TransformException &exception) {
         ROS_ERROR("%s", exception.what());
         ros::Duration(1.0).sleep();
+    }
+
+    // Initialize tf map --> base (identity)
+    tf::StampedTransform tf_odom_map_stp;
+    tf::Transform tf_map_odom = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
+    tf_odom_map_stp = tf::StampedTransform(tf_map_odom,
+                                           ros::Time::now(),
+                                           map_frame_,
+                                           odom_frame_);
+    tf::transformStampedTFToMsg(tf_odom_map_stp, msg_odom_map_);
+
+
+    // Initial map of the survey area (usually artificial beacons)
+    while(!ros::service::waitForService("/lolo_auv/map_server", ros::Duration(10)) && ros::ok()){
+        ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
     }
 
     landmark_visualizer::init_map init_map_srv;
@@ -119,9 +129,9 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
             Sigma_.conservativeResize(Sigma_.rows()+3, Sigma_.cols()+3);
             Sigma_.bottomRows(3).setZero();
             Sigma_.rightCols(3).setZero();
-            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 100;
-            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 100;
-            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 100;
+            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 10;
+            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 10;
+            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 10;
         }
     }
     std::cout << "Initial mu: " << mu_.size() << std::endl;
@@ -204,8 +214,8 @@ bool EKFSLAM::bcMapOdomTF(ros::Time t){
     tf::StampedTransform tf_base_odom;
     bool broadcasted = false;
     try {
-        tf_listener_.waitForTransform(base_frame_, odom_frame_, t, ros::Duration(0.1));
-        tf_listener_.lookupTransform(base_frame_, odom_frame_, t, tf_base_odom);
+        tf_listener_.waitForTransform(base_frame_, odom_frame_, ros::Time(0), ros::Duration(0.1));
+        tf_listener_.lookupTransform(base_frame_, odom_frame_, ros::Time(0), tf_base_odom);
         // Build tf map --> base from estimated pose
         tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
         tf::Transform tf_base_map = tf::Transform(q_auv_t, tf::Vector3(mu_(0), mu_(1), mu_(2)));
@@ -219,7 +229,6 @@ bool EKFSLAM::bcMapOdomTF(ros::Time t){
                                                odom_frame_);
 
         // Broadcast map --> odom transform
-        geometry_msgs::TransformStamped msg_odom_map_;
         tf::transformStampedTFToMsg(tf_odom_map_stp, msg_odom_map_);
         map_bc_.sendTransform(msg_odom_map_);
         broadcasted = true;
@@ -275,18 +284,11 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
         this->updateMapMarkers(1.0);
     }
     else{
-        ROS_WARN("No odometry info received, bc identity map --> odom transform");
+        ROS_WARN("No odometry info received, bc latest known map --> odom tf");
         this->sendOutput(ros::Time::now());
 
-        // Build tf map --> base from latest update or identity
-        tf::StampedTransform tf_odom_map_stp;
-        tf::Transform tf_map_odom = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
-        tf_odom_map_stp = tf::StampedTransform(tf_map_odom,
-                                               ros::Time::now(),
-                                               map_frame_,
-                                               odom_frame_);
-        // Broadcast map --> odom transform
-        map_bc_.sendTransform(tf_odom_map_stp);
+        // Broadcast latest known map --> odom transform if no inputs received
+        map_bc_.sendTransform(msg_odom_map_);
     }
 }
 

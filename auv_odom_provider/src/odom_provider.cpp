@@ -37,16 +37,18 @@ OdomProvider::OdomProvider(std::string node_name, ros::NodeHandle &nh): nh_(&nh)
     nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
 
     // Synch IMU and DVL readings
-    imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 25);
-    dvl_subs_ = new message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>(*nh_, dvl_topic, 5);
-    msg_synch_ptr_ = new message_filters::Synchronizer<MsgTimingPolicy> (MsgTimingPolicy(5), *imu_subs_, *dvl_subs_);
-    msg_synch_ptr_->registerCallback(boost::bind(&OdomProvider::synchSensorsCB, this, _1, _2));
+//    imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 25);
+//    dvl_subs_ = new message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>(*nh_, dvl_topic, 5);
+//    msg_synch_ptr_ = new message_filters::Synchronizer<MsgTimingPolicy> (MsgTimingPolicy(5), *imu_subs_, *dvl_subs_);
+//    msg_synch_ptr_->registerCallback(boost::bind(&OdomProvider::synchSensorsCB, this, _1, _2));
 
     // Subscribe to sensor msgs
     fast_imu_sub_ = nh_->subscribe(imu_topic, 10, &OdomProvider::fastIMUCB, this);
     fast_dvl_sub_ = nh_->subscribe(dvl_topic, 10, &OdomProvider::fastDVLCB, this);
     tf_gt_subs_ = nh_->subscribe(gt_topic, 10, &OdomProvider::gtCB, this);
     odom_pub_ = nh_->advertise<nav_msgs::Odometry>(odom_topic, 10);
+
+    dvl_interpolated_ = nh_->advertise<geometry_msgs::TwistWithCovarianceStamped>("/debug/dvl_filtered", 10);
 
     // Initialize internal params
     init();
@@ -98,15 +100,11 @@ void OdomProvider::fastIMUCB(const sensor_msgs::Imu &imu_msg){
 
 void OdomProvider::fastDVLCB(const geometry_msgs::TwistWithCovarianceStamped &dvl_msg){
     boost::mutex::scoped_lock lock(msg_lock_);
+
     dvl_readings_.push_back(dvl_msg);
     while(dvl_readings_.size() > size_dvl_q_){
         dvl_readings_.pop_front();
     }
-}
-
-void OdomProvider::synchSensorsCB(const sensor_msgs::ImuConstPtr &,
-                                  const geometry_msgs::TwistWithCovarianceStampedConstPtr &){
-    coord_ = true;
 }
 
 void OdomProvider::gtCB(const nav_msgs::Odometry &pose_msg){
@@ -133,7 +131,7 @@ void OdomProvider::interpolateDVL(ros::Time t_now, geometry_msgs::TwistWithCovar
     n = n-1;
     n_fac = factorial(n);
 
-    for(unsigned int l=0; l<=n; l++){
+    for(unsigned int l=0; l<n+1; l++){
         aux[l] =  (n_fac / (factorial(l) * factorial(n - l))) *
                    std::pow(1 - (t_now.toSec() - dvl_readings_.at(n).header.stamp.toSec())/
                             (dvl_readings_.at(n).header.stamp.toSec() - dvl_readings_.at(n - n).header.stamp.toSec()), n-l) *
@@ -259,7 +257,6 @@ void OdomProvider::provideOdom(const ros::TimerEvent&){
             // Compute initial pose
             if(!gt_readings_.empty()){
                 gt_msg = boost::make_shared<nav_msgs::Odometry>(gt_readings_.back());
-                t_prev_ = gt_msg->header.stamp.toSec();
 
                 // Transform IMU output world --> odom
                 tf::Quaternion q_transf;
@@ -275,6 +272,7 @@ void OdomProvider::provideOdom(const ros::TimerEvent&){
             if(dvl_readings_.size() == size_dvl_q_ && imu_readings_.size() == size_imu_q_){
                 ROS_INFO_NAMED(node_name_, "Starting odom provider node");
                 init_filter_ = true;
+                t_prev_ = ros::Time::now().toSec();
             }
         }
         // MAIN LOOP
@@ -286,8 +284,8 @@ void OdomProvider::provideOdom(const ros::TimerEvent&){
             if(std::abs(imu_msg->header.stamp.toSec() - dvl_readings_.back().header.stamp.toSec()) >= 0.02){
                 // IMU available but not DVL
                 this->interpolateDVL(imu_msg->header.stamp, dvl_msg);
+//                ROS_INFO("interpolate DVL");
                 dvl_cnt_ += 1;
-                ROS_INFO("Interpolating dvl");
             }
             else{
                 // Sensor input available on both channels
@@ -317,11 +315,10 @@ void OdomProvider::provideOdom(const ros::TimerEvent&){
 
             // Publish odom increment
             this->sendOutput(ros::Time::now());
-            ROS_INFO("Publishing odom");
 
-            if(dvl_cnt_ > 6){
-                ROS_ERROR("Not receiving DVL signal");
-            }
+//            if(dvl_cnt_ > 6){
+//                ROS_ERROR("Not receiving DVL signal");
+//            }
         }
     }
     else{
