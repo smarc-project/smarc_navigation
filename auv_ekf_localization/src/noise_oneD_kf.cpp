@@ -10,15 +10,15 @@ OneDKF::OneDKF(double mu_init, double sigma_init, double r, double q){
     q_ = q;
 }
 
-void OneDKF::filter(double &input){
+double OneDKF::filter(double input){
     // Predict
-    mu_hat_ = mu_;
-    sigma_hat_ = sigma_ + r_;
+    double mu_hat = mu_;
+    double sigma_hat = sigma_ + r_;
 
     // Update
-    double k_t = sigma_hat_ / (sigma_hat_ + q_);
-    mu_ = mu_hat_ + k_t * (input - mu_hat_);
-    sigma_ = (1 - k_t) * sigma_hat_;
+    double k_t = sigma_hat / (sigma_hat + q_);
+    mu_ = mu_hat + k_t * (input - mu_hat);
+    sigma_ = (1 - k_t) * sigma_hat;
 
-    input = mu_;
+    return mu_;
 }

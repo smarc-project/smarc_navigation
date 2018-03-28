@@ -23,6 +23,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   tf
+  auv_ekf_localization  # Dependency for kf_noise filter
 )
 
 
@@ -157,6 +158,7 @@ add_dependencies(odom_provider_node
 )
 
 target_link_libraries(odom_provider_node
+#    noise_kf
     ${catkin_LIBRARIES}
 )
 
