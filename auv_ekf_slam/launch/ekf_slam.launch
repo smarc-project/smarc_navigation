@@ -4,9 +4,10 @@
       <arg name="run_navigation" default="false"/>
       <arg name="nav_name" default="navigation"/>
 
+
         <group ns="$(arg namespace)">
             <node pkg="auv_odom_provider" name="odom_provider_node" type="odom_provider_node" output="screen">
-                <param name="system_freq" value="30"/>
+                <param name="system_freq" value="10"/>
                 <!--Topics-->
                 <param name="imu_topic" value="/$(arg namespace)/imu"/>
                 <param name="dvl_topic" value="/$(arg namespace)/dvl_twist"/>

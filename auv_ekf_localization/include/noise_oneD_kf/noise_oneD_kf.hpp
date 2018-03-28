@@ -8,7 +8,7 @@ class OneDKF{
 public:
     OneDKF(double mu_init, double sigma_init, double r, double q);
     ~OneDKF();
-    void filter(double &input);
+    double filter(double input);
 
 private:
 

@@ -41,6 +41,8 @@
 #include "ekf_slam_core/ekf_slam_core.hpp"
 #include "landmark_visualizer/init_map.h"
 
+#include "landmark_visualizer/init_map.h"
+
 /**
  * @brief The EKFSLAM class
  * EKF-based localization node for LoLo
@@ -73,8 +75,6 @@ private:
     ros::Subscriber observs_subs_;
     ros::Publisher map_pub_;
     ros::Publisher vis_pub_;
-    ros::ServiceClient gazebo_client_;
-    ros::ServiceClient landmarks_client_;
     ros::ServiceClient init_map_client_;
 
     // Handlers for sensors
@@ -96,7 +96,6 @@ private:
     Eigen::MatrixXd Q_;
 
     // Aux
-    double t_prev_;
     unsigned int size_odom_q_;
     unsigned int size_measurements_q_;
 
@@ -105,7 +104,10 @@ private:
     tf::TransformListener tf_listener_;
     tf::StampedTransform transf_dvl_base_;
     tf::StampedTransform transf_world_odom_;
-    tf::Transform transf_odom_world_;
+    tf::StampedTransform transf_map_world_;
+    tf::StampedTransform transf_base_sssr_;
+    geometry_msgs::TransformStamped msg_odom_map_;
+
     std::string odom_frame_;
     std::string sensor_frame_;
     std::string map_frame_;
