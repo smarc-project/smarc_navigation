@@ -1,6 +1,6 @@
 #include "ekf_slam_core/ekf_slam_core.hpp"
 
-EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R, Eigen::MatrixXd &Q, double &lambda, tf::StampedTransform &tf_base_sensor){
+EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R, Eigen::MatrixXd &Q, double &lambda, tf::StampedTransform &tf_base_sensor, const bool &mbes_input){
 
     // Initialize internal params
     mu_ = mu;
@@ -15,6 +15,7 @@ EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R
     tf_base_sensor_ = tf_base_sensor;
     tf_sensor_base_ = tf_base_sensor.inverse();
     map_lm_num_ = lm_num_;
+    mbes_input_ = mbes_input;
 }
 
 
@@ -113,8 +114,21 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
                                 landmark_j(1),
                                 landmark_j(2));
 
-    if(fls){
-        // Measurement model: z_hat_i
+
+    // Measurement model: z_hat_i
+    CorrespondenceClass corresp_i_j(i, j);
+    if(mbes_input_){    // MBES
+        tf::Vector3 z_hat_base = transf_base_map * landmark_j_map;
+        Eigen::Vector3d z_k_hat_base( z_hat_base.getX(),
+                                     z_hat_base.getY(),
+                                     z_hat_base.getZ());
+
+        // Compute ML of observation z_i with M_j
+        corresp_i_j.computeH(h_comps, landmark_j_map, Eigen::Vector3d());
+        corresp_i_j.computeNu(z_k_hat_base, z_i);
+        corresp_i_j.computeMHLDistance(temp_sigma, Q_);
+    }
+    else {  // FLS
         double scaling = 400.0/17.0;    // TODO: check this value
         tf::Vector3 z_hat_fls = tf_sensor_base_ * transf_base_map * landmark_j_map;   // Expected meas in fls frame and m
         double arccos_azimut = 1/std::cos(std::atan2(z_hat_fls.getZ(), z_hat_fls.getX()));
@@ -125,23 +139,8 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
         std::cout << "Real meas: " << z_i << std::endl;
 
         // Compute ML of observation z_i with M_j
-        CorrespondenceClass corresp_i_j(i, j);
         corresp_i_j.computeH(h_comps, landmark_j_map, Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ()));
         corresp_i_j.computeNu(z_hat_fls_pix, z_i);  // The innovation is now computed in pixels
-        corresp_i_j.computeMHLDistance(temp_sigma, Q_);
-
-    }
-    else if(mbes){
-        // Measurement model: z_hat_i
-        tf::Vector3 z_hat_base = transf_base_map * landmark_j_map;
-        Eigen::Vector3d z_k_hat_base( z_hat_base.getX(),
-                                      z_hat_base.getY(),
-                                      z_hat_base.getZ());
-
-        // Compute ML of observation z_i with M_j
-        CorrespondenceClass corresp_i_j(i, j);
-        corresp_i_j.computeH(h_comps, landmark_j_map, Eigen::Vector3d());
-        corresp_i_j.computeNu(z_k_hat_base, z_i);
         corresp_i_j.computeMHLDistance(temp_sigma, Q_);
     }
 
@@ -180,7 +179,11 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         transf_base_map = transf_map_base.inverse();
 
         // Back-project new possible landmark (in map frame)
-        if(fls){
+        if(mbes_input_){    // MBES sensor input
+            new_lm_map = transf_map_base * tf::Vector3(z_t.at(i)(0), z_t.at(i)(1),z_t.at(i)(2));
+
+        }
+        else{   // FLS sensor input
             tf::Vector3 new_lm_fls = tf::Vector3(z_t.at(i)(0), z_t.at(i)(1), z_t.at(i)(2));  // To polar coordinates to scale from pixels to meters
             double theta = std::atan2(new_lm_fls.getY(), new_lm_fls.getX());
             double rho = std::sqrt(std::pow(new_lm_fls.getX(),2) + std::pow(new_lm_fls.getY(),2));
@@ -192,10 +195,6 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
             // Transform to odom frame
             new_lm_map = transf_map_base  * tf_base_sensor_ *  lm_fls_real;
-        }
-        else if(mbes){
-            new_lm_map = transf_map_base * tf::Vector3(z_t.at(i)(0), z_t.at(i)(1),z_t.at(i)(2));
-
         }
 
         // Add new possible landmark to mu_hat_

@@ -116,6 +116,7 @@ private:
     std::string sssr_frame_;
     std::string map_srv_name_;
     std::string lm_srv_name_;
+    bool mbes_input_;
 
     // Input callbacks
     void odomCB(const nav_msgs::Odometry &odom_msg);

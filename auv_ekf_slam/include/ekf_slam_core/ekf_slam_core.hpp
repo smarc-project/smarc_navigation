@@ -32,7 +32,7 @@ class EKFCore{
 
 public:
 
-    EKFCore(Eigen::VectorXd& mu, Eigen::MatrixXd& Sigma, Eigen::MatrixXd& R, Eigen::MatrixXd& Q, double& lambda, tf::StampedTransform& tf_base_sensor);
+    EKFCore(Eigen::VectorXd& mu, Eigen::MatrixXd& Sigma, Eigen::MatrixXd& R, Eigen::MatrixXd& Q, double& lambda, tf::StampedTransform& tf_base_sensor, const bool& mbes_input);
     ~EKFCore();
     std::tuple<Eigen::VectorXd, Eigen::MatrixXd> ekfUpdate();
     void predictMotion(nav_msgs::Odometry odom_reading);
@@ -57,6 +57,7 @@ private:
     double lambda_M_;
     int lm_num_;
     int map_lm_num_;
+    bool mbes_input_;
 
     void predictMeasurement(const Eigen::Vector3d &landmark_j,
                             const Eigen::Vector3d &z_i,

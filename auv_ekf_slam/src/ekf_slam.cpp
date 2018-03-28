@@ -24,6 +24,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param("meas_noise_cov_diag", Q_diagonal, std::vector<double>());
     nh_->param<double>((node_name_ + "/delta_outlier_reject"), delta, 0.99);
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
+    nh_->param<bool>((node_name_ + "/mbes_input"), mbes_input_, true);
     nh_->param<std::string>((node_name_ + "/map_pose_topic"), map_topic, "/map_ekf");
     nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
@@ -94,38 +95,6 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     while(!ros::service::waitForService("/lolo_auv/map_server", ros::Duration(10)) && ros::ok()){
         ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
     }
-    landmark_visualizer::init_map init_map_srv;
-    init_map_srv.request.request_map = true;
-
-    init_map_client_.call(init_map_srv);
-
-    if(!init_map_srv.response.init_map.poses.empty()){
-        Eigen::VectorXd aux_mu;
-        tf::Vector3 beacon_pose;
-        // Add beacon landmarks to mu_
-        for(auto beacon: init_map_srv.response.init_map.poses){
-            // Transform beacon from world to odom frame
-            beacon_pose = transf_odom_world_ * tf::Vector3(beacon.position.x,
-                                                           beacon.position.y,
-                                                           beacon.position.z);
-            // Augment mu_
-            aux_mu = mu_;
-            mu_.conservativeResize(mu_.size()+3, true);
-
-            mu_ << aux_mu, Eigen::Vector3d(beacon_pose.getX(),
-                                           beacon_pose.getY(),
-                                           beacon_pose.getZ());
-
-            // Augment Sigma_
-            Sigma_.conservativeResize(Sigma_.rows()+3, Sigma_.cols()+3);
-            Sigma_.bottomRows(3).setZero();
-            Sigma_.rightCols(3).setZero();
-            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 40;
-            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 10;
-            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 10;
-        }
-        ROS_INFO("Map loaded!");
-    }
 
     try {
         tf_listener_.waitForTransform(map_frame_, world_frame_, ros::Time(0), ros::Duration(10));
@@ -188,7 +157,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
 
     // Create EKF filter
-    ekf_filter_ = new EKFCore(mu_, Sigma_, R_, Q_, lambda_M_, tf_base_sensor);
+    ekf_filter_ = new EKFCore(mu_, Sigma_, R_, Q_, lambda_M_, tf_base_sensor, mbes_input_);
 
     ROS_INFO_NAMED(node_name_, "EKF SLAM Initialized");
 }

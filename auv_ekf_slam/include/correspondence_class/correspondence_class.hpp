@@ -58,9 +58,9 @@ public:
     double psi_;
     double d_m_;
     Eigen::MatrixXd H_t_;
-    Eigen::Matrix2d S_inverted_;
+    Eigen::MatrixXd S_inverted_;
     Eigen::Vector3d landmark_pos_;
-    Eigen::Vector2d nu_;
+    Eigen::Vector3d nu_;
     std::pair<int, double> i_j_;
 
     CorrespondenceClass(const int &z_id, const double &lm_id);
