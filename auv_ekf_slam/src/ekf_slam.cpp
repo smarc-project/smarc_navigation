@@ -79,7 +79,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
 
     // Aux
     size_odom_q_ = 10;
-    size_measurements_q_ = 10;
+    size_measurements_q_ = 1;
 
     tf::StampedTransform tf_base_sensor;
     try {
@@ -171,7 +171,7 @@ void EKFSLAM::odomCB(const nav_msgs::Odometry &odom_msg){
 
 void EKFSLAM::observationsCB(const geometry_msgs::PoseArray &observ_msg){
     measurements_t_.push_back(observ_msg);
-    while(measurements_t_.size() > size_odom_q_){
+    while(measurements_t_.size() > size_measurements_q_){
          measurements_t_.pop_front();
     }
 }

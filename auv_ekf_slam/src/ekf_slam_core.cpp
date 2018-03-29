@@ -131,16 +131,29 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
     else {  // FLS
         double scaling = 400.0/17.0;    // TODO: check this value
         tf::Vector3 z_hat_fls = tf_sensor_base_ * transf_base_map * landmark_j_map;   // Expected meas in fls frame and m
-        double arccos_azimut = 1/std::cos(std::atan2(z_hat_fls.getZ(), z_hat_fls.getX()));
-        Eigen::Vector3d z_hat_fls_m(arccos_azimut * z_hat_fls.getX(), arccos_azimut * z_hat_fls.getY(), 0);
-        Eigen::Vector3d z_hat_fls_pix = z_hat_fls_m * scaling;   // Expected meas in fls frame and pixels
+        Eigen::MatrixXd h_2;
+        h_2.setZero(2,3);
+        h_2(0,0) = 1;
+        Eigen::Vector3d zprime(0.0, z_hat_fls.getY(), z_hat_fls.getZ());
+        h_2.row(1) = (1.0/zprime.norm()) * zprime;
+        h_2 *= scaling;
 
+        Eigen::Vector2d z_hat_fls_pix = h_2 * Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ());
         std::cout << "Predicted meas: " << z_hat_fls_pix << std::endl;
+
+        Eigen::Vector3d z_hat_fls_pix_3 = Eigen::Vector3d(z_hat_fls_pix(0), z_hat_fls_pix(1), 0.0);
         std::cout << "Real meas: " << z_i << std::endl;
+
+//        geometry_msgs::Point expected_lm;
+
+//        // If any higher intensity value detected
+//        expected_lm.x = z_hat_fls_pix_3(0);
+//        expected_lm.y = z_hat_fls_pix_3(1);
+//        expected_lm.z = z_hat_fls_pix_3(2);
 
         // Compute ML of observation z_i with M_j
         corresp_i_j.computeH(h_comps, landmark_j_map, Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ()));
-        corresp_i_j.computeNu(z_hat_fls_pix, z_i);  // The innovation is now computed in pixels
+        corresp_i_j.computeNu(z_hat_fls_pix_3, z_i);  // The innovation is now computed in pixels
         corresp_i_j.computeMHLDistance(temp_sigma, Q_);
     }
 
@@ -158,14 +171,14 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
 void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
 //    double epsilon = 9;
-    double alpha = 0.5;   // TODO: find suitable value!!
+    double alpha = 0.9;   // TODO: find suitable value!!
     std::vector<CorrespondenceClass> corresp_i_list;
     tf::Transform transf_base_map;
     tf::Transform transf_map_base;
     Eigen::MatrixXd temp_sigma(9,9);
 
     double sigma_x, sigma_y;
-    double sigma_uncertain = 30000;
+    double sigma_uncertain = 200;
 
     lm_num_ = (mu_.rows() - 6) / 3;
 
@@ -211,9 +224,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         Sigma_hat_.conservativeResize(Sigma_hat_.rows()+3, Sigma_hat_.cols()+3);
         Sigma_hat_.bottomRows(3).setZero();
         Sigma_hat_.rightCols(3).setZero();
-        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = sigma_x;  // TODO: initialize with uncertainty on the measurement in x,y,z
-        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = sigma_y;
-        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 100;
+        Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
+        Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
+        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 3000;
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
         h_comp h_comps;
@@ -338,10 +351,10 @@ std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
     }
     mu_ = mu_hat_;
     Sigma_ = Sigma_hat_;
-    std::cout << "Mu: " << std::endl;
-    std::cout << mu_<< std::endl;
-    std::cout << "Sigma: " << std::endl;
-    std::cout << Sigma_ << std::endl;
+//    std::cout << "Mu: " << std::endl;
+//    std::cout << mu_<< std::endl;
+//    std::cout << "Sigma: " << std::endl;
+//    std::cout << Sigma_ << std::endl;
     std::cout << "Number of landmarks: " << lm_num_ << " or " << (Sigma_.rows() - 6) / 3 << std::endl;
 
     return std::make_pair(mu_, Sigma_);

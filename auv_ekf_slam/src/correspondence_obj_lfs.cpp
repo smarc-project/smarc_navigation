@@ -29,23 +29,25 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
 
     // First component of the jacobian
     h_2.setZero(2,3);
-    h_2(0,1) = 1;
-    Eigen::Vector3d zprime(z_hat_fls_m(0), 0, z_hat_fls_m(2));
+    h_2(0,0) = 1;
+    Eigen::Vector3d zprime(0.0, z_hat_fls_m(1), z_hat_fls_m(2));
     h_2.row(1) = (1.0/zprime.norm()) * zprime;
     h_2 *= 400.0/17.0;
 
     // Map h_t_ to the correct dimension
     h_1.setZero(3,9);
-    h_1.block(0,0,3,3) = -1 * Eigen::MatrixXd::Identity(3,3);
 
     using namespace std;    
     h_1(0,0) = -h_comps.c_4*h_comps.c_5;
     h_1(0,1) = -h_comps.c_4*h_comps.s_5;
     h_1(0,2) = h_comps.s_4;
-    h_1(0,3) = 0;
+    h_1(0,3) = 0;    
     h_1(0,4) = h_comps.mu_2*h_comps.c_4 - lm_odom.getZ()*h_comps.c_4 - lm_odom.getX()*h_comps.c_5*h_comps.s_4 - lm_odom.getY()*h_comps.s_4
             *h_comps.s_5 + h_comps.mu_0*h_comps.c_5*h_comps.s_4 + h_comps.mu_1*h_comps.s_4*h_comps.s_5;
     h_1(0,5) = h_comps.c_4*(lm_odom.getY()*h_comps.c_5 - lm_odom.getX()*h_comps.s_5 - h_comps.mu_1*h_comps.c_5 + h_comps.mu_0*h_comps.s_5);
+    h_1(0,6) = h_comps.c_4*h_comps.c_5;
+    h_1(0,7) = h_comps.c_4*h_comps.s_5;
+    h_1(0,8) = -h_comps.s_4;
 
     h_1(1,0) = h_comps.c_3*h_comps.s_5 - h_comps.c_5*h_comps.s_4*h_comps.s_3;
     h_1(1,1) = - h_comps.c_3*h_comps.c_5 - h_comps.s_4*h_comps.s_3*h_comps.s_5;
@@ -60,6 +62,9 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
             + h_comps.mu_1*h_comps.c_3*h_comps.s_5 + lm_odom.getY()*h_comps.c_5*h_comps.s_4*h_comps.s_3
             - lm_odom.getX()*h_comps.s_4*h_comps.s_3*h_comps.s_5 - h_comps.mu_1*h_comps.c_5*h_comps.s_4*h_comps.s_3
             + h_comps.mu_0*h_comps.s_4*h_comps.s_3*h_comps.s_5;
+    h_1(1,6) = h_comps.c_5*h_comps.s_4*h_comps.s_3 - h_comps.c_3*h_comps.s_5;
+    h_1(1,7) = h_comps.c_3*h_comps.c_5 + h_comps.s_4*h_comps.s_3*h_comps.s_5;
+    h_1(1,8) = h_comps.c_4*h_comps.s_3;
 
     h_1(2,0) = - h_comps.s_3*h_comps.s_5 - h_comps.c_3*h_comps.c_5*h_comps.s_4;
     h_1(2,1) = h_comps.c_5*h_comps.s_3 - h_comps.c_3*h_comps.s_4*h_comps.s_5;
@@ -69,24 +74,13 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
             - lm_odom.getX()*h_comps.c_5*h_comps.s_4*h_comps.s_3 - lm_odom.getY()*h_comps.s_4*h_comps.s_3*h_comps.s_5
             + h_comps.mu_0*h_comps.c_5*h_comps.s_4*h_comps.s_3 + h_comps.mu_1*h_comps.s_4*h_comps.s_3*h_comps.s_5;
     h_1(2,4) = -h_comps.c_3*(lm_odom.getZ()*h_comps.s_4 - h_comps.mu_2*h_comps.s_4 - lm_odom.getX()*h_comps.c_4*h_comps.c_5
-              - lm_odom.getY()*h_comps.c_4*h_comps.s_5 + h_comps.mu_0*h_comps.c_4*h_comps.c_5 + h_comps.mu_1*h_comps.c_4*h_comps.s_5);
-    h_1(2,5) = lm_odom.getX()*h_comps.c_5*h_comps.s_3 + lm_odom.getY()*h_comps.s_3*h_comps.s_5 - h_comps.mu_0*h_comps.c_5*h_comps.s_3
-            - h_comps.mu_1*h_comps.s_3*h_comps.s_5 + lm_odom.getY()*h_comps.c_3*h_comps.c_5*h_comps.s_4
-            - lm_odom.getX()*h_comps.c_3*h_comps.s_4*h_comps.s_5 - h_comps.mu_1*h_comps.c_3*h_comps.c_5*h_comps.s_4
-            + h_comps.mu_0*h_comps.c_3*h_comps.s_4*h_comps.s_5;
-
-    h_1(0,6) = h_comps.c_4*h_comps.c_5;
-    h_1(0,7) = h_comps.c_4*h_comps.s_5;
-    h_1(0,8) = -h_comps.s_4;
-
-    h_1(1,6) = h_comps.c_5*h_comps.s_4*h_comps.s_3 - h_comps.c_3*h_comps.s_5;
-    h_1(1,7) = h_comps.c_3*h_comps.c_5 + h_comps.s_4*h_comps.s_3*h_comps.s_5;
-    h_1(1,8) = h_comps.c_4*h_comps.s_3;
+               -lm_odom.getY()*h_comps.c_4*h_comps.s_5 + h_comps.mu_0*h_comps.c_4*h_comps.c_5 + h_comps.mu_1*h_comps.c_4*h_comps.s_5);
+    h_1(2,5) = lm_odom.getX()*(h_comps.c_5*h_comps.s_3 - h_comps.c_3*h_comps.s_4*h_comps.s_5) + lm_odom.getY()*(h_comps.s_3*h_comps.s_5 + h_comps.c_3*h_comps.c_5*h_comps.s_4)
+               - h_comps.mu_0*(h_comps.c_5*h_comps.s_3 - h_comps.c_3*h_comps.s_4*h_comps.s_5) - h_comps.mu_1*(h_comps.s_3*h_comps.s_5 + h_comps.c_3*h_comps.c_5*h_comps.s_4);
 
     h_1(2,6) = h_comps.s_3*h_comps.s_5 + h_comps.c_3*h_comps.c_5*h_comps.s_4;
     h_1(2,7) = h_comps.c_3*h_comps.s_4*h_comps.s_5 - h_comps.c_5*h_comps.s_3;
     h_1(2,8) = h_comps.c_4*h_comps.c_3;
-
 
     h_1 = h_comps.R_fls_base_ * h_1;
 
@@ -104,6 +98,7 @@ void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
 }
 
 void CorrespondenceClass::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){
+    nu_ = Eigen::Vector2d();
     nu_(0) = z_i(0) - z_hat_i(0); // nu in pixels
     nu_(1) = z_i(1) - z_hat_i(1);
 }
