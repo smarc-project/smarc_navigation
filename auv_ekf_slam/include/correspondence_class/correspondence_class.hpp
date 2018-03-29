@@ -58,6 +58,7 @@ public:
     double psi_;
     double d_m_;
     Eigen::MatrixXd H_t_;
+    Eigen::MatrixXd h_1_;
     Eigen::MatrixXd S_inverted_;
     Eigen::Vector3d landmark_pos_;
     Eigen::VectorXd nu_;

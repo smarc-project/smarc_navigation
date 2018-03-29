@@ -29,9 +29,9 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
 
     // First component of the jacobian
     h_2.setZero(2,3);
-    h_2(0,0) = 1;
-    Eigen::Vector3d zprime(0.0, z_hat_fls_m(1), z_hat_fls_m(2));
-    h_2.row(1) = (1.0/zprime.norm()) * zprime;
+    Eigen::Vector3d zprime(z_hat_fls_m(0), 0.0, z_hat_fls_m(2));
+    h_2.row(0) = (1.0/zprime.norm()) * zprime;
+    h_2(1,1) = -1;
     h_2 *= 400.0/17.0;
 
     // Map h_t_ to the correct dimension
@@ -83,6 +83,8 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
     h_1(2,8) = h_comps.c_4*h_comps.c_3;
 
     h_1 = h_comps.R_fls_base_ * h_1;
+    h_1_ = h_1;
+
 
     H_t_ = h_2 * h_1;
 }

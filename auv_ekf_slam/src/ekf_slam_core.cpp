@@ -133,9 +133,9 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
         tf::Vector3 z_hat_fls = tf_sensor_base_ * transf_base_map * landmark_j_map;   // Expected meas in fls frame and m
         Eigen::MatrixXd h_2;
         h_2.setZero(2,3);
-        h_2(0,0) = 1;
-        Eigen::Vector3d zprime(0.0, z_hat_fls.getY(), z_hat_fls.getZ());
-        h_2.row(1) = (1.0/zprime.norm()) * zprime;
+        Eigen::Vector3d zprime(z_hat_fls.getX(), 0.0, z_hat_fls.getZ());
+        h_2.row(0) = (1.0/zprime.norm()) * zprime;
+        h_2(1,1) = -1;
         h_2 *= scaling;
 
         Eigen::Vector2d z_hat_fls_pix = h_2 * Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ());
@@ -144,17 +144,25 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
         Eigen::Vector3d z_hat_fls_pix_3 = Eigen::Vector3d(z_hat_fls_pix(0), z_hat_fls_pix(1), 0.0);
         std::cout << "Real meas: " << z_i << std::endl;
 
-//        geometry_msgs::Point expected_lm;
-
-//        // If any higher intensity value detected
-//        expected_lm.x = z_hat_fls_pix_3(0);
-//        expected_lm.y = z_hat_fls_pix_3(1);
-//        expected_lm.z = z_hat_fls_pix_3(2);
-
         // Compute ML of observation z_i with M_j
         corresp_i_j.computeH(h_comps, landmark_j_map, Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ()));
         corresp_i_j.computeNu(z_hat_fls_pix_3, z_i);  // The innovation is now computed in pixels
         corresp_i_j.computeMHLDistance(temp_sigma, Q_);
+
+        // Test linearization
+        Eigen::VectorXd y_t_1;
+        y_t_1 = mu_hat_.head(6);
+        Eigen::VectorXd  y_t = y_t_1;
+        y_t.conservativeResize(y_t.size()+3);
+        y_t << y_t_1, landmark_j;
+
+//        std::cout << "State vector for lm j " << y_t << std::endl;
+
+        Eigen::VectorXd error = corresp_i_j.h_1_ * y_t - Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ());
+
+        std::cout << "Linearization error= " << std::endl;
+        std::cout << error << std::endl;
+
     }
 
     ROS_INFO_STREAM("Mahalanobis dist: " << corresp_i_j.d_m_);
@@ -197,7 +205,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
         }
         else{   // FLS sensor input
-            tf::Vector3 new_lm_fls = tf::Vector3(z_t.at(i)(0), z_t.at(i)(1), z_t.at(i)(2));  // To polar coordinates to scale from pixels to meters
+            tf::Vector3 new_lm_fls = tf::Vector3(z_t.at(i)(0), -z_t.at(i)(1), z_t.at(i)(2));  // To polar coordinates to scale from pixels to meters
             double theta = std::atan2(new_lm_fls.getY(), new_lm_fls.getX());
             double rho = std::sqrt(std::pow(new_lm_fls.getX(),2) + std::pow(new_lm_fls.getY(),2));
             double rho_scaled = 17.0/400.0 * rho;
@@ -226,7 +234,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         Sigma_hat_.rightCols(3).setZero();
         Sigma_hat_(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3) = 100;  // TODO: initialize with uncertainty on the measurement in x,y,z
         Sigma_hat_(Sigma_hat_.rows()-2, Sigma_hat_.cols()-2) = 100;
-        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 3000;
+        Sigma_hat_(Sigma_hat_.rows()-1, Sigma_hat_.cols()-1) = 1000;
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
         h_comp h_comps;
@@ -305,16 +313,16 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
     temp_sigma.block(0,6,6,3) = Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3);
     temp_sigma.block(6,6,3,3) = Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, (c_i_j.i_j_.second - 1) * 3 + 6, 3, 3);
 
-    std::cout << "H_t : " << std::endl;
-    std::cout << c_i_j.H_t_ << std::endl;
-    std::cout << "S_inverted : " << std::endl;
-    std::cout << c_i_j.S_inverted_ << std::endl;
+//    std::cout << "H_t : " << std::endl;
+//    std::cout << c_i_j.H_t_ << std::endl;
+//    std::cout << "S_inverted : " << std::endl;
+//    std::cout << c_i_j.S_inverted_ << std::endl;
     std::cout << "temp_sigma: " << std::endl;
     std::cout << temp_sigma << std::endl;
 
     Eigen::MatrixXd K_t_i = temp_sigma * c_i_j.H_t_.transpose() * c_i_j.S_inverted_;
-    std::cout << "Kalman gain: " << std::endl;
-    std::cout << K_t_i << std::endl;
+//    std::cout << "Kalman gain: " << std::endl;
+//    std::cout << K_t_i << std::endl;
 
     std::cout << "Innovation: " << std::endl;
     std::cout << c_i_j.nu_ << std::endl;
@@ -322,22 +330,22 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
     // Update mu_hat and sigma_hat
     Eigen::VectorXd aux_vec = K_t_i * c_i_j.nu_;
 
-    std::cout << "Correction for mu_hat: " << std::endl;
-    std::cout << aux_vec << std::endl;
+//    std::cout << "Correction for mu_hat: " << std::endl;
+//    std::cout << aux_vec << std::endl;
 
     mu_hat_.head(6) += aux_vec.head(6);
     mu_hat_(3) = angleLimit(mu_hat_(3));
     mu_hat_(4) = angleLimit(mu_hat_(4));
     mu_hat_(5) = angleLimit(mu_hat_(5));
     mu_hat_.segment((c_i_j.i_j_.second - 1) * 3 + 6, 3) += aux_vec.segment(6, 3);
-    std::cout << "Mu updated " << std::endl;
+//    std::cout << "Mu updated " << std::endl;
 
     Eigen::MatrixXd aux_mat = (Eigen::MatrixXd::Identity(temp_sigma.rows(), temp_sigma.cols()) - K_t_i * c_i_j.H_t_) * temp_sigma;
     Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);
     Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, (c_i_j.i_j_.second - 1) * 3 + 6, 3, 3) = aux_mat.block(6, 6, 3, 3);
     Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, 6) = aux_mat.block(6,0,3,6);
     Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3) = aux_mat.block(0,6,6,3);
-    std::cout << "Update completed: " << std::endl;
+//    std::cout << "Update completed: " << std::endl;
 }
 
 std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
@@ -355,7 +363,7 @@ std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
 //    std::cout << mu_<< std::endl;
 //    std::cout << "Sigma: " << std::endl;
 //    std::cout << Sigma_ << std::endl;
-    std::cout << "Number of landmarks: " << lm_num_ << " or " << (Sigma_.rows() - 6) / 3 << std::endl;
+//    std::cout << "Number of landmarks: " << lm_num_ << " or " << (Sigma_.rows() - 6) / 3 << std::endl;
 
     return std::make_pair(mu_, Sigma_);
 
