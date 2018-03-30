@@ -28,8 +28,6 @@
 
 #include "utils_matrices/utils_matrices.hpp"
 
-double angleLimit (double angle);
-
 /**
  * @brief The CorrespondenceClass class
  * Auxiliar class containing all the info related to a correspondence
@@ -77,7 +75,7 @@ public:
 
     ~CorrespondenceClass();
 
-    void computeH(const h_comp h_comps,
+    virtual void computeH(const h_comp h_comps,
                   const tf::Vector3 lm_odom, const Eigen::Vector3d z_hat_fls_m);
     /**
      * @brief computeS
@@ -85,20 +83,20 @@ public:
      * @param Q
      * S = H*Q*H^T + Q
      */
-    void computeMHLDistance(const Eigen::MatrixXd &sigma, const Eigen::MatrixXd &Q);
+    virtual void computeMHLDistance(const Eigen::MatrixXd &sigma, const Eigen::MatrixXd &Q);
     /**
      * @brief computeNu
      * @param z_hat_i
      * @param z_i
      * Computes the innovation
      */
-    void computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i);
+    virtual void computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i);
     /**
      * @brief computeLikelihood
      * Likelihood of the correspondence mj, zi
      * It also outputs the Mahalanobis distance between z_hat_i, z_i for outlier detection
      */
-    void computeLikelihood();
+    virtual void computeLikelihood();
 
 private:
 };

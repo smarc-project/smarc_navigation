@@ -106,6 +106,3 @@ void CorrespondenceClass::computeLikelihood(){
 //    psi_ = (1 / (std::sqrt(det_mat))) * std::exp(-0.5 * d_m_);
 }
 
-double angleLimit (double angle){ // keep angle within [-pi;pi)
-        return std::fmod(angle + M_PI, (M_PI * 2)) - M_PI;
-}

@@ -10,7 +10,6 @@
 #include <tf_conversions/tf_eigen.h>
 #include <tf/tf.h>
 
-
 #include "correspondence_class/correspondence_class.hpp"
 #include "noise_oneD_kf/noise_oneD_kf.hpp"
 
@@ -28,11 +27,13 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseArray.h>
 
+#include "utils/ekf_utils.hpp"
+
 class EKFCore{
 
 public:
 
-    EKFCore(Eigen::VectorXd& mu, Eigen::MatrixXd& Sigma, Eigen::MatrixXd& R, Eigen::MatrixXd& Q, double& lambda, tf::StampedTransform& tf_base_sensor, const bool& mbes_input);
+    EKFCore(Eigen::VectorXd& mu, Eigen::MatrixXd& Sigma, Eigen::MatrixXd& R, Eigen::MatrixXd& Q, double& lambda, tf::StampedTransform& tf_base_sensor, const bool& mbes_input, const double mh_dist);
     ~EKFCore();
     std::tuple<Eigen::VectorXd, Eigen::MatrixXd> ekfUpdate();
     void predictMotion(nav_msgs::Odometry odom_reading);
@@ -55,6 +56,7 @@ private:
     tf::StampedTransform tf_base_sensor_;
     tf::Transform tf_sensor_base_;
     double lambda_M_;
+    double mh_dist_;
     int lm_num_;
     int map_lm_num_;
     bool mbes_input_;

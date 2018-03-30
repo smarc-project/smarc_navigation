@@ -61,7 +61,7 @@ public:
     EKFSLAM(std::string node_name, ros::NodeHandle &nh);
     void ekfLocalize(const ros::TimerEvent&);
     ~EKFSLAM();
-    void init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta);
+    void init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta, double mh_dist);
 
 private:
 

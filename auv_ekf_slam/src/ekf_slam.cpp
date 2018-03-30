@@ -15,6 +15,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     std::string observs_topic;
     double freq;
     double delta;
+    double mh_dist;
     std::vector<double> R_diagonal;
     std::vector<double> Q_diagonal;
     std::vector<double> Sigma_diagonal;
@@ -24,6 +25,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param("meas_noise_cov_diag", Q_diagonal, std::vector<double>());
     nh_->param<double>((node_name_ + "/delta_outlier_reject"), delta, 0.99);
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
+    nh_->param<double>((node_name_ + "/mahalanobis_dist"), mh_dist, 0.5);
     nh_->param<bool>((node_name_ + "/mbes_input"), mbes_input_, true);
     nh_->param<std::string>((node_name_ + "/map_pose_topic"), map_topic, "/map_ekf");
     nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
@@ -46,14 +48,14 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     init_map_client_ = nh_->serviceClient<landmark_visualizer::init_map>("/lolo_auv/map_server");
 
     // Initialize internal params
-    init(Sigma_diagonal, R_diagonal, Q_diagonal, delta);
+    init(Sigma_diagonal, R_diagonal, Q_diagonal, delta, mh_dist);
 
     // Main spin loop
     timer_ = nh_->createTimer(ros::Duration(1.0 / std::max(freq, 1.0)), &EKFSLAM::ekfLocalize, this);
 
 }
 
-void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta){
+void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta, double mh_dist){
 
     // Init EKF variables
     double size_state = r_diag.size();
@@ -157,7 +159,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
 
     // Create EKF filter
-    ekf_filter_ = new EKFCore(mu_, Sigma_, R_, Q_, lambda_M_, tf_base_sensor, mbes_input_);
+    ekf_filter_ = new EKFCore(mu_, Sigma_, R_, Q_, lambda_M_, tf_base_sensor, mbes_input_, mh_dist);
 
     ROS_INFO_NAMED(node_name_, "EKF SLAM Initialized");
 }
