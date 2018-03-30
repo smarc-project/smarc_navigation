@@ -62,7 +62,7 @@ public:
     Eigen::VectorXd nu_;
     std::pair<int, double> i_j_;
 
-    CorrespondenceClass(const int &z_id, const double &lm_id);
+    CorrespondenceClass(const int &, const double &){}
     /**
      * @brief computeH
      * @param mu_hat
@@ -73,30 +73,30 @@ public:
     CorrespondenceClass(CorrespondenceClass&&) = default; // forces a move constructor despite having a destructor
     CorrespondenceClass& operator=(CorrespondenceClass&&) = default; // force a move assignment anyway
 
-    ~CorrespondenceClass();
+    virtual ~CorrespondenceClass(){}
 
-    virtual void computeH(const h_comp h_comps,
-                  const tf::Vector3 lm_odom, const Eigen::Vector3d z_hat_fls_m);
+    virtual void computeH(const h_comp ,
+                  const tf::Vector3 , const Eigen::Vector3d ){}
     /**
      * @brief computeS
      * @param sigma
      * @param Q
      * S = H*Q*H^T + Q
      */
-    virtual void computeMHLDistance(const Eigen::MatrixXd &sigma, const Eigen::MatrixXd &Q);
+    virtual void computeMHLDistance(const Eigen::MatrixXd &, const Eigen::MatrixXd &){}
     /**
      * @brief computeNu
      * @param z_hat_i
      * @param z_i
      * Computes the innovation
      */
-    virtual void computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i);
+    virtual void computeNu(const Eigen::Vector3d &, const Eigen::Vector3d &){}
     /**
      * @brief computeLikelihood
      * Likelihood of the correspondence mj, zi
      * It also outputs the Mahalanobis distance between z_hat_i, z_i for outlier detection
      */
-    virtual void computeLikelihood();
+    virtual void computeLikelihood(){}
 
 private:
 };

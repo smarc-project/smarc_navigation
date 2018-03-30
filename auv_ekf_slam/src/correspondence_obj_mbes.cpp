@@ -1,18 +1,14 @@
-#include "correspondence_class/correspondence_class.hpp"
+#include "correspondence_class/correspondence_mbes.hpp"
 
 
-CorrespondenceClass::CorrespondenceClass(const int &z_id, const double &lm_id){
+CorrespondenceMBES::CorrespondenceMBES(const int &z_id, const double &lm_id): CorrespondenceClass(z_id, lm_id){
     i_j_ = std::make_pair(z_id,lm_id);
 }
 
-CorrespondenceClass::~CorrespondenceClass(){
+CorrespondenceMBES::~CorrespondenceMBES(){}
 
-}
 
-void CorrespondenceClass::computeH(const h_comp h_comps,
-                                   const tf::Vector3 lm_odom,
-                                   const Eigen::Vector3d z_hat_fls_m){
-
+void CorrespondenceMBES::computeH(const h_comp h_comps, const tf::Vector3 lm_odom, const Eigen::Vector3d z_hat_fls_m){
     using namespace std;
 
     // Store the landmark position
@@ -73,36 +69,27 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
     H_t_(2,6) = h_comps.s_3*h_comps.s_5 + h_comps.c_3*h_comps.c_5*h_comps.s_4;
     H_t_(2,7) = h_comps.c_3*h_comps.s_4*h_comps.s_5 - h_comps.c_5*h_comps.s_3;
     H_t_(2,8) = h_comps.c_4*h_comps.c_3;
-
 }
 
-void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
-                                             const Eigen::MatrixXd &Q){
-
+void CorrespondenceMBES::computeMHLDistance(const Eigen::MatrixXd &sigma, const Eigen::MatrixXd &Q){
     Eigen::Matrix3d S_mat = H_t_ * sigma * H_t_.transpose() + Q;
 
     // TODO: check if matrix is invertible!
     S_inverted_ = S_mat.inverse();
-//    if(!inverted){
-//        ROS_ERROR("Error inverting S");
-//        return;
-//    }
-
-    // Compute Mahalanobis distance (z_i, z_hat_j)
     d_m_ = nu_.transpose() * S_inverted_ * nu_;
 }
 
-void CorrespondenceClass::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){
-    nu_ = z_i - z_hat_i;
+void CorrespondenceMBES::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){
+        nu_ = z_i - z_hat_i;
 }
 
-void CorrespondenceClass::computeLikelihood(){
+void CorrespondenceMBES::computeLikelihood(){
+    //    // Calculate the determinant on the first member of the distribution
+    //    matrix<double> mat_aux = 2 * M_PI_2 * S_;
+    //    double det_mat = matrices::matDeterminant(mat_aux);
 
-//    // Calculate the determinant on the first member of the distribution
-//    matrix<double> mat_aux = 2 * M_PI_2 * S_;
-//    double det_mat = matrices::matDeterminant(mat_aux);
-
-//    // Likelihood
-//    psi_ = (1 / (std::sqrt(det_mat))) * std::exp(-0.5 * d_m_);
+    //    // Likelihood
+    //    psi_ = (1 / (std::sqrt(det_mat))) * std::exp(-0.5 * d_m_);
 }
+
 

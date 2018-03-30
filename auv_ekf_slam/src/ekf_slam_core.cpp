@@ -118,7 +118,10 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
     Eigen::Vector3d z_expected;
 
     // Measurement model: z_expected
+    CorrespondenceClass* corresp_i_j;
     if(mbes_input_){    // MBES
+        corresp_i_j = new CorrespondenceMBES(i, j);
+
         tf::Vector3 z_hat_base = transf_base_map * landmark_j_map;
         z_expected = Eigen::Vector3d(z_hat_base.getX(),
                                      z_hat_base.getY(),
@@ -127,6 +130,8 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
         z_hat_sensor = Eigen::Vector3d();
     }
     else {  // FLS
+        corresp_i_j = new CorrespondenceFLS(i, j);
+
         double scaling = 400.0/17.0;    // TODO: check this value
         tf::Vector3 z_hat_fls = tf_sensor_base_ * transf_base_map * landmark_j_map;   // Expected meas in fls frame and m
         Eigen::MatrixXd h_2;
@@ -142,20 +147,20 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
     }
 
     // Compute ML of observation z_i with M_j
-    CorrespondenceClass corresp_i_j(i, j);
-    corresp_i_j.computeH(h_comps, landmark_j_map, z_hat_sensor);
-    corresp_i_j.computeNu(z_expected, z_i);  // The innovation is now computed in pixels
-    corresp_i_j.computeMHLDistance(temp_sigma, Q_);
+    corresp_i_j->computeH(h_comps, landmark_j_map, z_hat_sensor);
+    corresp_i_j->computeNu(z_expected, z_i);  // The innovation is now computed in pixels
+    corresp_i_j->computeMHLDistance(temp_sigma, Q_);
 
-    ROS_INFO_STREAM("Mahalanobis dist: " << corresp_i_j.d_m_);
+    ROS_INFO_STREAM("Mahalanobis dist: " << corresp_i_j->d_m_);
 
     // Outlier rejection
-    if(corresp_i_j.d_m_ < lambda_M_){
-        corresp_i_list.push_back(std::move(corresp_i_j));
+    if(corresp_i_j->d_m_ < lambda_M_){
+        corresp_i_list.push_back(std::move(*corresp_i_j));
     }
     else{
         ROS_INFO("Outlier rejected");
     }
+    delete (corresp_i_j);
 }
 
 void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){

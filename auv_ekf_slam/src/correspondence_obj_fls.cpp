@@ -1,17 +1,13 @@
-#include "correspondence_class/correspondence_class.hpp"
+#include "correspondence_class/correspondence_fls.hpp"
 
 
-CorrespondenceClass::CorrespondenceClass(const int &z_id, const double &lm_id){
+CorrespondenceFLS::CorrespondenceFLS(const int &z_id, const double &lm_id): CorrespondenceClass(z_id, lm_id){
     i_j_ = std::make_pair(z_id,lm_id);
 }
 
-CorrespondenceClass::~CorrespondenceClass(){
+CorrespondenceFLS::~CorrespondenceFLS(){}
 
-}
-
-void CorrespondenceClass::computeH(const h_comp h_comps,
-                                   const tf::Vector3 lm_odom,
-                                   const Eigen::Vector3d z_hat_fls_m){
+void CorrespondenceFLS::computeH(const h_comp h_comps, const tf::Vector3 lm_odom, const Eigen::Vector3d z_hat_fls_m){
 
     // Store the landmark position
     this->landmark_pos_(0) = lm_odom.getX();
@@ -37,11 +33,11 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
     // Map h_t_ to the correct dimension
     h_1.setZero(3,9);
 
-    using namespace std;    
+    using namespace std;
     h_1(0,0) = -h_comps.c_4*h_comps.c_5;
     h_1(0,1) = -h_comps.c_4*h_comps.s_5;
     h_1(0,2) = h_comps.s_4;
-    h_1(0,3) = 0;    
+    h_1(0,3) = 0;
     h_1(0,4) = h_comps.mu_2*h_comps.c_4 - lm_odom.getZ()*h_comps.c_4 - lm_odom.getX()*h_comps.c_5*h_comps.s_4 - lm_odom.getY()*h_comps.s_4
             *h_comps.s_5 + h_comps.mu_0*h_comps.c_5*h_comps.s_4 + h_comps.mu_1*h_comps.s_4*h_comps.s_5;
     h_1(0,5) = h_comps.c_4*(lm_odom.getY()*h_comps.c_5 - lm_odom.getX()*h_comps.s_5 - h_comps.mu_1*h_comps.c_5 + h_comps.mu_0*h_comps.s_5);
@@ -89,8 +85,7 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
     H_t_ = h_2 * h_1;
 }
 
-void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
-                                             const Eigen::MatrixXd &Q){
+void CorrespondenceFLS::computeMHLDistance(const Eigen::MatrixXd &sigma, const Eigen::MatrixXd &Q){
 
     Eigen::MatrixXd S_mat = H_t_ * sigma * H_t_.transpose() + Q;
 
@@ -99,19 +94,22 @@ void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
     d_m_ = nu_.transpose() * S_inverted_ * nu_;
 }
 
-void CorrespondenceClass::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){
+void CorrespondenceFLS::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){
     nu_ = Eigen::Vector2d();
     nu_(0) = z_i(0) - z_hat_i(0); // nu in pixels
     nu_(1) = z_i(1) - z_hat_i(1);
 }
 
-void CorrespondenceClass::computeLikelihood(){
+void CorrespondenceFLS::computeLikelihood(){
 
-//    // Calculate the determinant on the first member of the distribution
-//    matrix<double> mat_aux = 2 * M_PI_2 * S_;
-//    double det_mat = matrices::matDeterminant(mat_aux);
+    //    // Calculate the determinant on the first member of the distribution
+    //    matrix<double> mat_aux = 2 * M_PI_2 * S_;
+    //    double det_mat = matrices::matDeterminant(mat_aux);
 
-//    // Likelihood
-//    psi_ = (1 / (std::sqrt(det_mat))) * std::exp(-0.5 * d_m_);
+    //    // Likelihood
+    //    psi_ = (1 / (std::sqrt(det_mat))) * std::exp(-0.5 * d_m_);
 }
+
+
+
 

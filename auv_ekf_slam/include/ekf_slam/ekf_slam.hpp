@@ -41,8 +41,6 @@
 #include "ekf_slam_core/ekf_slam_core.hpp"
 #include "landmark_visualizer/init_map.h"
 
-#include "landmark_visualizer/init_map.h"
-
 /**
  * @brief The EKFSLAM class
  * EKF-based localization node for LoLo
