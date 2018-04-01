@@ -3,7 +3,7 @@
       <arg name="namespace" default="lolo_auv"/>
       <arg name="run_navigation" default="false"/>
       <arg name="nav_name" default="navigation"/>
-      <arg name="mbes_input" default="true"/>
+      <arg name="mbes_input" default="false"/>
 
 
         <group ns="$(arg namespace)">

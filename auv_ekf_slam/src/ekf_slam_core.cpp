@@ -110,45 +110,26 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
                                  h_comp h_comps,
                                  std::vector<CorrespondenceClass> &corresp_i_list){
 
-    tf::Vector3 landmark_j_map(landmark_j(0),
-                                landmark_j(1),
-                                landmark_j(2));
 
-    Eigen::VectorXd z_hat_sensor;
-    Eigen::Vector3d z_expected;
-
-    // Measurement model: z_expected
     CorrespondenceClass* corresp_i_j;
+    std::tuple<Eigen::Vector3d, Eigen::Vector3d> z_hat_tuple;
+    tf::Vector3 landmark_j_map(landmark_j(0),
+                               landmark_j(1),
+                               landmark_j(2));
+
+    // Measurement model: z_expected and z_expected_sensor (in sensor frame)
     if(mbes_input_){    // MBES
         corresp_i_j = new CorrespondenceMBES(i, j);
-
-        tf::Vector3 z_hat_base = transf_base_map * landmark_j_map;
-        z_expected = Eigen::Vector3d(z_hat_base.getX(),
-                                     z_hat_base.getY(),
-                                     z_hat_base.getZ());
-
-        z_hat_sensor = Eigen::Vector3d();
+        z_hat_tuple = corresp_i_j->measModel(landmark_j_map, transf_base_map);
     }
     else {  // FLS
         corresp_i_j = new CorrespondenceFLS(i, j);
-
-        double scaling = 400.0/17.0;    // TODO: check this value
-        tf::Vector3 z_hat_fls = tf_sensor_base_ * transf_base_map * landmark_j_map;   // Expected meas in fls frame and m
-        Eigen::MatrixXd h_2;
-        h_2.setZero(2,3);
-        Eigen::Vector3d zprime(z_hat_fls.getX(), 0.0, z_hat_fls.getZ());
-        h_2.row(0) = (1.0/zprime.norm()) * zprime;
-        h_2(1,1) = -1;
-        h_2 *= scaling;
-
-        Eigen::Vector2d z_hat_fls_pix = h_2 * Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ());
-        z_expected = Eigen::Vector3d(z_hat_fls_pix(0), z_hat_fls_pix(1), 0.0);
-        z_hat_sensor = Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ());
+        z_hat_tuple = corresp_i_j->measModel(landmark_j_map, tf_sensor_base_ * transf_base_map);
     }
 
     // Compute ML of observation z_i with M_j
-    corresp_i_j->computeH(h_comps, landmark_j_map, z_hat_sensor);
-    corresp_i_j->computeNu(z_expected, z_i);  // The innovation is now computed in pixels
+    corresp_i_j->computeH(h_comps, landmark_j_map, std::get<1>(z_hat_tuple));
+    corresp_i_j->computeNu(std::get<0>(z_hat_tuple), z_i);  // The innovation is now computed in pixels
     corresp_i_j->computeMHLDistance(temp_sigma, Q_);
 
     ROS_INFO_STREAM("Mahalanobis dist: " << corresp_i_j->d_m_);
@@ -173,7 +154,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
     // For each observation z_i at time t
     lm_num_ = (mu_.rows() - 6) / 3;
-    tf::Vector3 new_lm_map;
+    Eigen::Vector3d new_lm_map;
     for(unsigned int i = 0; i<z_t.size(); i++){
         // Compute transform map --> base from current state state estimate at time t
         transf_map_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
@@ -181,29 +162,29 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         transf_base_map = transf_map_base.inverse();
 
         // Back-project new possible landmark (in map frame)
+        CorrespondenceClass* sensor_type;
         if(mbes_input_){    // MBES sensor input
-            new_lm_map = transf_map_base * tf::Vector3(z_t.at(i)(0), z_t.at(i)(1),z_t.at(i)(2));
+            sensor_type = new CorrespondenceMBES();
+            new_lm_map = sensor_type->backProjectNewLM(z_t.at(i), transf_map_base);
+
             // Covariance of new lm
-            new_lm_cov = std::make_tuple(100,100,100);
+            new_lm_cov = std::make_tuple(100,100,100);  // TODO: make dependant on the sensor
 
         }
         else{   // FLS sensor input
-            tf::Vector3 new_lm_fls = tf::Vector3(z_t.at(i)(0), -z_t.at(i)(1), z_t.at(i)(2));  // To polar coordinates to scale from pixels to meters
-            double theta = std::atan2(new_lm_fls.getY(), new_lm_fls.getX());
-            double rho = std::sqrt(std::pow(new_lm_fls.getX(),2) + std::pow(new_lm_fls.getY(),2));
-            double rho_scaled = 17.0/400.0 * rho;
+            std::cout << "Creating new CorrespondenceFLS obj: " << std::endl;
+            sensor_type = new CorrespondenceFLS();
+            std::cout << "New CorrespondenceFLS obj created: " << std::endl;
+            new_lm_map = sensor_type->backProjectNewLM(z_t.at(i), transf_map_base  * tf_base_sensor_);
 
-            tf::Vector3 lm_fls_real(rho_scaled * std::cos(theta),
-                                    rho_scaled * std::sin(theta),
-                                    0);
-
-            // Transform to odom frame
-            new_lm_map = transf_map_base  * tf_base_sensor_ *  lm_fls_real;
+            std::cout << "New landmark: " << std::endl;
+            std::cout << new_lm_map << std::endl;
+            // Covariance of new lm
             new_lm_cov = std::make_tuple(100,100,300);
         }
 
         // Add new possible lm to filter
-        utils::addLMtoFilter(mu_hat_, Sigma_hat_, Eigen::Vector3d(new_lm_map.getX(), new_lm_map.getY(), new_lm_map.getZ()), new_lm_cov);
+        utils::addLMtoFilter(mu_hat_, Sigma_hat_, new_lm_map, new_lm_cov);
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
         h_comp h_comps;
@@ -261,7 +242,10 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
             sequentialUpdate(corresp_i_list.back(), temp_sigma);
             corresp_i_list.clear();
         }
+        delete (sensor_type);
     }
+
+
     // Make sure mu and sigma have the same size at the end!
     while(mu_hat_.size() < Sigma_hat_.rows()){
         ROS_WARN("Sizes of mu and sigma differ!!");

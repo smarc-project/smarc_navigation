@@ -62,6 +62,8 @@ public:
     Eigen::VectorXd nu_;
     std::pair<int, double> i_j_;
 
+    CorrespondenceClass(){}
+
     CorrespondenceClass(const int &, const double &){}
     /**
      * @brief computeH
@@ -74,6 +76,14 @@ public:
     CorrespondenceClass& operator=(CorrespondenceClass&&) = default; // force a move assignment anyway
 
     virtual ~CorrespondenceClass(){}
+
+    virtual std::tuple<Eigen::Vector3d, Eigen::Vector3d> measModel(const tf::Vector3&, const tf::Transform&){
+        return std::make_tuple(Eigen::Vector3d(), Eigen::Vector3d());
+    }
+
+    virtual Eigen::VectorXd backProjectNewLM(const Eigen::VectorXd&, const tf::Transform&){
+        return Eigen::VectorXd();
+    }
 
     virtual void computeH(const h_comp ,
                   const tf::Vector3 , const Eigen::Vector3d ){}

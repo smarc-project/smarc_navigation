@@ -1,14 +1,40 @@
 #include "correspondence_class/correspondence_mbes.hpp"
 
 
+CorrespondenceMBES::CorrespondenceMBES(): CorrespondenceClass(){}
+
+
 CorrespondenceMBES::CorrespondenceMBES(const int &z_id, const double &lm_id): CorrespondenceClass(z_id, lm_id){
     i_j_ = std::make_pair(z_id,lm_id);
 }
 
 CorrespondenceMBES::~CorrespondenceMBES(){}
 
+std::tuple<Eigen::Vector3d, Eigen::Vector3d> CorrespondenceMBES::measModel(const tf::Vector3& lm_j_map, const tf::Transform& tf_sensor_map){
+    tf::Vector3 z_hat_base = tf_sensor_map * lm_j_map;
+    Eigen::Vector3d z_expected = Eigen::Vector3d(z_hat_base.getX(),
+                                                 z_hat_base.getY(),
+                                                 z_hat_base.getZ());
 
-void CorrespondenceMBES::computeH(const h_comp h_comps, const tf::Vector3 lm_odom, const Eigen::Vector3d z_hat_fls_m){
+    std::cout << "z_expected inside class" << std::endl;
+    std::cout << z_expected << std::endl;
+
+    Eigen::Vector3d z_expected_sensor = Eigen::Vector3d();
+
+    return std::make_tuple(z_expected, z_expected_sensor);
+}
+
+
+
+Eigen::VectorXd CorrespondenceMBES::backProjectNewLM(const Eigen::VectorXd &z_t, const tf::Transform &tf_map_sensor){
+    // New LM as a transform from base to map frame
+    tf::Vector3 new_lm_map = tf_map_sensor * tf::Vector3(z_t(0), z_t(1), z_t(2));
+
+    return Eigen::Vector3d(new_lm_map.getX(), new_lm_map.getY(), new_lm_map.getZ());
+}
+
+
+void CorrespondenceMBES::computeH(const h_comp h_comps, const tf::Vector3 lm_odom, const Eigen::Vector3d){
     using namespace std;
 
     // Store the landmark position

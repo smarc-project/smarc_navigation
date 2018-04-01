@@ -1,11 +1,49 @@
 #include "correspondence_class/correspondence_fls.hpp"
 
 
+CorrespondenceFLS::CorrespondenceFLS(): CorrespondenceClass(){}
+
 CorrespondenceFLS::CorrespondenceFLS(const int &z_id, const double &lm_id): CorrespondenceClass(z_id, lm_id){
     i_j_ = std::make_pair(z_id,lm_id);
 }
 
 CorrespondenceFLS::~CorrespondenceFLS(){}
+
+std::tuple<Eigen::Vector3d, Eigen::Vector3d> CorrespondenceFLS::measModel(const tf::Vector3& lm_j_map, const tf::Transform& tf_map_sensor){
+
+    double scaling = 400.0/17.0;    // TODO: check this value
+    tf::Vector3 z_hat_fls = tf_map_sensor * lm_j_map;   // Expected meas in fls frame and m
+    Eigen::MatrixXd h_2;
+    h_2.setZero(2,3);
+    Eigen::Vector3d zprime(z_hat_fls.getX(), 0.0, z_hat_fls.getZ());
+    h_2.row(0) = (1.0/zprime.norm()) * zprime;
+    h_2(1,1) = -1;
+    h_2 *= scaling;
+
+    Eigen::Vector2d z_hat_fls_pix = h_2 * Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ());
+    Eigen::Vector3d z_expected = Eigen::Vector3d(z_hat_fls_pix(0), z_hat_fls_pix(1), 0.0);
+    Eigen::Vector3d z_expected_sensor = Eigen::Vector3d(z_hat_fls.getX(), z_hat_fls.getY(), z_hat_fls.getZ());
+
+    return std::make_tuple(z_expected, z_expected_sensor);
+}
+
+
+Eigen::VectorXd CorrespondenceFLS::backProjectNewLM(const Eigen::VectorXd& z_t, const tf::Transform& tf_map_sensor){
+    tf::Vector3 new_lm_fls = tf::Vector3(z_t(0), -z_t(1), z_t(2));  // To polar coordinates to scale from pixels to meters
+    double theta = std::atan2(new_lm_fls.getY(), new_lm_fls.getX());
+    double rho = std::sqrt(std::pow(new_lm_fls.getX(),2) + std::pow(new_lm_fls.getY(),2));
+    double rho_scaled = 17.0/400.0 * rho;
+
+    tf::Vector3 lm_fls_real(rho_scaled * std::cos(theta),
+                            rho_scaled * std::sin(theta),
+                            0);
+
+    // Transform to odom frame
+    tf::Vector3 new_lm_map = tf_map_sensor *  lm_fls_real;
+
+    return Eigen::Vector3d(new_lm_map.getX(), new_lm_map.getY(), new_lm_map.getZ());
+}
+
 
 void CorrespondenceFLS::computeH(const h_comp h_comps, const tf::Vector3 lm_odom, const Eigen::Vector3d z_hat_fls_m){
 
