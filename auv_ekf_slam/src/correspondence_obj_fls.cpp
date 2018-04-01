@@ -117,8 +117,6 @@ void CorrespondenceFLS::computeH(const h_comp h_comps, const tf::Vector3 lm_odom
     h_1(2,8) = h_comps.c_4*h_comps.c_3;
 
     h_1 = h_comps.R_fls_base_ * h_1;
-    h_1_ = h_1;
-
 
     H_t_ = h_2 * h_1;
 }

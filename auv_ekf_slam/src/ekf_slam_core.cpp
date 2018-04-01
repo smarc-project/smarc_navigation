@@ -155,6 +155,8 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
     // For each observation z_i at time t
     lm_num_ = (mu_.rows() - 6) / 3;
     Eigen::Vector3d new_lm_map;
+    h_comp h_comps;
+    tf::Matrix3x3 m;
     for(unsigned int i = 0; i<z_t.size(); i++){
         // Compute transform map --> base from current state state estimate at time t
         transf_map_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
@@ -172,23 +174,17 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
         }
         else{   // FLS sensor input
-            std::cout << "Creating new CorrespondenceFLS obj: " << std::endl;
             sensor_type = new CorrespondenceFLS();
-            std::cout << "New CorrespondenceFLS obj created: " << std::endl;
             new_lm_map = sensor_type->backProjectNewLM(z_t.at(i), transf_map_base  * tf_base_sensor_);
 
-            std::cout << "New landmark: " << std::endl;
-            std::cout << new_lm_map << std::endl;
             // Covariance of new lm
-            new_lm_cov = std::make_tuple(100,100,300);
+            new_lm_cov = std::make_tuple(300,300,5000);
         }
 
         // Add new possible lm to filter
         utils::addLMtoFilter(mu_hat_, Sigma_hat_, new_lm_map, new_lm_cov);
 
         // Store current mu_hat_ estimate in struct for faster computation of H in DA
-        h_comp h_comps;
-        tf::Matrix3x3 m;
         m.setRotation(tf_sensor_base_.getRotation());
         tf::matrixTFToEigen(m, h_comps.R_fls_base_);
         {

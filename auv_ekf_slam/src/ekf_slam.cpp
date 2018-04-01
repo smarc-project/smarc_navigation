@@ -93,11 +93,6 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
         ROS_WARN("%s", exception.what());
     }
 
-    // Initial map of the survey area (usually artificial beacons)
-    while(!ros::service::waitForService("/lolo_auv/map_server", ros::Duration(10)) && ros::ok()){
-        ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
-    }
-
     try {
         tf_listener_.waitForTransform(map_frame_, world_frame_, ros::Time(0), ros::Duration(10));
         tf_listener_.lookupTransform(map_frame_, world_frame_, ros::Time(0), transf_map_world_);
