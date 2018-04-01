@@ -1,6 +1,8 @@
 #include "ekf_slam_core/ekf_slam_core.hpp"
 
-EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R, Eigen::MatrixXd &Q, double &lambda, tf::StampedTransform &tf_base_sensor, const bool &mbes_input, const double mh_dist){
+
+EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R, Eigen::MatrixXd &Q_fls, Eigen::MatrixXd &Q_mbes,
+                 double &lambda_fls, double &lambda_mbes, tf::StampedTransform &tf_base_sensor, const double mh_dist){
 
     // Initialize internal params
     mu_ = mu;
@@ -9,14 +11,17 @@ EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R
     Sigma_ = Sigma;
     Sigma_hat_ = Sigma_;
     R_ = R;
-    Q_ = Q;
-    lambda_M_ = lambda;
+    Q_fls_ = Q_fls;
+    Q_mbes_ = Q_mbes;
+    lambda_fls_ = lambda_fls;
+    lambda_mbes_ = lambda_mbes;
     lm_num_ = (mu_.rows() - 6) / 3;
     tf_base_sensor_ = tf_base_sensor;
     tf_sensor_base_ = tf_base_sensor.inverse();
     map_lm_num_ = lm_num_;
-    mbes_input_ = mbes_input;
     mh_dist_ = mh_dist;
+
+//    const Eigen::MatrixXd CorrespondenceMBES::Q_ = Q;
 }
 
 
@@ -108,6 +113,7 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
                                  const tf::Transform &transf_base_map,
                                  const Eigen::MatrixXd &temp_sigma,
                                  h_comp h_comps,
+                                 const utils::MeasSensor &sens_type,
                                  std::vector<CorrespondenceClass> &corresp_i_list){
 
 
@@ -117,34 +123,51 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
                                landmark_j(1),
                                landmark_j(2));
 
+    Eigen::MatrixXd Q_t;
     // Measurement model: z_expected and z_expected_sensor (in sensor frame)
-    if(mbes_input_){    // MBES
-        corresp_i_j = new CorrespondenceMBES(i, j);
-        z_hat_tuple = corresp_i_j->measModel(landmark_j_map, transf_base_map);
-    }
-    else {  // FLS
-        corresp_i_j = new CorrespondenceFLS(i, j);
-        z_hat_tuple = corresp_i_j->measModel(landmark_j_map, tf_sensor_base_ * transf_base_map);
+    switch(sens_type){
+        case utils::MeasSensor::MBES:    // MBES
+            corresp_i_j = new CorrespondenceMBES(i, j);
+            z_hat_tuple = corresp_i_j->measModel(landmark_j_map, transf_base_map);
+            Q_t = Q_mbes_;
+            break;
+        case utils::MeasSensor::FLS:    // FLS
+            corresp_i_j = new CorrespondenceFLS(i, j);
+            z_hat_tuple = corresp_i_j->measModel(landmark_j_map, tf_sensor_base_ * transf_base_map);
+            Q_t = Q_fls_;
+            break;
     }
 
     // Compute ML of observation z_i with M_j
     corresp_i_j->computeH(h_comps, landmark_j_map, std::get<1>(z_hat_tuple));
     corresp_i_j->computeNu(std::get<0>(z_hat_tuple), z_i);  // The innovation is now computed in pixels
-    corresp_i_j->computeMHLDistance(temp_sigma, Q_);
+    corresp_i_j->computeMHLDistance(temp_sigma, Q_t);
 
     ROS_INFO_STREAM("Mahalanobis dist: " << corresp_i_j->d_m_);
 
     // Outlier rejection
-    if(corresp_i_j->d_m_ < lambda_M_){
-        corresp_i_list.push_back(std::move(*corresp_i_j));
-    }
-    else{
-        ROS_INFO("Outlier rejected");
+    switch(sens_type){
+        case utils::MeasSensor::MBES:    // MBES
+            if(corresp_i_j->d_m_ < lambda_mbes_){
+                corresp_i_list.push_back(std::move(*corresp_i_j));
+            }
+            else{
+                ROS_INFO("Outlier rejected");
+            }
+            break;
+        case utils::MeasSensor::FLS:    // FLS
+            if(corresp_i_j->d_m_ < lambda_fls_){
+                corresp_i_list.push_back(std::move(*corresp_i_j));
+            }
+            else{
+                ROS_INFO("Outlier rejected");
+            }
+            break;
     }
     delete (corresp_i_j);
 }
 
-void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
+void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::MeasSensor &sens_type){
 
     std::vector<CorrespondenceClass> corresp_i_list;
     tf::Transform transf_base_map;
@@ -157,6 +180,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
     Eigen::Vector3d new_lm_map;
     h_comp h_comps;
     tf::Matrix3x3 m;
+
     for(unsigned int i = 0; i<z_t.size(); i++){
         // Compute transform map --> base from current state state estimate at time t
         transf_map_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
@@ -165,20 +189,21 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
 
         // Back-project new possible landmark (in map frame)
         CorrespondenceClass* sensor_type;
-        if(mbes_input_){    // MBES sensor input
-            sensor_type = new CorrespondenceMBES();
-            new_lm_map = sensor_type->backProjectNewLM(z_t.at(i), transf_map_base);
+        switch(sens_type){
+            case utils::MeasSensor::MBES:
+                sensor_type = new CorrespondenceMBES();
+                new_lm_map = sensor_type->backProjectNewLM(z_t.at(i), transf_map_base);
+                break;
 
-            // Covariance of new lm
-            new_lm_cov = std::make_tuple(100,100,100);  // TODO: make dependant on the sensor
+                // Covariance of new lm
+                new_lm_cov = std::make_tuple(100,100,100);  // TODO: make dependent on the sensor
+            case utils::MeasSensor::FLS:
+                sensor_type = new CorrespondenceFLS();
+                new_lm_map = sensor_type->backProjectNewLM(z_t.at(i), transf_map_base  * tf_base_sensor_);
 
-        }
-        else{   // FLS sensor input
-            sensor_type = new CorrespondenceFLS();
-            new_lm_map = sensor_type->backProjectNewLM(z_t.at(i), transf_map_base  * tf_base_sensor_);
-
-            // Covariance of new lm
-            new_lm_cov = std::make_tuple(300,300,5000);
+                // Covariance of new lm
+                new_lm_cov = std::make_tuple(300,300,5000);
+                break;
         }
 
         // Add new possible lm to filter
@@ -207,7 +232,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t){
         for(unsigned int j=0; j<(mu_hat_.rows()-6)/3; j++){
             landmark_j = mu_hat_.segment(3 * j + 6, 3);
             utils::updateMatrixBlock(Sigma_hat_, temp_sigma, j);
-            predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_map, temp_sigma, h_comps, corresp_i_list);
+            predictMeasurement(landmark_j, z_t.at(i), i, j + 1, transf_base_map, temp_sigma, h_comps, sens_type, corresp_i_list);
         }
 
         // Select the association with the minimum Mahalanobis distance
@@ -258,14 +283,14 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
     // Update mu_hat and sigma_hat
     Eigen::VectorXd aux_vec = K_t_i * c_i_j.nu_;
 
-    mu_hat_.head(6) += aux_vec.head(6);
+//    mu_hat_.head(6) += aux_vec.head(6);
     mu_hat_(3) = utils::angleLimit(mu_hat_(3));
     mu_hat_(4) = utils::angleLimit(mu_hat_(4));
     mu_hat_(5) = utils::angleLimit(mu_hat_(5));
     mu_hat_.segment((c_i_j.i_j_.second - 1) * 3 + 6, 3) += aux_vec.segment(6, 3);
 
     Eigen::MatrixXd aux_mat = (Eigen::MatrixXd::Identity(temp_sigma.rows(), temp_sigma.cols()) - K_t_i * c_i_j.H_t_) * temp_sigma;
-    Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);
+//    Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);
     Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, (c_i_j.i_j_.second - 1) * 3 + 6, 3, 3) = aux_mat.block(6, 6, 3, 3);
     Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, 6) = aux_mat.block(6,0,3,6);
     Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3) = aux_mat.block(0,6,6,3);

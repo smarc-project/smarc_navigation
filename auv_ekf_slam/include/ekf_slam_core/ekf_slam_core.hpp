@@ -36,11 +36,12 @@ class EKFCore{
 
 public:
 
-    EKFCore(Eigen::VectorXd& mu, Eigen::MatrixXd& Sigma, Eigen::MatrixXd& R, Eigen::MatrixXd& Q, double& lambda, tf::StampedTransform& tf_base_sensor, const bool& mbes_input, const double mh_dist);
+    EKFCore(Eigen::VectorXd& mu, Eigen::MatrixXd& Sigma, Eigen::MatrixXd& R, Eigen::MatrixXd& Q_fls, Eigen::MatrixXd &Q_mbes,
+            double& lambda_fls, double& lambda_mbes, tf::StampedTransform& tf_base_sensor, const double mh_dist);
     ~EKFCore();
     std::tuple<Eigen::VectorXd, Eigen::MatrixXd> ekfUpdate();
     void predictMotion(nav_msgs::Odometry odom_reading);
-    void dataAssociation(std::vector<Eigen::Vector3d> z_t);
+    void dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::MeasSensor& sens_type);
 
 private:
 
@@ -53,20 +54,26 @@ private:
 
     // Noise models
     Eigen::MatrixXd R_;
-    Eigen::MatrixXd Q_;
+    Eigen::MatrixXd Q_fls_;
+    Eigen::MatrixXd Q_mbes_;
 
     // Mapping variables
     tf::StampedTransform tf_base_sensor_;
     tf::Transform tf_sensor_base_;
-    double lambda_M_;
+    double lambda_mbes_;
+    double lambda_fls_;
     double mh_dist_;
     int lm_num_;
     int map_lm_num_;
-    bool mbes_input_;
 
     void predictMeasurement(const Eigen::Vector3d &landmark_j,
                             const Eigen::Vector3d &z_i,
-                            unsigned int i, unsigned int j, const tf::Transform &transf_base_odom, const Eigen::MatrixXd &temp_sigma, h_comp h_comps,
+                            unsigned int i,
+                            unsigned int j,
+                            const tf::Transform &transf_base_odom,
+                            const Eigen::MatrixXd &temp_sigma,
+                            h_comp h_comps,
+                            const utils::MeasSensor &sens_type,
                             std::vector<CorrespondenceClass> &ml_i_list);
 
 

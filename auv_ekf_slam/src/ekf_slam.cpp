@@ -1,13 +1,5 @@
 #include "ekf_slam/ekf_slam.hpp"
 
-// HELPER FUNCTIONS TODO: move to aux library
-template <typename T> int sgn(T val) {
-    return (T(0) < val) - (val < T(0));
-}
-
-// END HELPER FUNCTIONS
-
-
 EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_name_(node_name){
 
     std::string map_topic;
@@ -17,21 +9,23 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     double delta;
     double mh_dist;
     std::vector<double> R_diagonal;
-    std::vector<double> Q_diagonal;
+    std::vector<double> Q_fls_diag;
+    std::vector<double> Q_mbes_diag;
     std::vector<double> Sigma_diagonal;
 
     nh_->param("init_pose_cov_diag", Sigma_diagonal, std::vector<double>());
     nh_->param("motion_noise_cov_diag", R_diagonal, std::vector<double>());
-    nh_->param("meas_noise_cov_diag", Q_diagonal, std::vector<double>());
+    nh_->param("meas_fls_noise_cov_diag", Q_fls_diag, std::vector<double>());
+    nh_->param("meas_mbes_noise_cov_diag", Q_mbes_diag, std::vector<double>());
     nh_->param<double>((node_name_ + "/delta_outlier_reject"), delta, 0.99);
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
     nh_->param<double>((node_name_ + "/mahalanobis_dist"), mh_dist, 0.5);
-    nh_->param<bool>((node_name_ + "/mbes_input"), mbes_input_, true);
     nh_->param<std::string>((node_name_ + "/map_pose_topic"), map_topic, "/map_ekf");
     nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
     nh_->param<std::string>((node_name_ + "/world_frame"), world_frame_, "/world");
-    nh_->param<std::string>((node_name_ + "/sensor_frame"), sensor_frame_, "/forward_sonardown_link");
+    nh_->param<std::string>((node_name_ + "/fls_frame"), fls_frame_, "/forward_sonardown_link");
+    nh_->param<std::string>((node_name_ + "/mbes_frame"), mbes_frame_, "/base_link");
     nh_->param<std::string>((node_name_ + "/map_frame"), map_frame_, "/map");
     nh_->param<std::string>((node_name_ + "/odom_frame"), odom_frame_, "/odom");
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
@@ -48,45 +42,57 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     init_map_client_ = nh_->serviceClient<landmark_visualizer::init_map>("/lolo_auv/map_server");
 
     // Initialize internal params
-    init(Sigma_diagonal, R_diagonal, Q_diagonal, delta, mh_dist);
+    init(Sigma_diagonal, R_diagonal, Q_fls_diag, Q_mbes_diag, delta, mh_dist);
 
     // Main spin loop
     timer_ = nh_->createTimer(ros::Duration(1.0 / std::max(freq, 1.0)), &EKFSLAM::ekfLocalize, this);
 
+
 }
 
-void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta, double mh_dist){
+void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_fls_diag, std::vector<double> q_mbes_diag, double delta, double mh_dist){
 
     // Init EKF variables
     double size_state = r_diag.size();
-    double size_meas = q_diag.size();
+    double size_meas_fls = q_fls_diag.size();
+    double size_meas_mbes = q_mbes_diag.size();
     mu_.setZero(size_state);
     Sigma_ = Eigen::MatrixXd::Identity(size_state, size_state);
 
     for(unsigned int i=0; i<size_state; i++){
         Sigma_(i,i) = sigma_diag.at(i);
     }
-    R_ = Eigen::MatrixXd::Identity(size_state, size_state);
+    Eigen::MatrixXd R = Eigen::MatrixXd::Identity(size_state, size_state);
     for(unsigned int i=0; i<size_state; i++){
-        R_(i,i) = r_diag.at(i);
+        R(i,i) = r_diag.at(i);
     }
-    Q_ = Eigen::MatrixXd::Identity(size_meas, size_meas);
-    for(unsigned int i=0; i<size_meas; i++){
-        Q_(i,i) = q_diag.at(i);
+
+
+    Eigen::MatrixXd Q_fls = Eigen::MatrixXd::Identity(size_meas_fls, size_meas_fls);
+    for(unsigned int i=0; i<size_meas_fls; i++){
+        Q_fls(i,i) = q_fls_diag.at(i);
+    }
+
+    Eigen::MatrixXd Q_mbes = Eigen::MatrixXd::Identity(size_meas_mbes, size_meas_mbes);
+    for(unsigned int i=0; i<size_meas_mbes; i++){
+        Q_mbes(i,i) = q_mbes_diag.at(i);
     }
 
     // Outlier rejection
-    boost::math::chi_squared chi2_dist(size_meas);
-    lambda_M_ = boost::math::quantile(chi2_dist, delta);
+    boost::math::chi_squared chi2_dist(size_meas_fls);
+    double lambda_fls = boost::math::quantile(chi2_dist, delta);
+    boost::math::chi_squared chi3_dist(size_meas_mbes);
+    double lambda_mbes = boost::math::quantile(chi3_dist, delta);
 
     // Aux
     size_odom_q_ = 10;
     size_measurements_q_ = 1;
 
+    // Listen to necessary, fixed tf transforms
     tf::StampedTransform tf_base_sensor;
     try {
-        tf_listener_.waitForTransform(base_frame_, sensor_frame_, ros::Time(0), ros::Duration(10));
-        tf_listener_.lookupTransform(base_frame_, sensor_frame_, ros::Time(0), tf_base_sensor);
+        tf_listener_.waitForTransform(base_frame_, fls_frame_, ros::Time(0), ros::Duration(10));
+        tf_listener_.lookupTransform(base_frame_, fls_frame_, ros::Time(0), tf_base_sensor);
         ROS_INFO("Locked transform sensor --> frame");
     }
     catch(tf::TransformException &exception) {
@@ -154,7 +160,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
 
     // Create EKF filter
-    ekf_filter_ = new EKFCore(mu_, Sigma_, R_, Q_, lambda_M_, tf_base_sensor, mbes_input_, mh_dist);
+    ekf_filter_ = new EKFCore(mu_, Sigma_, R, Q_fls, Q_mbes, lambda_fls, lambda_mbes, tf_base_sensor, mh_dist);
 
     ROS_INFO_NAMED(node_name_, "EKF SLAM Initialized");
 }
@@ -264,6 +270,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
     // TODO: predefine matrices so that they can be allocated in the stack!
     nav_msgs::Odometry odom_reading;
     std::vector<Eigen::Vector3d> z_t;
+    utils::MeasSensor sensor_input;
 
     if(!odom_queue_t_.empty()){
         // Fetch latest measurement
@@ -280,6 +287,8 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
             auto observ = measurements_t_.back();
             measurements_t_.pop_back();
 
+            // Check the sensor type
+            sensor_input = (observ.header.frame_id == mbes_frame_)? utils::MeasSensor::MBES: utils::MeasSensor::FLS;    // TODO: generalize condition statement
             for(auto lm_pose: observ.poses){
                 z_t.push_back(Eigen::Vector3d(lm_pose.position.x,
                                               lm_pose.position.y,
@@ -287,7 +296,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
             }
 
             // Data association and sequential update
-            ekf_filter_->dataAssociation(z_t);
+            ekf_filter_->dataAssociation(z_t, sensor_input);
             z_t.clear();
         }
 

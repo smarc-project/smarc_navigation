@@ -59,7 +59,7 @@ public:
     EKFSLAM(std::string node_name, ros::NodeHandle &nh);
     void ekfLocalize(const ros::TimerEvent&);
     ~EKFSLAM();
-    void init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta, double mh_dist);
+    void init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_fls_diag, std::vector<double> q_mbes_diag, double delta, double mh_dist);
 
 private:
 
@@ -86,12 +86,7 @@ private:
     EKFCore* ekf_filter_;
 
     // Mapping variables
-    double lambda_M_;
     int lm_num_;
-
-    // Noise models
-    Eigen::MatrixXd R_;
-    Eigen::MatrixXd Q_;
 
     // Aux
     unsigned int size_odom_q_;
@@ -107,7 +102,8 @@ private:
     geometry_msgs::TransformStamped msg_odom_map_;
 
     std::string odom_frame_;
-    std::string sensor_frame_;
+    std::string fls_frame_;
+    std::string mbes_frame_;
     std::string map_frame_;
     std::string world_frame_;
     std::string base_frame_;

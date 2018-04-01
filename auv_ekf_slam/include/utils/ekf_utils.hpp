@@ -11,6 +11,12 @@ namespace utils{
     void addLMtoFilter(Eigen::VectorXd &mu_hat, Eigen::MatrixXd &Sigma_hat, Eigen::Vector3d landmark, const std::tuple<double, double, double> &sigma_new);
 
     double angleLimit (double angle);
+
+    enum class MeasSensor { MBES, FLS };
+
+    template <typename T> int sgn(T val) {
+        return (T(0) < val) - (val < T(0));
+    }
 }
 
 #endif // EKF_UTILS_HPP
