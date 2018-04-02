@@ -18,7 +18,6 @@ EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R
     lm_num_ = (mu_.rows() - 6) / 3;
     tf_base_sensor_ = tf_base_sensor;
     tf_sensor_base_ = tf_base_sensor.inverse();
-    map_lm_num_ = lm_num_;
     mh_dist_ = mh_dist;
 
 //    const Eigen::MatrixXd CorrespondenceMBES::Q_ = Q;
@@ -202,7 +201,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
                 new_lm_map = sensor_type->backProjectNewLM(z_t.at(i), transf_map_base  * tf_base_sensor_);
 
                 // Covariance of new lm
-                new_lm_cov = std::make_tuple(300,300,5000);
+                new_lm_cov = std::make_tuple(100,100,5000);
                 break;
         }
 

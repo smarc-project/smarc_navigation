@@ -64,7 +64,6 @@ private:
     double lambda_fls_;
     double mh_dist_;
     int lm_num_;
-    int map_lm_num_;
 
     void predictMeasurement(const Eigen::Vector3d &landmark_j,
                             const Eigen::Vector3d &z_i,
