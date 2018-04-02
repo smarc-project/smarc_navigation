@@ -20,8 +20,6 @@ EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R
     tf_sensor_base_ = tf_base_sensor.inverse();
     mh_dist_fls_ = mh_dist_fls;
     mh_dist_mbes_ = mh_dist_mbes;
-
-//    const Eigen::MatrixXd CorrespondenceMBES::Q_ = Q;
 }
 
 
@@ -189,6 +187,9 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
                                          tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
         transf_base_map = transf_map_base.inverse();
 
+//        sigma_x = sigma_uncertain * std::abs(std::cos(mu_hat_(5))) / (std::abs(std::cos(mu_hat_(5))) + std::abs(std::sin(mu_hat_(5))));
+//        sigma_y = sigma_uncertain * std::abs(std::sin(mu_hat_(5))) / (std::abs(std::cos(mu_hat_(5))) + std::abs(std::sin(mu_hat_(5))));
+
         // Back-project new possible landmark (in map frame)
         CorrespondenceClass* sensor_input;
         switch(sens_type){
@@ -293,14 +294,14 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
     // Update mu_hat and sigma_hat
     Eigen::VectorXd aux_vec = K_t_i * c_i_j.nu_;
 
-//    mu_hat_.head(6) += aux_vec.head(6);
+    mu_hat_.head(6) += aux_vec.head(6);
     mu_hat_(3) = utils::angleLimit(mu_hat_(3));
     mu_hat_(4) = utils::angleLimit(mu_hat_(4));
     mu_hat_(5) = utils::angleLimit(mu_hat_(5));
     mu_hat_.segment((c_i_j.i_j_.second - 1) * 3 + 6, 3) += aux_vec.segment(6, 3);
 
     Eigen::MatrixXd aux_mat = (Eigen::MatrixXd::Identity(temp_sigma.rows(), temp_sigma.cols()) - K_t_i * c_i_j.H_t_) * temp_sigma;
-//    Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);
+    Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);
     Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, (c_i_j.i_j_.second - 1) * 3 + 6, 3, 3) = aux_mat.block(6, 6, 3, 3);
     Sigma_hat_.block((c_i_j.i_j_.second - 1) * 3 + 6, 0, 3, 6) = aux_mat.block(6,0,3,6);
     Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3) = aux_mat.block(0,6,6,3);

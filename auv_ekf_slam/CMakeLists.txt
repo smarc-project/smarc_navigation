@@ -48,6 +48,12 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
+# CERES libs
+find_package(Ceres REQUIRED)
+if(CERES_FOUND)
+    include_directories(${CERES_INCLUDE_DIRS})
+endif()
+
 # setup.py for map_provider_node.py
 #catkin_python_setup()
 
@@ -101,6 +107,7 @@ target_link_libraries(ekf_slam_node
 #    utils_matrices
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
+    ${CERES_LIBRARIES}
     )
 
 
