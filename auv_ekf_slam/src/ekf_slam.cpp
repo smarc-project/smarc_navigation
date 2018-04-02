@@ -7,7 +7,8 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     std::string observs_topic;
     double freq;
     double delta;
-    double mh_dist;
+    double mh_dist_mbes;
+    double mh_dist_fls;
     std::vector<double> R_diagonal;
     std::vector<double> Q_fls_diag;
     std::vector<double> Q_mbes_diag;
@@ -19,7 +20,8 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param("meas_mbes_noise_cov_diag", Q_mbes_diag, std::vector<double>());
     nh_->param<double>((node_name_ + "/delta_outlier_reject"), delta, 0.99);
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
-    nh_->param<double>((node_name_ + "/mahalanobis_dist"), mh_dist, 0.5);
+    nh_->param<double>((node_name_ + "/mhl_dist_fls"), mh_dist_fls, 0.5);
+    nh_->param<double>((node_name_ + "/mhl_dist_mbes"), mh_dist_mbes, 0.2);
     nh_->param<std::string>((node_name_ + "/map_pose_topic"), map_topic, "/map_ekf");
     nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
@@ -42,7 +44,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     init_map_client_ = nh_->serviceClient<landmark_visualizer::init_map>("/lolo_auv/map_server");
 
     // Initialize internal params
-    init(Sigma_diagonal, R_diagonal, Q_fls_diag, Q_mbes_diag, delta, mh_dist);
+    init(Sigma_diagonal, R_diagonal, Q_fls_diag, Q_mbes_diag, delta, mh_dist_fls, mh_dist_mbes);
 
     // Main spin loop
     timer_ = nh_->createTimer(ros::Duration(1.0 / std::max(freq, 1.0)), &EKFSLAM::ekfLocalize, this);
@@ -50,7 +52,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
 
 }
 
-void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_fls_diag, std::vector<double> q_mbes_diag, double delta, double mh_dist){
+void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_fls_diag, std::vector<double> q_mbes_diag, double delta, double mhl_dist_fls, double mhl_dist_mbes){
 
     // Init EKF variables
     double size_state = r_diag.size();
@@ -160,7 +162,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     std::cout << "Number of landmarks: " << (Sigma_.rows() - 6) / 3 << std::endl;
 
     // Create EKF filter
-    ekf_filter_ = new EKFCore(mu_, Sigma_, R, Q_fls, Q_mbes, lambda_fls, lambda_mbes, tf_base_sensor, mh_dist);
+    ekf_filter_ = new EKFCore(mu_, Sigma_, R, Q_fls, Q_mbes, lambda_fls, lambda_mbes, tf_base_sensor, mhl_dist_fls, mhl_dist_mbes);
 
     ROS_INFO_NAMED(node_name_, "EKF SLAM Initialized");
 }
@@ -274,6 +276,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
 
     if(!odom_queue_t_.empty()){
         // Fetch latest measurement
+        ROS_INFO("------New odom info received------");
         odom_reading = odom_queue_t_.back();
         odom_queue_t_.pop_back();
 

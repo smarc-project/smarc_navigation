@@ -96,13 +96,10 @@ void CorrespondenceMBES::computeH(const h_comp h_comps, const tf::Vector3 lm_odo
 
 void CorrespondenceMBES::computeMHLDistance(const Eigen::MatrixXd &sigma, const Eigen::MatrixXd &Q){
     Eigen::Matrix3d S_mat = H_t_ * sigma * H_t_.transpose() + Q;
-    ROS_INFO_STREAM("Smat " << S_mat);
 
     // TODO: check if matrix is invertible!
     S_inverted_ = S_mat.inverse();
-    ROS_INFO_STREAM("S inverted " << S_inverted_);
     d_m_ = nu_.transpose() * S_inverted_ * nu_;
-    ROS_INFO_STREAM("d_m " << d_m_);
 }
 
 void CorrespondenceMBES::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){

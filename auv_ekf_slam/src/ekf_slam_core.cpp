@@ -2,7 +2,7 @@
 
 
 EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R, Eigen::MatrixXd &Q_fls, Eigen::MatrixXd &Q_mbes,
-                 double &lambda_fls, double &lambda_mbes, tf::StampedTransform &tf_base_sensor, const double mh_dist){
+                 double &lambda_fls, double &lambda_mbes, tf::StampedTransform &tf_base_sensor, const double mh_dist_fls, const double mh_dist_mbes){
 
     // Initialize internal params
     mu_ = mu;
@@ -18,7 +18,8 @@ EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R
     lm_num_ = (mu_.rows() - 6) / 3;
     tf_base_sensor_ = tf_base_sensor;
     tf_sensor_base_ = tf_base_sensor.inverse();
-    mh_dist_ = mh_dist;
+    mh_dist_fls_ = mh_dist_fls;
+    mh_dist_mbes_ = mh_dist_mbes;
 
 //    const Eigen::MatrixXd CorrespondenceMBES::Q_ = Q;
 }
@@ -172,13 +173,15 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
     tf::Transform transf_base_map;
     tf::Transform transf_map_base;
     Eigen::MatrixXd temp_sigma(9,9);
-    std::tuple<double, double, double> new_lm_cov;
 
     // For each observation z_i at time t
     lm_num_ = (mu_.rows() - 6) / 3;
-    Eigen::Vector3d new_lm_map;
     h_comp h_comps;
     tf::Matrix3x3 m;
+
+    Eigen::Vector3d new_lm_map;
+    tf::Transform tf_map_sensor;
+    std::tuple<double, double, double> new_lm_cov;
 
     for(unsigned int i = 0; i<z_t.size(); i++){
         // Compute transform map --> base from current state state estimate at time t
@@ -187,23 +190,23 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
         transf_base_map = transf_map_base.inverse();
 
         // Back-project new possible landmark (in map frame)
-        CorrespondenceClass* sensor_type;
+        CorrespondenceClass* sensor_input;
         switch(sens_type){
             case utils::MeasSensor::MBES:
-                sensor_type = new CorrespondenceMBES();
-                new_lm_map = sensor_type->backProjectNewLM(z_t.at(i), transf_map_base);
-                break;
-
+                sensor_input = new CorrespondenceMBES();
+                tf_map_sensor = transf_map_base;
                 // Covariance of new lm
                 new_lm_cov = std::make_tuple(100,100,100);  // TODO: make dependent on the sensor
-            case utils::MeasSensor::FLS:
-                sensor_type = new CorrespondenceFLS();
-                new_lm_map = sensor_type->backProjectNewLM(z_t.at(i), transf_map_base  * tf_base_sensor_);
+                break;
 
+            case utils::MeasSensor::FLS:
+                sensor_input = new CorrespondenceFLS();
+                tf_map_sensor = transf_map_base  * tf_base_sensor_;
                 // Covariance of new lm
-                new_lm_cov = std::make_tuple(100,100,5000);
+                new_lm_cov = std::make_tuple(400,200,1000);
                 break;
         }
+        new_lm_map = sensor_input->backProjectNewLM(z_t.at(i), tf_map_sensor);
 
         // Add new possible lm to filter
         utils::addLMtoFilter(mu_hat_, Sigma_hat_, new_lm_map, new_lm_cov);
@@ -238,7 +241,15 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
         if(!corresp_i_list.empty()){
 
             // Set init Mahalanobis distance for new possible landmark
-            corresp_i_list.back().d_m_ = mh_dist_;
+            switch(sens_type){
+                case utils::MeasSensor::MBES:
+                    corresp_i_list.back().d_m_ = mh_dist_mbes_;
+                    break;
+
+                case utils::MeasSensor::FLS:
+                    corresp_i_list.back().d_m_ = mh_dist_fls_;
+                    break;
+            }
 
             // Select correspondance with minimum Mh distance
             std::sort(corresp_i_list.begin(), corresp_i_list.end(), [](const CorrespondenceClass& corresp_1, const CorrespondenceClass& corresp_2){
@@ -262,7 +273,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
             sequentialUpdate(corresp_i_list.back(), temp_sigma);
             corresp_i_list.clear();
         }
-        delete (sensor_type);
+        delete (sensor_input);
     }
 
 
