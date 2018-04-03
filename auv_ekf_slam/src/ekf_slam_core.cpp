@@ -141,9 +141,9 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
     corresp_i_j->computeNu(std::get<0>(z_hat_tuple), z_i);  // The innovation is now computed in pixels
     corresp_i_j->computeMHLDistance(temp_sigma, Q_t);
 
-    ROS_INFO_STREAM("Mahalanobis dist: " << corresp_i_j->d_m_);
-
     // Outlier rejection
+    ROS_INFO_STREAM("MHD dist " << corresp_i_j->d_m_);
+
     switch(sens_type){
         case utils::MeasSensor::MBES:    // MBES
             if(corresp_i_j->d_m_ < lambda_mbes_){
@@ -165,7 +165,7 @@ void EKFCore::predictMeasurement(const Eigen::Vector3d &landmark_j,
     delete (corresp_i_j);
 }
 
-void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::MeasSensor &sens_type){
+void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::MeasSensor &sens_type, const geometry_msgs::PoseStamped& pipe_lm){
 
     std::vector<CorrespondenceClass> corresp_i_list;
     tf::Transform transf_base_map;
@@ -180,6 +180,58 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
     Eigen::Vector3d new_lm_map;
     tf::Transform tf_map_sensor;
     std::tuple<double, double, double> new_lm_cov;
+    bool pipe_lm_true = false;
+
+
+    // Compute transform map --> base from current state state estimate at time t
+    transf_map_base = tf::Transform(tf::createQuaternionFromRPY(mu_hat_(3), mu_hat_(4), mu_hat_(5)).normalize(),
+                                     tf::Vector3(mu_hat_(0), mu_hat_(1), mu_hat_(2)));
+    transf_base_map = transf_map_base.inverse();
+
+    // Compute expected lm from the pipeline interpolation
+    tf::Vector3 lm_pipe_map = transf_map_base * tf::Vector3(pipe_lm.pose.position.x, pipe_lm.pose.position.y, pipe_lm.pose.position.z);
+    Eigen::Vector3d lm_pipe = Eigen::Vector3d(lm_pipe_map.getX(), lm_pipe_map.getY(), lm_pipe_map.getZ());
+
+    double init_diff = 100.0;
+    unsigned int pipe_idx;
+    for(unsigned int i = 0; i<z_t.size(); i++){
+
+        // Back-project new possible landmark (in map frame)
+        CorrespondenceClass* sensor_input;
+        switch(sens_type){
+            case utils::MeasSensor::MBES:
+                sensor_input = new CorrespondenceMBES();
+                tf_map_sensor = transf_map_base;
+                // Covariance of new lm
+                break;
+
+            case utils::MeasSensor::FLS:
+                sensor_input = new CorrespondenceFLS();
+                tf_map_sensor = transf_map_base  * tf_base_sensor_;
+                // Covariance of new lm
+                break;
+        }
+        new_lm_map = sensor_input->backProjectNewLM(z_t.at(i), tf_map_sensor);
+
+        // Difference between projected possible lm and pipeline lm
+        if(Eigen::Vector3d(lm_pipe - new_lm_map).norm() <= init_diff){  // TODO: tune this value
+            init_diff = Eigen::Vector3d(lm_pipe - new_lm_map).norm();
+            pipe_idx = i;
+        }
+        delete (sensor_input);
+    }
+
+    ROS_INFO_STREAM("Number of measurements " << z_t.size());
+    int cnt = 0;
+    for(auto meas: z_t){
+        std::cout << "meas i= " << cnt << std::endl;
+        std::cout << meas << std::endl;
+        cnt +=1;
+    }
+
+    std::cout << "Pipeline meas is i= " << pipe_idx << std::endl;
+
+
 
     for(unsigned int i = 0; i<z_t.size(); i++){
         // Compute transform map --> base from current state state estimate at time t
@@ -197,7 +249,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
                 sensor_input = new CorrespondenceMBES();
                 tf_map_sensor = transf_map_base;
                 // Covariance of new lm
-                new_lm_cov = std::make_tuple(100,100,100);  // TODO: make dependent on the sensor
+                new_lm_cov = std::make_tuple(5,5,5);  // TODO: make dependent on the sensor
                 break;
 
             case utils::MeasSensor::FLS:
@@ -208,6 +260,11 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
                 break;
         }
         new_lm_map = sensor_input->backProjectNewLM(z_t.at(i), tf_map_sensor);
+
+        // Difference between projected possible lm and pipeline lm
+        if(pipe_idx == i){  // TODO: tune this value
+            pipe_lm_true = true;
+        }
 
         // Add new possible lm to filter
         utils::addLMtoFilter(mu_hat_, Sigma_hat_, new_lm_map, new_lm_cov);
@@ -264,14 +321,27 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
                 Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
                 // No new landmark added --> remove candidate from mu_hat_ and sigma_hat_
                 utils::updateMatrixBlock(Sigma_hat_, temp_sigma, corresp_i_list.back().i_j_.second - 1);
+                // Sequential update
+                sequentialUpdate(corresp_i_list.back(), temp_sigma);
             }
             else{
                 // New landmark
-                ROS_INFO("Added new landmark");
-                lm_num_ = corresp_i_list.back().i_j_.second;
+                if(pipe_lm_true == true){
+                    // New lm is the pipe --> don't add it to the filter and don't update estimate
+                    mu_hat_.conservativeResize(mu_hat_.rows()-3);
+                    Sigma_hat_.conservativeResize(Sigma_hat_.rows()-3, Sigma_hat_.cols()-3);
+                    map_pipe_.push_back(new_lm_map);
+                    ROS_INFO("Pipeline lm added");
+                    pipe_lm_true = false;
+                    continue;
+                }
+                else{
+                    ROS_INFO("Added new landmark");
+                    lm_num_ = corresp_i_list.back().i_j_.second;
+                    // Sequential update
+                    sequentialUpdate(corresp_i_list.back(), temp_sigma);
+                }
             }
-            // Sequential update
-            sequentialUpdate(corresp_i_list.back(), temp_sigma);
             corresp_i_list.clear();
         }
         delete (sensor_input);
@@ -307,7 +377,7 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
     Sigma_hat_.block(0, (c_i_j.i_j_.second - 1) * 3 + 6, 6, 3) = aux_mat.block(0,6,6,3);
 }
 
-std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
+std::tuple<Eigen::VectorXd, Eigen::MatrixXd, std::vector<Eigen::Vector3d> > EKFCore::ekfUpdate(){
 
     // Update step
     if (mu_.rows()!= mu_hat_.rows()){
@@ -319,7 +389,7 @@ std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
     mu_ = mu_hat_;
     Sigma_ = Sigma_hat_;
 
-    return std::make_pair(mu_, Sigma_);
+    return std::make_tuple(mu_, Sigma_, map_pipe_);
 
 }
 

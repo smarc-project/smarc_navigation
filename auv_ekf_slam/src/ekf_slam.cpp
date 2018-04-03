@@ -43,6 +43,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     // Plot map in RVIZ
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/rviz/landmarks", 0 );
     pipe_pub_ = nh_->advertise<nav_msgs::Path>("/lolo_auv/path_pipeline", 0);
+    pipe_lm_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/lolo_auv/pipeline_landmark", 0);
 
     // Get initial map of beacons from Gazebo
     init_map_client_ = nh_->serviceClient<landmark_visualizer::init_map>("/lolo_auv/map_server");
@@ -159,9 +160,9 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
             Sigma_.conservativeResize(Sigma_.rows()+3, Sigma_.cols()+3);
             Sigma_.bottomRows(3).setZero();
             Sigma_.rightCols(3).setZero();
-            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 200;
-            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 200;
-            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 500;
+            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 10;
+            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 10;
+            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 10;
         }
     }
     std::cout << "Initial mu: " << mu_.size() << std::endl;
@@ -193,7 +194,7 @@ void EKFSLAM::camCB(const nav_msgs::Path &pipe_path){
         first_pipe_rcv_ = true;
     }
     pipe_path_queue_t_.push_back(pipe_path);
-    while(pipe_path_queue_t_.size() > 2){
+    while(pipe_path_queue_t_.size() >= 2){
          pipe_path_queue_t_.pop_front();
     }
 }
@@ -202,10 +203,10 @@ void EKFSLAM::updateMapMarkers(double color){
 
     visualization_msgs::MarkerArray marker_array;
     Eigen::Vector3d landmark;
+    visualization_msgs::Marker marker;
     for(unsigned int j=0; j<(mu_.rows()-6)/3; j++){
         landmark = mu_.segment(3 * j + 6, 3);
-        visualization_msgs::Marker marker;
-        marker.header.frame_id = odom_frame_;
+        marker.header.frame_id = map_frame_;
         marker.header.stamp = ros::Time();
         marker.ns = "map_array";
         marker.id = j;
@@ -228,6 +229,35 @@ void EKFSLAM::updateMapMarkers(double color){
 
         marker_array.markers.push_back(marker);
     }
+
+    tf::Quaternion q = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
+
+    int cnt = (mu_.rows()-6)/3;
+    for(Eigen::Vector3d& pipe_lm: map_pipe_){
+        marker.header.frame_id = map_frame_;
+        marker.header.stamp = ros::Time();
+        marker.ns = "map_array";
+        marker.id = cnt;
+        marker.type = visualization_msgs::Marker::CYLINDER;
+        marker.action = visualization_msgs::Marker::ADD;
+        marker.pose.position.x = pipe_lm(0);
+        marker.pose.position.y = pipe_lm(1);
+        marker.pose.position.z = pipe_lm(2);
+        marker.pose.orientation.x =  0.7071;
+        marker.pose.orientation.y = 0;
+        marker.pose.orientation.z =  0.7071;
+        marker.pose.orientation.w = 0;
+        marker.scale.x = 1;
+        marker.scale.y = 1;
+        marker.scale.z = 1;
+        marker.color.a = 1.0;
+        marker.color.r = 1.0;
+        marker.color.g = 0.0;
+        marker.color.b = 0.0;
+        cnt +=1;
+        marker_array.markers.push_back(marker);
+    }
+
     vis_pub_.publish(marker_array);
 }
 
@@ -301,7 +331,7 @@ struct ThirdDegreePolyResidual {
   const double y_;
 };
 
-void EKFSLAM::computePipePath(const nav_msgs::Path &pipe_proj){
+void EKFSLAM::computePipePath(const nav_msgs::Path &pipe_proj, geometry_msgs::PoseStamped& pipeline_lm){
 
     using ceres::AutoDiffCostFunction;
     using ceres::CostFunction;
@@ -321,9 +351,9 @@ void EKFSLAM::computePipePath(const nav_msgs::Path &pipe_proj){
 
     tf::Vector3 pose_in_base;
     for (geometry_msgs::PoseStamped pose_sample: pipe_proj.poses) {
-        pose_in_base = transf_base_map * transf_map_world_ * tf::Vector3(pose_sample.pose.position.x,
-                                                                         pose_sample.pose.position.y,
-                                                                         pose_sample.pose.position.z);
+        pose_in_base = transf_base_map  * tf::Vector3(pose_sample.pose.position.x,
+                                                      pose_sample.pose.position.y,
+                                                      pose_sample.pose.position.z);
         // Store pose in base_frame
         pose_sample.header.frame_id = base_frame_;
         pose_sample.pose.position.x = pose_in_base.getX();
@@ -362,75 +392,18 @@ void EKFSLAM::computePipePath(const nav_msgs::Path &pipe_proj){
         pipeline_path.poses.push_back(new_pose);
 
     }
-
-
-    double smallest_x = pipeline_mask_.poses.at(pipeline_mask_.poses.size()-1).pose.position.x;
-    for(unsigned int i=1; i<40; i++){
-        new_pose.pose.position.x = smallest_x - i/2.0 ;
-        new_pose.pose.position.y = /*m3*pow(smallest_x - i,3)*/ + m2*pow(smallest_x - i/2.0,2) + m1*(smallest_x - i/2.0) + c;
-        new_pose.pose.position.z = pipeline_mask_.poses.at(pipeline_mask_.poses.size()-1).pose.position.z;
-
-        pipeline_path.poses.push_back(new_pose);
-    }
-
     pipe_pub_.publish(pipeline_path);
+
+    // Solve poly for x=0 and publish for visualization
+    pipeline_lm.header.frame_id = base_frame_;
+    pipeline_lm.header.stamp = ros::Time::now();
+    pipeline_lm.pose.position.x = 0.0;
+    pipeline_lm.pose.position.y = /*m3*pow(smallest_x - i,3)*/ + m2*pow(0.0,2) + m1*(0.0) + c;
+    pipeline_lm.pose.position.z = pipeline_mask_.poses.at(pipeline_mask_.poses.size()-1).pose.position.z;
+
+    pipe_lm_pub_.publish(pipeline_lm);
+
     pipeline_mask_.poses.clear();
-
-}
-
-void EKFSLAM::updatePipelineMask(const nav_msgs::Path &pipe_proj){
-
-    Eigen::Vector3d pipe_first_pose;
-    if(pipeline_mask_.poses.empty()){
-        // First time filling in the mask, take "oldest" pose as first
-        pipe_first_pose = Eigen::Vector3d(0,0,0);
-    }
-    else{
-        pipe_first_pose = Eigen::Vector3d(pipeline_mask_.poses.at(0).pose.position.x,
-                                          pipeline_mask_.poses.at(0).pose.position.y,
-                                          pipeline_mask_.poses.at(0).pose.position.z);
-    }
-    double norm_first = std::abs(pipe_first_pose.norm());
-
-    tf::Transform transf_base_map = tf::Transform(tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize(),
-                                                  tf::Vector3(mu_(0), mu_(1), mu_(2))).inverse();
-
-    if(pipeline_mask_.poses.size() >= 400){
-        pipeline_mask_.poses.erase(pipeline_mask_.poses.begin() + 300 - 1, pipeline_mask_.poses.begin() -1);    // Erase the 100 "oldest" pose
-    }
-
-    // Update mask
-    tf::Vector3 pose_in_base;
-    for (geometry_msgs::PoseStamped pose_sample: pipe_proj.poses){
-        // Project new pose_sample in base_frame
-        pose_in_base = transf_base_map * transf_map_world_ * tf::Vector3(pose_sample.pose.position.x,
-                                                                         pose_sample.pose.position.y,
-                                                                         pose_sample.pose.position.z);
-
-        // If the new pose at t+1 is farther than the farthest from time t
-        if(norm_first <= std::abs(Eigen::Vector3d(pose_in_base.getX(),
-                                         pose_in_base.getY(),
-                                         pose_in_base.getZ()).norm())){
-
-            // Store pose in base_frame
-            pose_sample.header.frame_id = base_frame_;
-            pose_sample.pose.position.x = pose_in_base.getX();
-            pose_sample.pose.position.y = pose_in_base.getY();
-            pose_sample.pose.position.z = pose_in_base.getZ();
-
-            // Add it to the mask
-            pipeline_mask_.poses.push_back(pose_sample);
-
-        }
-        // When false, stop iterating through new poses
-        else{
-            break;
-        }
-    }
-
-    pipeline_mask_.header.stamp = ros::Time::now();
-    pipe_pub_.publish(pipeline_mask_);
-
 
 }
 
@@ -441,6 +414,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
     nav_msgs::Path pipe_path_t;
     std::vector<Eigen::Vector3d> z_t;
     utils::MeasSensor sensor_input;
+    geometry_msgs::PoseStamped pipeline_lm;
 
     if(!odom_queue_t_.empty()){
         // Fetch latest measurement
@@ -452,7 +426,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
         ekf_filter_->predictMotion(odom_reading);
 
         // Pipe detected by camera (1 Hz freq)
-        if(pipe_meas_cnt_ >= 9 && first_pipe_rcv_){
+        if(first_pipe_rcv_){
             pipe_meas_cnt_ = 0;
             if(!pipe_path_queue_t_.empty()){
                 pipe_path_t = pipe_path_queue_t_.back();
@@ -460,37 +434,33 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
 
                 // If the camera has found the pipe
                 if(!pipe_path_t.poses.empty()){
-                    ROS_INFO("Pipe path msg received!");
-                    std::cout << "Size of path: " << pipe_path_t.poses.size() << std::endl;
 //                    updatePipelineMask(pipe_path_t);
-                    computePipePath(pipe_path_t);
+                    computePipePath(pipe_path_t, pipeline_lm);
+                    // If observations available:
+                    if(!measurements_t_.empty()){
+                        ROS_INFO("----New measurements received----");
+                        // Fetch latest measurement
+                        auto observ = measurements_t_.back();
+                        measurements_t_.pop_back();
+
+                        // Check the sensor type
+                        sensor_input = (observ.header.frame_id == mbes_frame_)? utils::MeasSensor::MBES: utils::MeasSensor::FLS;    // TODO: generalize condition statement
+                        for(auto lm_pose: observ.poses){
+                            z_t.push_back(Eigen::Vector3d(lm_pose.position.x,
+                                                          lm_pose.position.y,
+                                                          lm_pose.position.z));
+                        }
+
+                        // Data association and sequential update
+                        ekf_filter_->dataAssociation(z_t, sensor_input, pipeline_lm);
+                        z_t.clear();
+                    }
                 }
-
             }
-        }
-
-        // If observations available:
-        if(!measurements_t_.empty()){
-            ROS_INFO("----New measurements received----");
-            // Fetch latest measurement
-            auto observ = measurements_t_.back();
-            measurements_t_.pop_back();
-
-            // Check the sensor type
-            sensor_input = (observ.header.frame_id == mbes_frame_)? utils::MeasSensor::MBES: utils::MeasSensor::FLS;    // TODO: generalize condition statement
-            for(auto lm_pose: observ.poses){
-                z_t.push_back(Eigen::Vector3d(lm_pose.position.x,
-                                              lm_pose.position.y,
-                                              lm_pose.position.z));
-            }
-
-            // Data association and sequential update
-            ekf_filter_->dataAssociation(z_t, sensor_input);
-            z_t.clear();
         }
 
         // Update mu_ and Sigma_
-        std::tie(mu_, Sigma_) = ekf_filter_->ekfUpdate();
+        std::tie(mu_, Sigma_, map_pipe_) = ekf_filter_->ekfUpdate();
 
         // Publish and broadcast
         this->sendOutput(ros::Time::now());

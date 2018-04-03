@@ -79,6 +79,7 @@ private:
     ros::Publisher map_pub_;
     ros::Publisher vis_pub_;
     ros::Publisher pipe_pub_;
+    ros::Publisher pipe_lm_pub_;
     ros::ServiceClient init_map_client_;
 
     // Handlers for sensors
@@ -96,6 +97,8 @@ private:
     int lm_num_;
     nav_msgs::Path pipeline_mask_;
     bool first_pipe_rcv_;
+    std::vector<Eigen::Vector3d> map_pipe_;
+
 
     // Aux
     unsigned int size_odom_q_;
@@ -129,9 +132,7 @@ private:
 
     void camCB(const nav_msgs::Path &pipe_path);
 
-    void computePipePath(const nav_msgs::Path& pipe_proj);
-
-    void updatePipelineMask(const nav_msgs::Path& pipe_proj);
+    void computePipePath(const nav_msgs::Path& pipe_proj, geometry_msgs::PoseStamped &pipeline_lm);
 
     /**
      * @brief createMapMarkers
