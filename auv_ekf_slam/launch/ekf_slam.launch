@@ -26,7 +26,7 @@
                 <param name="mhl_dist_fls" value="0.9"/>
                 <rosparam param="/$(arg namespace)/init_pose_cov_diag">[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]</rosparam>
                 <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[0.01, 0.01, 0.01, 0.01, 0.01, 0.01]</rosparam>
-                <rosparam param="/$(arg namespace)/meas_mbes_noise_cov_diag">[200.0, 500.0, 500.0]</rosparam>
+                <rosparam param="/$(arg namespace)/meas_mbes_noise_cov_diag">[100.0, 300.0, 500.0]</rosparam>
                 <rosparam param="/$(arg namespace)/meas_fls_noise_cov_diag">[500.0, 300.0]</rosparam>
                 <!--Topics-->
                 <param name="cam_pipe_topic" value="/$(arg namespace)/lolo_auv/camera/pipeline_locator"/>

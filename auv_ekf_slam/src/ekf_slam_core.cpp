@@ -192,7 +192,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
     tf::Vector3 lm_pipe_map = transf_map_base * tf::Vector3(pipe_lm.pose.position.x, pipe_lm.pose.position.y, pipe_lm.pose.position.z);
     Eigen::Vector3d lm_pipe = Eigen::Vector3d(lm_pipe_map.getX(), lm_pipe_map.getY(), lm_pipe_map.getZ());
 
-    double init_diff = 100.0;
+    double init_diff = 1000.0;
     unsigned int pipe_idx;
     for(unsigned int i = 0; i<z_t.size(); i++){
 
@@ -219,6 +219,10 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
             pipe_idx = i;
         }
         delete (sensor_input);
+    }
+
+    if(z_t.size()==1){
+        pipe_idx = 0;
     }
 
     ROS_INFO_STREAM("Number of measurements " << z_t.size());
@@ -249,7 +253,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
                 sensor_input = new CorrespondenceMBES();
                 tf_map_sensor = transf_map_base;
                 // Covariance of new lm
-                new_lm_cov = std::make_tuple(5,5,5);  // TODO: make dependent on the sensor
+                new_lm_cov = std::make_tuple(10,5,5);  // TODO: make dependent on the sensor
                 break;
 
             case utils::MeasSensor::FLS:
