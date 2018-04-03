@@ -51,12 +51,12 @@
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
             </node>-->
 
-            <node pkg="rfs_slam" name="detect_rocks" type="detect_rocks" output="screen">
+<!--            <node pkg="rfs_slam" name="detect_rocks" type="detect_rocks" output="screen">
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="fls_frame" value="/$(arg namespace)/forward_sonardown_link"/>
                 <param name="image_raw_sonar" value="/$(arg namespace)/depth/image_raw_raw_sonar"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
-            </node>
+            </node>-->
 
 
             <!--For experiments-->

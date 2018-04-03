@@ -93,6 +93,9 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     // Aux
     size_odom_q_ = 10;
     size_measurements_q_ = 1;
+    pipe_meas_cnt_ = 0;
+    first_pipe_rcv_ = false;
+    pipeline_mask_.header.frame_id = base_frame_;
 
     // Listen to necessary, fixed tf transforms
     tf::StampedTransform tf_base_sensor;
@@ -186,7 +189,13 @@ void EKFSLAM::observationsCB(const geometry_msgs::PoseArray &observ_msg){
 }
 
 void EKFSLAM::camCB(const nav_msgs::Path &pipe_path){
+    if(!first_pipe_rcv_){
+        first_pipe_rcv_ = true;
+    }
     pipe_path_queue_t_.push_back(pipe_path);
+    while(pipe_path_queue_t_.size() > 2){
+         pipe_path_queue_t_.pop_front();
+    }
 }
 
 void EKFSLAM::updateMapMarkers(double color){
@@ -278,12 +287,12 @@ bool EKFSLAM::bcMapOdomTF(ros::Time t){
 struct ThirdDegreePolyResidual {
   ThirdDegreePolyResidual(double x, double y): x_(x), y_(y) {}
 
-  template <typename T> bool operator()(const T* const m3,
+  template <typename T> bool operator()(/*const T* const m3,*/
                                         const T* const m2,
                                         const T* const m1,
                                         const T* const c,
                                         T* residual) const {
-    residual[0] = y_ - (m3[0] * pow(x_,3) + m2[0] * pow(x_,2) + m1[0] * x_ + c[0]);
+    residual[0] = y_ - (/*m3[0] * pow(x_,3)*/ + m2[0] * pow(x_,2) + m1[0] * x_ + c[0]);
     return true;
   }
 
@@ -306,11 +315,31 @@ void EKFSLAM::computePipePath(const nav_msgs::Path &pipe_proj){
     double m1 = 0.0;
     double c = 0.0;
     Problem problem;
-    for (const geometry_msgs::PoseStamped& pose_sample: pipe_proj.poses) {
-      CostFunction* cost_function = new AutoDiffCostFunction<ThirdDegreePolyResidual, 1, 1, 1, 1, 1>(new ThirdDegreePolyResidual(pose_sample.pose.position.x, pose_sample.pose.position.y));
 
-      problem.AddResidualBlock(cost_function, new CauchyLoss(0.5), &m3, &m2, &m1, &c);
+    tf::Transform transf_base_map = tf::Transform(tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize(),
+                                                  tf::Vector3(mu_(0), mu_(1), mu_(2))).inverse();
+
+    tf::Vector3 pose_in_base;
+    for (geometry_msgs::PoseStamped pose_sample: pipe_proj.poses) {
+        pose_in_base = transf_base_map * transf_map_world_ * tf::Vector3(pose_sample.pose.position.x,
+                                                                         pose_sample.pose.position.y,
+                                                                         pose_sample.pose.position.z);
+        // Store pose in base_frame
+        pose_sample.header.frame_id = base_frame_;
+        pose_sample.pose.position.x = pose_in_base.getX();
+        pose_sample.pose.position.y = pose_in_base.getY();
+        pose_sample.pose.position.z = pose_in_base.getZ();
+
+        // Add it to the mask
+        pipeline_mask_.poses.push_back(pose_sample);
+
+        CostFunction* cost_function = new AutoDiffCostFunction<ThirdDegreePolyResidual, 1, /*1,*/ 1, 1, 1>(new ThirdDegreePolyResidual(pose_sample.pose.position.x, pose_sample.pose.position.y));
+
+        problem.AddResidualBlock(cost_function, new CauchyLoss(0.5), /*&m3,*/ &m2, &m1, &c);
     }
+
+
+
     Solver::Options options;
     options.linear_solver_type = ceres::DENSE_QR;
     options.minimizer_progress_to_stdout = false;
@@ -319,15 +348,15 @@ void EKFSLAM::computePipePath(const nav_msgs::Path &pipe_proj){
 
     // Publish interpolated curve
     nav_msgs::Path pipeline_path;
-    pipeline_path.header.frame_id = world_frame_;
+    pipeline_path.header.frame_id = base_frame_;
     pipeline_path.header.stamp = ros::Time::now();
     geometry_msgs::PoseStamped new_pose;
-    new_pose.header.frame_id = world_frame_;
+    new_pose.header.frame_id = base_frame_;
     new_pose.header.stamp = ros::Time::now();
 
-    for (const geometry_msgs::PoseStamped& pose_sample: pipe_proj.poses) {
+    for (const geometry_msgs::PoseStamped& pose_sample: pipeline_mask_.poses) {
         new_pose.pose.position.x = pose_sample.pose.position.x;
-        new_pose.pose.position.y = m3*pow(pose_sample.pose.position.x,3) + m2*pow(pose_sample.pose.position.x,2) + m1*pose_sample.pose.position.x + c;
+        new_pose.pose.position.y = /*m3*pow(pose_sample.pose.position.x,3)*/ + m2*pow(pose_sample.pose.position.x,2) + m1*pose_sample.pose.position.x + c;
         new_pose.pose.position.z = pose_sample.pose.position.z;
 
         pipeline_path.poses.push_back(new_pose);
@@ -335,16 +364,73 @@ void EKFSLAM::computePipePath(const nav_msgs::Path &pipe_proj){
     }
 
 
-    double smallest_x = pipe_proj.poses.at(pipe_proj.poses.size()-1).pose.position.x;
-    for(unsigned int i=1; i<20; i++){
-        new_pose.pose.position.x = smallest_x + i;
-        new_pose.pose.position.y = m3*pow(smallest_x - i,3) + m2*pow(smallest_x - i,2) + m1*(smallest_x - i) + c;
-        new_pose.pose.position.z = pipe_proj.poses.at(0).pose.position.z;
+    double smallest_x = pipeline_mask_.poses.at(pipeline_mask_.poses.size()-1).pose.position.x;
+    for(unsigned int i=1; i<40; i++){
+        new_pose.pose.position.x = smallest_x - i/2.0 ;
+        new_pose.pose.position.y = /*m3*pow(smallest_x - i,3)*/ + m2*pow(smallest_x - i/2.0,2) + m1*(smallest_x - i/2.0) + c;
+        new_pose.pose.position.z = pipeline_mask_.poses.at(pipeline_mask_.poses.size()-1).pose.position.z;
 
         pipeline_path.poses.push_back(new_pose);
     }
 
     pipe_pub_.publish(pipeline_path);
+    pipeline_mask_.poses.clear();
+
+}
+
+void EKFSLAM::updatePipelineMask(const nav_msgs::Path &pipe_proj){
+
+    Eigen::Vector3d pipe_first_pose;
+    if(pipeline_mask_.poses.empty()){
+        // First time filling in the mask, take "oldest" pose as first
+        pipe_first_pose = Eigen::Vector3d(0,0,0);
+    }
+    else{
+        pipe_first_pose = Eigen::Vector3d(pipeline_mask_.poses.at(0).pose.position.x,
+                                          pipeline_mask_.poses.at(0).pose.position.y,
+                                          pipeline_mask_.poses.at(0).pose.position.z);
+    }
+    double norm_first = std::abs(pipe_first_pose.norm());
+
+    tf::Transform transf_base_map = tf::Transform(tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize(),
+                                                  tf::Vector3(mu_(0), mu_(1), mu_(2))).inverse();
+
+    if(pipeline_mask_.poses.size() >= 400){
+        pipeline_mask_.poses.erase(pipeline_mask_.poses.begin() + 300 - 1, pipeline_mask_.poses.begin() -1);    // Erase the 100 "oldest" pose
+    }
+
+    // Update mask
+    tf::Vector3 pose_in_base;
+    for (geometry_msgs::PoseStamped pose_sample: pipe_proj.poses){
+        // Project new pose_sample in base_frame
+        pose_in_base = transf_base_map * transf_map_world_ * tf::Vector3(pose_sample.pose.position.x,
+                                                                         pose_sample.pose.position.y,
+                                                                         pose_sample.pose.position.z);
+
+        // If the new pose at t+1 is farther than the farthest from time t
+        if(norm_first <= std::abs(Eigen::Vector3d(pose_in_base.getX(),
+                                         pose_in_base.getY(),
+                                         pose_in_base.getZ()).norm())){
+
+            // Store pose in base_frame
+            pose_sample.header.frame_id = base_frame_;
+            pose_sample.pose.position.x = pose_in_base.getX();
+            pose_sample.pose.position.y = pose_in_base.getY();
+            pose_sample.pose.position.z = pose_in_base.getZ();
+
+            // Add it to the mask
+            pipeline_mask_.poses.push_back(pose_sample);
+
+        }
+        // When false, stop iterating through new poses
+        else{
+            break;
+        }
+    }
+
+    pipeline_mask_.header.stamp = ros::Time::now();
+    pipe_pub_.publish(pipeline_mask_);
+
 
 }
 
@@ -365,17 +451,23 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
         // Prediction step
         ekf_filter_->predictMotion(odom_reading);
 
-        // Pipe detected by camera
-//        if(!pipe_path_queue_t_.empty()){
-//            pipe_path_t = pipe_path_queue_t_.back();
-//            pipe_path_queue_t_.pop_back();
+        // Pipe detected by camera (1 Hz freq)
+        if(pipe_meas_cnt_ >= 9 && first_pipe_rcv_){
+            pipe_meas_cnt_ = 0;
+            if(!pipe_path_queue_t_.empty()){
+                pipe_path_t = pipe_path_queue_t_.back();
+                pipe_path_queue_t_.pop_back();
 
-//            // If the camera has found the pipe
-//            if(!pipe_path_t.poses.empty()){
-//                computePipePath(pipe_path_t);
-//            }
+                // If the camera has found the pipe
+                if(!pipe_path_t.poses.empty()){
+                    ROS_INFO("Pipe path msg received!");
+                    std::cout << "Size of path: " << pipe_path_t.poses.size() << std::endl;
+//                    updatePipelineMask(pipe_path_t);
+                    computePipePath(pipe_path_t);
+                }
 
-//        }
+            }
+        }
 
         // If observations available:
         if(!measurements_t_.empty()){
@@ -404,6 +496,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
         this->sendOutput(ros::Time::now());
         this->bcMapOdomTF(ros::Time::now());
         this->updateMapMarkers(1.0);
+        pipe_meas_cnt_ += 1;
     }
     else{
         ROS_WARN("No odometry info received, bc latest known map --> odom tf");

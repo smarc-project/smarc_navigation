@@ -94,10 +94,13 @@ private:
 
     // Mapping variables
     int lm_num_;
+    nav_msgs::Path pipeline_mask_;
+    bool first_pipe_rcv_;
 
     // Aux
     unsigned int size_odom_q_;
     unsigned int size_measurements_q_;
+    int pipe_meas_cnt_;
 
     // tf
     tf::TransformBroadcaster map_bc_;
@@ -127,6 +130,8 @@ private:
     void camCB(const nav_msgs::Path &pipe_path);
 
     void computePipePath(const nav_msgs::Path& pipe_proj);
+
+    void updatePipelineMask(const nav_msgs::Path& pipe_proj);
 
     /**
      * @brief createMapMarkers
