@@ -204,7 +204,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
                 sensor_input = new CorrespondenceFLS();
                 tf_map_sensor = transf_map_base  * tf_base_sensor_;
                 // Covariance of new lm
-                new_lm_cov = std::make_tuple(400,200,1000);
+                new_lm_cov = std::make_tuple(50,50,100);
                 break;
         }
         new_lm_map = sensor_input->backProjectNewLM(z_t.at(i), tf_map_sensor);
