@@ -221,10 +221,6 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
         delete (sensor_input);
     }
 
-    if(z_t.size()==1){
-        pipe_idx = 0;
-    }
-
     ROS_INFO_STREAM("Number of measurements " << z_t.size());
     int cnt = 0;
     for(auto meas: z_t){
