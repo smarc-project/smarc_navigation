@@ -182,6 +182,7 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
     Eigen::Vector3d new_lm_map;
     tf::Transform tf_map_sensor;
     std::tuple<double, double, double> new_lm_cov;
+    double new_mh_dist;
 
     for(unsigned int i = 0; i<z_t.size(); i++){
         // Compute transform map --> base from current state state estimate at time t
@@ -197,6 +198,8 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
                 tf_map_sensor = transf_map_base;
                 // Covariance of new lm
                 new_lm_cov = std::make_tuple(100,100,100);  // TODO: make dependent on the sensor
+                // MH dist of new lm
+                new_mh_dist = mh_dist_mbes_;
                 break;
 
             case utils::MeasSensor::FLS:
@@ -204,6 +207,8 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
                 tf_map_sensor = transf_map_base  * tf_base_sensor_;
                 // Covariance of new lm
                 new_lm_cov = std::make_tuple(400,200,1000);
+                // MH dist of new lm
+                new_mh_dist = mh_dist_fls_;
                 break;
         }
         new_lm_map = sensor_input->backProjectNewLM(z_t.at(i), tf_map_sensor);
@@ -240,16 +245,8 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
         // Select the association with the minimum Mahalanobis distance
         if(!corresp_i_list.empty()){
 
-            // Set init Mahalanobis distance for new possible landmark
-            switch(sens_type){
-                case utils::MeasSensor::MBES:
-                    corresp_i_list.back().d_m_ = mh_dist_mbes_;
-                    break;
-
-                case utils::MeasSensor::FLS:
-                    corresp_i_list.back().d_m_ = mh_dist_fls_;
-                    break;
-            }
+            // Set init Mahalanobis distance for the new possible landmark
+            corresp_i_list.back().d_m_ = new_mh_dist;
 
             // Select correspondance with minimum Mh distance
             std::sort(corresp_i_list.begin(), corresp_i_list.end(), [](const CorrespondenceClass& corresp_1, const CorrespondenceClass& corresp_2){
@@ -275,7 +272,6 @@ void EKFCore::dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::Mea
         }
         delete (sensor_input);
     }
-
 
     // Make sure mu and sigma have the same size at the end!
     while(mu_hat_.size() < Sigma_hat_.rows()){
