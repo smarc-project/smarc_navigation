@@ -48,20 +48,31 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
+find_package(Munkres)
+if(MUNKRES_FOUND)
+  include_directories(${MUNKRES_INCLUDE_DIRS})
+endif()
+
 # setup.py for map_provider_node.py
 #catkin_python_setup()
 
-generate_messages(
-    DEPENDENCIES
-    geometry_msgs
-    std_msgs
-    )
+#generate_messages(
+#    DEPENDENCIES
+#    geometry_msgs
+#    std_msgs
+#    )
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES
   CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters landmark_visualizer
 #  DEPENDS system_lib
+)
+
+include_directories(
+ include
+ ${PROJECT_SOURCE_DIR}/utils
+ ${catkin_INCLUDE_DIRS}
 )
 
 add_library(ekf_core
@@ -78,9 +89,8 @@ add_library(corresp_obj
     include/correspondence_class/correspondence_class.hpp
     )
 
-include_directories(
- include
- ${catkin_INCLUDE_DIRS}
+add_library (munkres
+    ${PROJECT_SOURCE_DIR}/utils/munkres/munkres.cpp
 )
 
 add_executable(ekf_slam_node
@@ -98,7 +108,7 @@ target_link_libraries(ekf_slam_node
     ekf_core
     ekf_utils
     corresp_obj
-#    utils_matrices
+    munkres
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
     )
