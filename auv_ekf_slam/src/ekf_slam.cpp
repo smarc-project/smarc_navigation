@@ -152,7 +152,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
             Sigma_.conservativeResize(Sigma_.rows()+3, Sigma_.cols()+3);
             Sigma_.bottomRows(3).setZero();
             Sigma_.rightCols(3).setZero();
-            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 10;
+            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 20;
             Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 10;
             Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 10;
         }
@@ -299,7 +299,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
             }
 
             // Data association and sequential update
-            ekf_filter_->dataAssociation(z_t, sensor_input);
+            ekf_filter_->batchDataAssociation(z_t, sensor_input);
             z_t.clear();
         }
 

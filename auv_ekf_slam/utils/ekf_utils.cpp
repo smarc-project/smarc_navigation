@@ -16,12 +16,20 @@ namespace utils{
         mu_hat << aux_mu, landmark;
 
         // Increase Sigma_hat
-        Sigma_hat.conservativeResize(Sigma_hat.rows()+3, Sigma_hat.cols()+3);
-        Sigma_hat.bottomRows(3).setZero();
-        Sigma_hat.rightCols(3).setZero();
-        Sigma_hat(Sigma_hat.rows()-3, Sigma_hat.cols()-3) = std::get<0>(sigma_new);  // TODO: initialize with uncertainty on the measurement in x,y,z
-        Sigma_hat(Sigma_hat.rows()-2, Sigma_hat.cols()-2) = std::get<1>(sigma_new);
-        Sigma_hat(Sigma_hat.rows()-1, Sigma_hat.cols()-1) = std::get<2>(sigma_new);
+        addLMtoMatrix(Sigma_hat, sigma_new);
+    }
+
+    void addLMtoMatrix(Eigen::MatrixXd &matrix, const std::tuple<double, double, double> &sigma_new){
+        // Increase matrix
+        matrix.conservativeResize(matrix.rows()+3, matrix.cols()+3);
+        matrix.bottomRows(3).setZero();
+        matrix.rightCols(3).setZero();
+        matrix(matrix.rows()-3, matrix.cols()-3) = std::get<0>(sigma_new);  // TODO: initialize with uncertainty on the measurement in x,y,z
+        matrix(matrix.rows()-2, matrix.cols()-2) = std::get<1>(sigma_new);
+        matrix(matrix.rows()-1, matrix.cols()-1) = std::get<2>(sigma_new);
+    }
+
+    void removeLMfromFilter(Eigen::VectorXd &mu_hat, Eigen::MatrixXd &Sigma_hat, int j){
 
     }
 
