@@ -251,7 +251,7 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
         }
     }
 
-    // Add new_mh_dist to backprojected lm candidates
+    // Add new_mh_dist to backprojected lm candidates in correspondence table
     int cnt = 0;
     for(int j=lm_num_; j<temp_num_lm; j++){
         for(int i=0; i<z_t.size(); i++){
@@ -265,8 +265,7 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
         cnt += 1;
     }
 
-    ROS_INFO("Correspondence table fixed!");
-    // Initialize matrix
+    // Initialize Munkres matrix from Eigen matrix
     Matrix<double> munkres_matrix(temp_num_lm, z_t.size());
     for ( int row = 0 ; row < temp_num_lm ; row++ ) {
         for ( int col = 0 ; col < z_t.size() ; col++ ) {
@@ -274,31 +273,12 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
         }
     }
 
-    ROS_INFO("Munkres matrix initialized");
-//    // Display initial matrix.
-//    std::cout << "Initial matrix" << std::endl;
-//    for ( int row = 0 ; row < temp_num_lm ; row++ ) {
-//        for ( int col = 0 ; col < z_t.size() ; col++ ) {
-//            std::cout.width(10);
-//            std::cout << munkres_matrix(row,col) << ",";
-//        }
-//        std::cout << std::endl;
-//    }
-
     // Solve correspondence problem
     Munkres<double> munkres_solver;
     munkres_solver.solve(munkres_matrix);
 
-    // Display solved matrix.
-//    std::cout << "Solved matrix" << std::endl;
-//    for ( int row = 0 ; row < temp_num_lm ; row++ ) {
-//        for ( int col = 0 ; col < z_t.size() ; col++ ) {
-//            std::cout.width(2);
-//            std::cout << munkres_matrix(row,col) << ",";
-//        }
-//        std::cout << std::endl;
-//    }
-
+    // Update step with selected correspondences
+    double lm;
     for(unsigned int i=0; i<z_t.size(); i++){
         for (unsigned int j=0; j<temp_num_lm; j++){
             if(munkres_matrix(j,i) == 0){
@@ -306,20 +286,21 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
                     ROS_INFO_STREAM("New lm added");
                     // Resize mu and sigma with final landmarks in map (if any new one added)
                     utils::addLMtoFilter(mu_hat_, Sigma_hat_, corresp_list.at(j + temp_num_lm * i).landmark_pos_, new_lm_cov);
-                    double lm = ((Sigma_hat_.rows() - 6) / 3) - 1;
+                    // Recompute new lm index based on its order in the filter
+                    lm = ((Sigma_hat_.rows() - 6) / 3) - 1;
                     corresp_list.at(j + temp_num_lm * i).i_j_.second = lm;
-                    utils::updateMatrixBlock(Sigma_hat_, temp_sigma, lm);
                 }
                 else{
                     ROS_INFO_STREAM("Known lm seen");
-                    utils::updateMatrixBlock(Sigma_hat_, temp_sigma, j);
+                    // Known lm index based on its order in the filter
+                    lm  = j;
                 }
+                utils::updateMatrixBlock(Sigma_hat_, temp_sigma, lm);
                 sequentialUpdate(corresp_list.at(j + temp_num_lm * i), temp_sigma);
                 continue;
             }
         }
     }
-
     delete (sensor_input);
 
     // Make sure mu and sigma have the same size at the end!
