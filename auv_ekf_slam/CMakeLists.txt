@@ -32,7 +32,7 @@ find_package(catkin REQUIRED COMPONENTS
     message_filters
     pcl_ros
     auv_ekf_localization
-    landmark_visualizer
+    smarc_lm_visualizer
  )
 
 find_package(PCL REQUIRED)
@@ -65,7 +65,7 @@ endif()
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES
-  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters landmark_visualizer
+  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters smarc_lm_visualizer
 #  DEPENDS system_lib
 )
 

@@ -41,7 +41,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/rviz/landmarks", 0 );
 
     // Get initial map of beacons from Gazebo
-    init_map_client_ = nh_->serviceClient<landmark_visualizer::init_map>("/lolo_auv/map_server");
+    init_map_client_ = nh_->serviceClient<smarc_lm_visualizer::init_map>("/lolo_auv/map_server");
 
     // Initialize internal params
     init(Sigma_diagonal, R_diagonal, Q_fls_diag, Q_mbes_diag, delta, mh_dist_fls, mh_dist_mbes);
@@ -126,7 +126,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
         ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
     }
 
-    landmark_visualizer::init_map init_map_srv;
+    smarc_lm_visualizer::init_map init_map_srv;
     init_map_srv.request.request_map = true;
 
     init_map_client_.call(init_map_srv);
