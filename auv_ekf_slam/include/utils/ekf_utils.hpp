@@ -9,7 +9,7 @@ namespace utils{
 
     void updateMatrixBlock(const Eigen::MatrixXd& sigma_in, Eigen::MatrixXd& sigma_out, int lm_num);
 
-    void addLMtoFilter(Eigen::VectorXd &mu_hat, Eigen::MatrixXd &Sigma_hat, Eigen::Vector3d landmark, const std::tuple<double, double, double> &sigma_new);
+    void addLMtoFilter(Eigen::VectorXd &mu_hat, Eigen::MatrixXd &Sigma_hat, const Eigen::Vector3d &landmark, const std::tuple<double, double, double> &sigma_new);
 
     void addLMtoMatrix(Eigen::MatrixXd &Sigma_hat, const std::tuple<double, double, double> &sigma_new);
 

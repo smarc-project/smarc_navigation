@@ -22,7 +22,7 @@
             <node pkg="auv_ekf_slam" name="auv_navigation_node" type="ekf_slam_node" output="screen">
                 <param name="system_freq" value="10"/>
                 <param name="delta_outlier_reject" value="0.9"/>
-                <param name="mhl_dist_mbes" value="0.2"/>
+                <param name="mhl_dist_mbes" value="0.12"/>
                 <param name="mhl_dist_fls" value="0.1"/>
                 <rosparam param="/$(arg namespace)/init_pose_cov_diag">[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]</rosparam>
                 <rosparam param="/$(arg namespace)/motion_noise_cov_diag">[0.01, 0.01, 0.01, 0.01, 0.01, 0.01]</rosparam>
