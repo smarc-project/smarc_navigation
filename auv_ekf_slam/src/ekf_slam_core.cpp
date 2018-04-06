@@ -154,13 +154,15 @@ void EKFCore::predictBatchMeasurement(const Eigen::Vector3d &landmark_j,
     corresp_i_list.push_back(std::move(*corresp_i_j));
 
     // Add MHD distance to assignment table
+    ROS_INFO_STREAM("MHD distance " << corresp_i_j->d_m_);
+
     // Outlier rejection
     if(corresp_i_j->d_m_ < lambda_meas){
         corresp_table(j, i) = corresp_i_j->d_m_;
     }
     else{
         corresp_table(j, i) = 10000;    // Infinite value
-        ROS_INFO("Outlier rejected");
+//        ROS_INFO("Outlier rejected");
     }
 
     delete (corresp_i_j);
@@ -273,9 +275,31 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
         }
     }
 
+    ROS_INFO("Munkres matrix initialized");
+    // Display initial matrix.
+    std::cout << "Initial matrix" << std::endl;
+    for ( int row = 0 ; row < temp_num_lm ; row++ ) {
+        for ( int col = 0 ; col < z_t.size() ; col++ ) {
+            std::cout.width(10);
+            std::cout << munkres_matrix(row,col) << ",";
+        }
+        std::cout << std::endl;
+    }
+
     // Solve correspondence problem
     Munkres<double> munkres_solver;
     munkres_solver.solve(munkres_matrix);
+
+
+    // Display solved matrix.
+    std::cout << "Solved matrix" << std::endl;
+    for ( int row = 0 ; row < temp_num_lm ; row++ ) {
+        for ( int col = 0 ; col < z_t.size() ; col++ ) {
+            std::cout.width(2);
+            std::cout << munkres_matrix(row,col) << ",";
+        }
+        std::cout << std::endl;
+    }
 
     // Update step with selected correspondences
     double lm;
