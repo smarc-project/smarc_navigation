@@ -281,7 +281,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
 
     if(!odom_queue_t_.empty()){
         // Fetch latest measurement
-        ROS_INFO("------New odom info received------");
+//        ROS_INFO("------New odom info received------");
         odom_reading = odom_queue_t_.back();
         odom_queue_t_.pop_back();
 
@@ -290,7 +290,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
 
         // If observations available:
         if(!measurements_t_.empty()){
-            ROS_INFO("----New measurements received----");
+//            ROS_INFO("----New measurements received----");
             // Fetch latest measurement
             auto observ = measurements_t_.back();
             measurements_t_.pop_back();

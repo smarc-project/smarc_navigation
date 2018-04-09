@@ -275,16 +275,16 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
         }
     }
 
-    ROS_INFO("Munkres matrix initialized");
-    // Display initial matrix.
-    std::cout << "Initial matrix" << std::endl;
-    for ( int row = 0 ; row < temp_num_lm ; row++ ) {
-        for ( int col = 0 ; col < z_t.size() ; col++ ) {
-            std::cout.width(10);
-            std::cout << munkres_matrix(row,col) << ",";
-        }
-        std::cout << std::endl;
-    }
+//    ROS_INFO("Munkres matrix initialized");
+//    // Display initial matrix.
+//    std::cout << "Initial matrix" << std::endl;
+//    for ( int row = 0 ; row < temp_num_lm ; row++ ) {
+//        for ( int col = 0 ; col < z_t.size() ; col++ ) {
+//            std::cout.width(10);
+//            std::cout << munkres_matrix(row,col) << ",";
+//        }
+//        std::cout << std::endl;
+//    }
 
     // Solve correspondence problem
     Munkres<double> munkres_solver;
@@ -292,14 +292,14 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
 
 
     // Display solved matrix.
-    std::cout << "Solved matrix" << std::endl;
-    for ( int row = 0 ; row < temp_num_lm ; row++ ) {
-        for ( int col = 0 ; col < z_t.size() ; col++ ) {
-            std::cout.width(2);
-            std::cout << munkres_matrix(row,col) << ",";
-        }
-        std::cout << std::endl;
-    }
+//    std::cout << "Solved matrix" << std::endl;
+//    for ( int row = 0 ; row < temp_num_lm ; row++ ) {
+//        for ( int col = 0 ; col < z_t.size() ; col++ ) {
+//            std::cout.width(2);
+//            std::cout << munkres_matrix(row,col) << ",";
+//        }
+//        std::cout << std::endl;
+//    }
 
     // Update step with selected correspondences
     double lm;
