@@ -97,7 +97,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     // Listen to necessary, fixed tf transforms
     tf::StampedTransform tf_base_sensor;
     try {
-        tf_listener_.waitForTransform(base_frame_, fls_frame_, ros::Time(0), ros::Duration(10));
+        tf_listener_.waitForTransform(base_frame_, fls_frame_, ros::Time(0), ros::Duration(100));
         tf_listener_.lookupTransform(base_frame_, fls_frame_, ros::Time(0), tf_base_sensor);
         ROS_INFO("Locked transform sensor --> frame");
     }
@@ -106,7 +106,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     }
 
     try {
-        tf_listener_.waitForTransform(map_frame_, world_frame_, ros::Time(0), ros::Duration(10));
+        tf_listener_.waitForTransform(map_frame_, world_frame_, ros::Time(0), ros::Duration(100));
         tf_listener_.lookupTransform(map_frame_, world_frame_, ros::Time(0), transf_map_world_);
         ROS_INFO("Locked transform world --> map");
     }

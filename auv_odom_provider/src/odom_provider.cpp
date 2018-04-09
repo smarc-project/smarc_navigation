@@ -72,7 +72,7 @@ void OdomProvider::init(){
 
     // Get fixed transform dvl_link --> base_link frame
     try {
-        tf_listener_.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(10.0) );
+        tf_listener_.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(100.0) );
         tf_listener_.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_base_dvl_);
         ROS_INFO("Locked transform dvl --> base");
     }
