@@ -6,7 +6,6 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     std::string odom_topic;
     std::string observs_topic;
     std::string lm_topic;
-    std::string map_srv;
     double freq;
     double delta;
     double mh_dist_mbes;
@@ -34,7 +33,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param<std::string>((node_name_ + "/odom_frame"), odom_frame_, "/odom");
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
     nh_->param<std::string>((node_name_ + "/landmarks_adv"), lm_topic, "/lolo_auv/rviz/landmarks");
-    nh_->param<std::string>((node_name_ + "/map_srv"), map_srv, "/lolo_auv/map_server");
+    nh_->param<std::string>((node_name_ + "/map_srv"), map_srv_, "/lolo_auv/map_server");
 
     // Subscribe to sensor msgs
     observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFSLAM::observationsCB, this);
@@ -45,7 +44,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>(lm_topic, 0 );
 
     // Get initial map of beacons from Gazebo
-    init_map_client_ = nh_->serviceClient<smarc_lm_visualizer::init_map>(map_srv);
+    init_map_client_ = nh_->serviceClient<smarc_lm_visualizer::init_map>(map_srv_);
 
     // Initialize internal params
     init(Sigma_diagonal, R_diagonal, Q_fls_diag, Q_mbes_diag, delta, mh_dist_fls, mh_dist_mbes);
@@ -126,7 +125,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
 
 
     // Initial map of the survey area (usually artificial beacons)
-    while(!ros::service::waitForService("/lolo_auv/map_server", ros::Duration(10)) && ros::ok()){
+    while(!ros::service::waitForService(map_srv_, ros::Duration(10)) && ros::ok()){
         ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
     }
 

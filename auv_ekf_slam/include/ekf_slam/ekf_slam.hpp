@@ -110,6 +110,7 @@ private:
     std::string sssr_frame_;
     std::string map_srv_name_;
     std::string lm_srv_name_;
+    std::string map_srv_;
     bool mbes_input_;
 
     // Input callbacks

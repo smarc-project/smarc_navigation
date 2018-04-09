@@ -34,7 +34,7 @@
                 <param name="odom_pub_topic" value="/$(arg namespace)/pose_odom"/>
                 <param name="map_pose_topic" value="/$(arg namespace)/$(arg nav_name)/pose_estimate"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/mbes_detections"/>
-                <param name="map_srv" value="/$(arg namespace)/map_server"/>
+                <param name="map_srv" value="/rviz/map_server"/>
                 <!--tf frames-->
                 <param name="world_frame" value="world"/>
                 <param name="map_frame" value="$(arg namespace)_map"/>
