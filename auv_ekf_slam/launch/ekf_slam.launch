@@ -30,10 +30,10 @@
                 <rosparam param="/$(arg namespace)/meas_mbes_noise_cov_diag">[200.0, 200.0, 200.0]</rosparam>
                 <rosparam param="/$(arg namespace)/meas_fls_noise_cov_diag">[600.0, 100.0]</rosparam>
                 <!--Topics-->
-                <param name="landmarks_adv" value="/$(arg namespace)/landmarks_mapped"/>
+                <param name="landmarks_adv" value="/$(arg namespace)/$(arg nav_name)/landmarks_mapped"/>
                 <param name="odom_pub_topic" value="/$(arg namespace)/pose_odom"/>
                 <param name="map_pose_topic" value="/$(arg namespace)/$(arg nav_name)/pose_estimate"/>
-                <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
+                <param name="lm_detect_topic" value="/$(arg namespace)/mbes_detections"/>
                 <param name="map_srv" value="/$(arg namespace)/map_server"/>
                 <!--tf frames-->
                 <param name="world_frame" value="world"/>
@@ -44,20 +44,20 @@
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
             </node>
 
-             <node pkg="auv_ekf_localization" name="mbes_receptor" type="mbes_receptor_node" output="screen">
+<!--             <node pkg="auv_ekf_localization" name="mbes_receptor" type="mbes_receptor_node" output="screen">
                 <param name="mbes_left_topic" value="/$(arg namespace)/sss_left"/>
                 <param name="mbes_right_topic" value="/$(arg namespace)/sss_right"/>
                 <param name="sss_r_link" value="/$(arg namespace)/sonarright_link"/>
                 <param name="sss_l_link" value="/$(arg namespace)/sonarleft_link"/>
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
-                <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
-            </node>
+                <param name="lm_detect_topic" value="/$(arg namespace)/mbes_detections"/>
+            </node>-->
 
 <!--            <node pkg="rfs_slam" name="detect_rocks" type="detect_rocks" output="screen">
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
                 <param name="fls_frame" value="/$(arg namespace)/forward_sonardown_link"/>
                 <param name="image_raw_sonar" value="/$(arg namespace)/depth/image_raw_raw_sonar"/>
-                <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
+                <param name="lm_detect_topic" value="/$(arg namespace)/mbes_detections"/>
             </node>-->
 
 
