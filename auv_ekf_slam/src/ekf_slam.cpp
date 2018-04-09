@@ -5,6 +5,8 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     std::string map_topic;
     std::string odom_topic;
     std::string observs_topic;
+    std::string lm_topic;
+    std::string map_srv;
     double freq;
     double delta;
     double mh_dist_mbes;
@@ -31,6 +33,8 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param<std::string>((node_name_ + "/map_frame"), map_frame_, "/map");
     nh_->param<std::string>((node_name_ + "/odom_frame"), odom_frame_, "/odom");
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
+    nh_->param<std::string>((node_name_ + "/landmarks_adv"), lm_topic, "/lolo_auv/rviz/landmarks");
+    nh_->param<std::string>((node_name_ + "/map_srv"), map_srv, "/lolo_auv/map_server");
 
     // Subscribe to sensor msgs
     observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFSLAM::observationsCB, this);
@@ -38,10 +42,10 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     map_pub_ = nh_->advertise<nav_msgs::Odometry>(map_topic, 10);
 
     // Plot map in RVIZ
-    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/rviz/landmarks", 0 );
+    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>(lm_topic, 0 );
 
     // Get initial map of beacons from Gazebo
-    init_map_client_ = nh_->serviceClient<smarc_lm_visualizer::init_map>("/lolo_auv/map_server");
+    init_map_client_ = nh_->serviceClient<smarc_lm_visualizer::init_map>(map_srv);
 
     // Initialize internal params
     init(Sigma_diagonal, R_diagonal, Q_fls_diag, Q_mbes_diag, delta, mh_dist_fls, mh_dist_mbes);
@@ -255,6 +259,7 @@ bool EKFSLAM::bcMapOdomTF(ros::Time t){
                                                odom_frame_);
 
         // Broadcast map --> odom transform
+        tf_odom_map_stp.getRotation().normalize();
         tf::transformStampedTFToMsg(tf_odom_map_stp, msg_odom_map_);
         map_bc_.sendTransform(msg_odom_map_);
         broadcasted = true;
