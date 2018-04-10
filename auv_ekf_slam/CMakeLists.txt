@@ -31,7 +31,7 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     message_filters
     pcl_ros
-    auv_ekf_localization
+    mbes_processors
     smarc_lm_visualizer
  )
 
@@ -48,10 +48,10 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
-find_package(Munkres)
-if(MUNKRES_FOUND)
-  include_directories(${MUNKRES_INCLUDE_DIRS})
-endif()
+#find_package(Munkres)
+#if(MUNKRES_FOUND)
+#  include_directories(${MUNKRES_INCLUDE_DIRS})
+#endif()
 
 # setup.py for map_provider_node.py
 #catkin_python_setup()
@@ -64,14 +64,14 @@ endif()
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES
-  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters smarc_lm_visualizer
+  LIBRARIES ekf_core ekf_utils corresp_obj munkres
+  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters smarc_lm_visualizer mbes_processors
 #  DEPENDS system_lib
 )
 
 include_directories(
  include
- ${PROJECT_SOURCE_DIR}/utils
+ utils
  ${catkin_INCLUDE_DIRS}
 )
 
@@ -89,9 +89,10 @@ add_library(corresp_obj
     include/correspondence_class/correspondence_class.hpp
     )
 
-add_library (munkres
-    ${PROJECT_SOURCE_DIR}/utils/munkres/munkres.cpp
-)
+#add_library(munkres
+#    utils/munkres/munkres.cpp
+#    utils/munkres/matrix.cpp
+#)
 
 add_executable(ekf_slam_node
     src/ekf_slam.cpp
@@ -104,11 +105,11 @@ add_dependencies(ekf_slam_node
     )
 
 target_link_libraries(ekf_slam_node
-    noise_kf
+    toy_mbes_processor
     ekf_core
     ekf_utils
     corresp_obj
-    munkres
+#    munkres
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
     )
