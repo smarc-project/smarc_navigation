@@ -93,7 +93,7 @@ private:
     void computeOdom(const geometry_msgs::TwistWithCovarianceStampedPtr &dvl_msg, const tf::Quaternion &q_auv,
                      Eigen::VectorXd &u_t);
 
-    bool sendOutput(ros::Time t);
+    bool sendOutput(ros::Time t_sens_input);
 
 };
 

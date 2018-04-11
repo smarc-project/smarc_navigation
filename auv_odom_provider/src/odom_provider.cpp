@@ -36,12 +36,6 @@ OdomProvider::OdomProvider(std::string node_name, ros::NodeHandle &nh): nh_(&nh)
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
     nh_->param<std::string>((node_name_ + "/dvl_frame"), dvl_frame_, "/dvl_link");
 
-    // Synch IMU and DVL readings
-//    imu_subs_ = new message_filters::Subscriber<sensor_msgs::Imu>(*nh_, imu_topic, 25);
-//    dvl_subs_ = new message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped>(*nh_, dvl_topic, 5);
-//    msg_synch_ptr_ = new message_filters::Synchronizer<MsgTimingPolicy> (MsgTimingPolicy(5), *imu_subs_, *dvl_subs_);
-//    msg_synch_ptr_->registerCallback(boost::bind(&OdomProvider::synchSensorsCB, this, _1, _2));
-
     // Subscribe to sensor msgs
     fast_imu_sub_ = nh_->subscribe(imu_topic, 10, &OdomProvider::fastIMUCB, this);
     fast_dvl_sub_ = nh_->subscribe(dvl_topic, 10, &OdomProvider::fastDVLCB, this);
@@ -198,7 +192,7 @@ void OdomProvider::computeOdom(const geometry_msgs::TwistWithCovarianceStampedPt
     t_prev_ = t_now;
 }
 
-bool OdomProvider::sendOutput(ros::Time t){
+bool OdomProvider::sendOutput(ros::Time t_sens_input){
 
     tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(cumul_odom_(3), cumul_odom_(4), cumul_odom_(5));
     q_auv_t.normalize();
@@ -207,7 +201,7 @@ bool OdomProvider::sendOutput(ros::Time t){
 
     // Broadcast transform over tf
     geometry_msgs::TransformStamped odom_trans;
-    odom_trans.header.stamp = t;
+    odom_trans.header.stamp = t_sens_input;
     odom_trans.header.frame_id = odom_frame_;
     odom_trans.child_frame_id = base_frame_;
     odom_trans.transform.translation.x = cumul_odom_(0);
@@ -218,7 +212,7 @@ bool OdomProvider::sendOutput(ros::Time t){
 
     // Publish odom msg
     nav_msgs::Odometry odom_inertial_msg;
-    odom_inertial_msg.header.stamp = t;
+    odom_inertial_msg.header.stamp = t_sens_input;
     odom_inertial_msg.header.frame_id = odom_frame_;
     odom_inertial_msg.child_frame_id = base_frame_;
     odom_inertial_msg.pose.pose.position.x = cumul_odom_(0);
@@ -284,7 +278,7 @@ void OdomProvider::provideOdom(const ros::TimerEvent&){
             if(std::abs(imu_msg->header.stamp.toSec() - dvl_readings_.back().header.stamp.toSec()) >= 0.02){
                 // IMU available but not DVL
                 this->interpolateDVL(imu_msg->header.stamp, dvl_msg);
-//                ROS_INFO("interpolate DVL");
+                ROS_DEBUG("interpolate DVL");
                 dvl_cnt_ += 1;
             }
             else{

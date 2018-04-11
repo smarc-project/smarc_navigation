@@ -129,9 +129,9 @@ private:
      * @return
      * Publishes AUV odometry info and tf odom --> base_link
      */
-    bool sendOutput(ros::Time t);
+    bool sendOutput(ros::Time t_meas);
 
-    bool bcMapOdomTF(ros::Time t);
+    bool bcMapOdomTF(ros::Time t_meas);
 
 };
 

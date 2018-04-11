@@ -218,7 +218,7 @@ void EKFSLAM::updateMapMarkers(double color){
     vis_pub_.publish(marker_array);
 }
 
-bool EKFSLAM::sendOutput(ros::Time t){
+bool EKFSLAM::sendOutput(ros::Time t_meas){
 
     // Publish odom filtered msg
     tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
@@ -226,7 +226,7 @@ bool EKFSLAM::sendOutput(ros::Time t){
     tf::quaternionTFToMsg(q_auv_t, odom_quat);
 
     nav_msgs::Odometry odom_filtered_msg;
-    odom_filtered_msg.header.stamp = t;
+    odom_filtered_msg.header.stamp = t_meas;
     odom_filtered_msg.header.frame_id = map_frame_;
     odom_filtered_msg.child_frame_id = base_frame_;
     odom_filtered_msg.pose.pose.position.x = mu_(0);
@@ -238,13 +238,13 @@ bool EKFSLAM::sendOutput(ros::Time t){
     return true;
 }
 
-bool EKFSLAM::bcMapOdomTF(ros::Time t){
+bool EKFSLAM::bcMapOdomTF(ros::Time t_meas){
     // Get transform odom --> base published by odom_provider
     tf::StampedTransform tf_base_odom;
     bool broadcasted = false;
     try {
-        tf_listener_.waitForTransform(base_frame_, odom_frame_, ros::Time(0), ros::Duration(0.1));
-        tf_listener_.lookupTransform(base_frame_, odom_frame_, ros::Time(0), tf_base_odom);
+        tf_listener_.waitForTransform(base_frame_, odom_frame_, t_meas, ros::Duration(0.1));
+        tf_listener_.lookupTransform(base_frame_, odom_frame_, t_meas, tf_base_odom);
         // Build tf map --> base from estimated pose
         tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
         tf::Transform tf_base_map = tf::Transform(q_auv_t, tf::Vector3(mu_(0), mu_(1), mu_(2)));
@@ -253,7 +253,7 @@ bool EKFSLAM::bcMapOdomTF(ros::Time t){
         tf::Transform tf_map_odom;
         tf_map_odom.mult(tf_base_map, tf_base_odom);
         tf::StampedTransform tf_odom_map_stp = tf::StampedTransform(tf_map_odom,
-                                               ros::Time::now(),
+                                               t_meas,
                                                map_frame_,
                                                odom_frame_);
 
@@ -277,11 +277,13 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
     nav_msgs::Odometry odom_reading;
     std::vector<Eigen::Vector3d> z_t;
     utils::MeasSensor sensor_input;
+    ros::Time t_meas;
 
     if(!odom_queue_t_.empty()){
         // Fetch latest measurement
 //        ROS_INFO("------New odom info received------");
         odom_reading = odom_queue_t_.back();
+        t_meas = odom_reading.header.stamp;
         odom_queue_t_.pop_back();
 
         // Prediction step
@@ -292,6 +294,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
 //            ROS_INFO("----New measurements received----");
             // Fetch latest measurement
             auto observ = measurements_t_.back();
+            t_meas = observ.header.stamp;
             measurements_t_.pop_back();
 
             // Check the sensor type
@@ -311,8 +314,8 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
         std::tie(mu_, Sigma_) = ekf_filter_->ekfUpdate();
 
         // Publish and broadcast
-        this->sendOutput(ros::Time::now());
-        this->bcMapOdomTF(ros::Time::now());
+        this->sendOutput(t_meas);
+        this->bcMapOdomTF(t_meas);
         this->updateMapMarkers(1.0);
     }
     else{
