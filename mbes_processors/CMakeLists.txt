@@ -124,7 +124,7 @@ endif()
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES toy_mbes_processor
+  LIBRARIES
   CATKIN_DEPENDS roscpp tf sensor_msgs geometry_msgs pcl_ros
 #  DEPENDS system_lib
 )
@@ -140,7 +140,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_library(toy_mbes_processor
+add_executable(toy_mbes_processor
     src/toy_mbes_receptor_node.cpp
     src/toy_mbes_receptor.cpp
     src/toy_mbes_manipulator.cpp
