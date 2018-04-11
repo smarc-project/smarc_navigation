@@ -98,7 +98,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     try {
         tf_listener_.waitForTransform(base_frame_, fls_frame_, ros::Time(0), ros::Duration(100));
         tf_listener_.lookupTransform(base_frame_, fls_frame_, ros::Time(0), tf_base_sensor);
-        ROS_INFO("Locked transform sensor --> frame");
+        ROS_INFO_STREAM(node_name_ << ": locked transform sensor --> frame");
     }
     catch(tf::TransformException &exception) {
         ROS_WARN("%s", exception.what());
@@ -107,7 +107,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     try {
         tf_listener_.waitForTransform(map_frame_, world_frame_, ros::Time(0), ros::Duration(100));
         tf_listener_.lookupTransform(map_frame_, world_frame_, ros::Time(0), transf_map_world_);
-        ROS_INFO("Locked transform world --> map");
+        ROS_INFO_STREAM(node_name_ << ": locked transform world --> map");
     }
     catch(tf::TransformException &exception) {
         ROS_ERROR("%s", exception.what());
@@ -126,7 +126,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
 
     // Initial map of the survey area (usually artificial beacons)
     while(!ros::service::waitForService(map_srv_, ros::Duration(10)) && ros::ok()){
-        ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
+        ROS_INFO_STREAM(node_name_ << ": waiting for the map server service to come up");
     }
 
     smarc_lm_visualizer::init_map init_map_srv;
@@ -167,7 +167,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     // Create EKF filter
     ekf_filter_ = new EKFCore(mu_, Sigma_, R, Q_fls, Q_mbes, lambda_fls, lambda_mbes, tf_base_sensor, mhl_dist_fls, mhl_dist_mbes);
 
-    ROS_INFO_NAMED(node_name_, "EKF SLAM Initialized");
+    ROS_INFO_STREAM(node_name_  << ": initialized");
 }
 
 void EKFSLAM::odomCB(const nav_msgs::Odometry &odom_msg){
@@ -192,7 +192,7 @@ void EKFSLAM::updateMapMarkers(double color){
     for(unsigned int j=0; j<(mu_.rows()-6)/3; j++){
         landmark = mu_.segment(3 * j + 6, 3);
         visualization_msgs::Marker marker;
-        marker.header.frame_id = odom_frame_;
+        marker.header.frame_id = map_frame_;
         marker.header.stamp = ros::Time();
         marker.ns = "map_array";
         marker.id = j;
@@ -319,7 +319,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
         this->updateMapMarkers(1.0);
     }
     else{
-        ROS_WARN("No odometry info received, bc latest known map --> odom tf");
+        ROS_WARN_STREAM(node_name_ << ": No odometry info received, bc latest known map --> odom tf");
         this->sendOutput(ros::Time::now());
 
         // Broadcast latest known map --> odom transform if no inputs received

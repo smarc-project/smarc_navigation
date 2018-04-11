@@ -154,7 +154,7 @@ void EKFCore::predictBatchMeasurement(const Eigen::Vector3d &landmark_j,
     corresp_i_list.push_back(std::move(*corresp_i_j));
 
     // Add MHD distance to assignment table
-    ROS_INFO_STREAM("MHD distance " << corresp_i_j->d_m_);
+    ROS_DEBUG_STREAM("MHD distance " << corresp_i_j->d_m_);
 
     // Outlier rejection
     if(corresp_i_j->d_m_ < lambda_meas){
@@ -254,9 +254,9 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
     }
 
     // Add new_mh_dist to backprojected lm candidates in correspondence table
-    int cnt = 0;
-    for(int j=lm_num_; j<temp_num_lm; j++){
-        for(int i=0; i<z_t.size(); i++){
+    unsigned int cnt = 0;
+    for(unsigned int j=lm_num_; j<temp_num_lm; j++){
+        for(unsigned int i=0; i<z_t.size(); i++){
             if(i == cnt){ // Diagonal elements of submatrix with new backprojected landmarks
                 corresp_table(j, i) = new_mh_dist;
             }
@@ -269,8 +269,8 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
 
     // Initialize Munkres matrix from Eigen matrix
     Matrix<double> munkres_matrix(temp_num_lm, z_t.size());
-    for ( int row = 0 ; row < temp_num_lm ; row++ ) {
-        for ( int col = 0 ; col < z_t.size() ; col++ ) {
+    for (unsigned  int row = 0 ; row < temp_num_lm ; row++ ) {
+        for (unsigned  int col = 0 ; col < z_t.size() ; col++ ) {
             munkres_matrix(row,col) = corresp_table(row,col);
         }
     }
@@ -302,12 +302,12 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
 //    }
 
     // Update step with selected correspondences
-    double lm;
+    unsigned int lm;
     for(unsigned int i=0; i<z_t.size(); i++){
         for (unsigned int j=0; j<temp_num_lm; j++){
             if(munkres_matrix(j,i) == 0){
                 if(j >= lm_num_){ // If new landmark added
-                    ROS_INFO_STREAM("New lm added");
+                    ROS_DEBUG_STREAM("New lm added");
                     // Resize mu and sigma with final landmarks in map (if any new one added)
                     utils::addLMtoFilter(mu_hat_, Sigma_hat_, corresp_list.at(j + temp_num_lm * i).landmark_pos_, new_lm_cov);
                     // Recompute new lm index based on its order in the filter
@@ -315,7 +315,7 @@ void EKFCore::batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils
                     corresp_list.at(j + temp_num_lm * i).i_j_.second = lm;
                 }
                 else{
-                    ROS_INFO_STREAM("Known lm seen");
+                    ROS_DEBUG_STREAM("Known lm seen");
                     // Known lm index based on its order in the filter
                     lm  = j;
                 }

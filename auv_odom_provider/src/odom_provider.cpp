@@ -68,14 +68,14 @@ void OdomProvider::init(){
     try {
         tf_listener_.waitForTransform(base_frame_, dvl_frame_, ros::Time(0), ros::Duration(100.0) );
         tf_listener_.lookupTransform(base_frame_, dvl_frame_, ros::Time(0), transf_base_dvl_);
-        ROS_INFO("Locked transform dvl --> base");
+        ROS_INFO_STREAM(node_name_ << ": Locked transform dvl --> base");
     }
     catch(tf::TransformException &exception) {
         ROS_ERROR("%s", exception.what());
         ros::Duration(1.0).sleep();
     }
 
-    ROS_INFO_NAMED(node_name_, "Initialized");
+    ROS_INFO_STREAM(node_name_ << ": Initialized");
 
     // Initialize DVL filters
     dvl_filter_x_ = new OneDKF(0, 1, 10, 20);
@@ -264,7 +264,7 @@ void OdomProvider::provideOdom(const ros::TimerEvent&){
 
             // Sensor queues initialized
             if(dvl_readings_.size() == size_dvl_q_ && imu_readings_.size() == size_imu_q_){
-                ROS_INFO_NAMED(node_name_, "Starting odom provider node");
+                ROS_INFO_STREAM(node_name_ << ": Sensors queues ready");
                 init_filter_ = true;
                 t_prev_ = ros::Time::now().toSec();
             }
@@ -307,18 +307,14 @@ void OdomProvider::provideOdom(const ros::TimerEvent&){
 
             computeOdom(dvl_msg, q_auv, u_t);
 
-            // Publish odom increment
-            this->sendOutput(ros::Time::now());
-
-//            if(dvl_cnt_ > 6){
-//                ROS_ERROR("Not receiving DVL signal");
-//            }
+            // Publish odom increment (t_prev_ is the latest time of odom computed)
+            this->sendOutput(ros::Time(t_prev_));
         }
     }
     else{
         gt_msg = boost::make_shared<nav_msgs::Odometry>(gt_readings_.back());
         this->sendOutput(gt_msg->header.stamp);
-        ROS_WARN("No sensors update, broadcasting latest known pose");
+        ROS_WARN_STREAM(node_name_ << ": No sensors update, broadcasting latest known pose");
     }
 
     // Empty the pointers
