@@ -17,8 +17,4 @@
             <param name="lm_detect_topic" value="/$(arg namespace)/mbes_detections"/>
         </node>
 
-        <include file="$(find smarc_sensor_plugins_ros)/launch/waterfall.launch">
-    		<arg name="namespace" value="$(arg namespace)"/>
-		</include>
-
 </launch>
