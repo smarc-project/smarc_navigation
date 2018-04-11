@@ -37,10 +37,8 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
-#include "noise_oneD_kf/noise_oneD_kf.hpp"
 #include "ekf_slam_core/ekf_slam_core.hpp"
-
-#include "landmark_visualizer/init_map.h"
+#include "smarc_lm_visualizer/init_map.h"
 
 /**
  * @brief The EKFSLAM class
@@ -60,7 +58,7 @@ public:
     EKFSLAM(std::string node_name, ros::NodeHandle &nh);
     void ekfLocalize(const ros::TimerEvent&);
     ~EKFSLAM();
-    void init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_diag, double delta);
+    void init(std::vector<double> sigma_diag, std::vector<double> r_diag, std::vector<double> q_fls_diag, std::vector<double> q_mbes_diag, double delta, double mhl_dist_fls, double mhl_dist_mbes);
 
 private:
 
@@ -87,15 +85,11 @@ private:
     EKFCore* ekf_filter_;
 
     // Mapping variables
-    double lambda_M_;
     int lm_num_;
-
-    // Noise models
-    Eigen::MatrixXd R_;
-    Eigen::MatrixXd Q_;
 
     // Aux
     unsigned int size_odom_q_;
+    unsigned int size_measurements_q_;
 
     // tf
     tf::TransformBroadcaster map_bc_;
@@ -106,14 +100,17 @@ private:
     tf::StampedTransform transf_base_sssr_;
     geometry_msgs::TransformStamped msg_odom_map_;
 
-
     std::string odom_frame_;
+    std::string fls_frame_;
+    std::string mbes_frame_;
     std::string map_frame_;
     std::string world_frame_;
     std::string base_frame_;
     std::string sssr_frame_;
     std::string map_srv_name_;
     std::string lm_srv_name_;
+    std::string map_srv_;
+    bool mbes_input_;
 
     // Input callbacks
     void odomCB(const nav_msgs::Odometry &odom_msg);
@@ -132,9 +129,9 @@ private:
      * @return
      * Publishes AUV odometry info and tf odom --> base_link
      */
-    bool sendOutput(ros::Time t);
+    bool sendOutput(ros::Time t_meas);
 
-    bool bcMapOdomTF(ros::Time t);
+    bool bcMapOdomTF(ros::Time t_meas);
 
 };
 

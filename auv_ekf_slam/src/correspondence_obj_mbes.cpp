@@ -1,17 +1,37 @@
-#include "correspondence_class/correspondence_class.hpp"
+#include "correspondence_class/correspondence_mbes.hpp"
 
 
-CorrespondenceClass::CorrespondenceClass(const int &z_id, const double &lm_id){
+CorrespondenceMBES::CorrespondenceMBES(): CorrespondenceClass(){}
+
+
+CorrespondenceMBES::CorrespondenceMBES(const int &z_id, const double &lm_id): CorrespondenceClass(z_id, lm_id){
     i_j_ = std::make_pair(z_id,lm_id);
 }
 
-CorrespondenceClass::~CorrespondenceClass(){
+CorrespondenceMBES::~CorrespondenceMBES(){}
 
+std::tuple<Eigen::Vector3d, Eigen::Vector3d> CorrespondenceMBES::measModel(const tf::Vector3& lm_j_map, const tf::Transform& tf_sensor_map){
+    tf::Vector3 z_hat_base = tf_sensor_map * lm_j_map;
+    Eigen::Vector3d z_expected = Eigen::Vector3d(z_hat_base.getX(),
+                                                 z_hat_base.getY(),
+                                                 z_hat_base.getZ());
+
+    Eigen::Vector3d z_expected_sensor = Eigen::Vector3d();
+
+    return std::make_tuple(z_expected, z_expected_sensor);
 }
 
-void CorrespondenceClass::computeH(const h_comp h_comps,
-                                   const tf::Vector3 lm_odom){
 
+
+Eigen::VectorXd CorrespondenceMBES::backProjectNewLM(const Eigen::VectorXd &z_t, const tf::Transform &tf_map_sensor){
+    // New LM as a transform from base to map frame
+    tf::Vector3 new_lm_map = tf_map_sensor * tf::Vector3(z_t(0), z_t(1), z_t(2));
+
+    return Eigen::Vector3d(new_lm_map.getX(), new_lm_map.getY(), new_lm_map.getZ());
+}
+
+
+void CorrespondenceMBES::computeH(const h_comp h_comps, const tf::Vector3 lm_odom, const Eigen::Vector3d){
     using namespace std;
 
     // Store the landmark position
@@ -72,39 +92,27 @@ void CorrespondenceClass::computeH(const h_comp h_comps,
     H_t_(2,6) = h_comps.s_3*h_comps.s_5 + h_comps.c_3*h_comps.c_5*h_comps.s_4;
     H_t_(2,7) = h_comps.c_3*h_comps.s_4*h_comps.s_5 - h_comps.c_5*h_comps.s_3;
     H_t_(2,8) = h_comps.c_4*h_comps.c_3;
-
 }
 
-void CorrespondenceClass::computeMHLDistance(const Eigen::MatrixXd &sigma,
-                                             const Eigen::MatrixXd &Q){
-
+void CorrespondenceMBES::computeMHLDistance(const Eigen::MatrixXd &sigma, const Eigen::MatrixXd &Q){
     Eigen::Matrix3d S_mat = H_t_ * sigma * H_t_.transpose() + Q;
 
     // TODO: check if matrix is invertible!
     S_inverted_ = S_mat.inverse();
-//    if(!inverted){
-//        ROS_ERROR("Error inverting S");
-//        return;
-//    }
-
-    // Compute Mahalanobis distance (z_i, z_hat_j)
     d_m_ = nu_.transpose() * S_inverted_ * nu_;
 }
 
-void CorrespondenceClass::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){
-    nu_ = z_i - z_hat_i;
+void CorrespondenceMBES::computeNu(const Eigen::Vector3d &z_hat_i, const Eigen::Vector3d &z_i){
+        nu_ = z_i - z_hat_i;
 }
 
-void CorrespondenceClass::computeLikelihood(){
+void CorrespondenceMBES::computeLikelihood(){
+    //    // Calculate the determinant on the first member of the distribution
+    //    matrix<double> mat_aux = 2 * M_PI_2 * S_;
+    //    double det_mat = matrices::matDeterminant(mat_aux);
 
-//    // Calculate the determinant on the first member of the distribution
-//    matrix<double> mat_aux = 2 * M_PI_2 * S_;
-//    double det_mat = matrices::matDeterminant(mat_aux);
-
-//    // Likelihood
-//    psi_ = (1 / (std::sqrt(det_mat))) * std::exp(-0.5 * d_m_);
+    //    // Likelihood
+    //    psi_ = (1 / (std::sqrt(det_mat))) * std::exp(-0.5 * d_m_);
 }
 
-double angleLimit (double angle){ // keep angle within [-pi;pi)
-        return std::fmod(angle + M_PI, (M_PI * 2)) - M_PI;
-}
+

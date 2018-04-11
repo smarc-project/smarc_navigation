@@ -25,13 +25,14 @@ find_package(catkin REQUIRED COMPONENTS
     rospy
     std_msgs
     tf
+    tf_conversions
     message_generation
     geometry_msgs
     sensor_msgs
     message_filters
     pcl_ros
-    auv_ekf_localization
-    landmark_visualizer
+    mbes_processors
+    smarc_lm_visualizer
  )
 
 find_package(PCL REQUIRED)
@@ -47,33 +48,53 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
+#find_package(Munkres)
+#if(MUNKRES_FOUND)
+#  include_directories(${MUNKRES_INCLUDE_DIRS})
+#endif()
+
 # setup.py for map_provider_node.py
 #catkin_python_setup()
 
-generate_messages(
-    DEPENDENCIES
-    geometry_msgs
-    std_msgs
-    )
+#generate_messages(
+#    DEPENDENCIES
+#    geometry_msgs
+#    std_msgs
+#    )
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES
-  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters
+  LIBRARIES ekf_core ekf_utils corresp_obj munkres
+  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters smarc_lm_visualizer mbes_processors
 #  DEPENDS system_lib
+)
+
+include_directories(
+ include
+ utils
+ ${catkin_INCLUDE_DIRS}
 )
 
 add_library(ekf_core
     src/ekf_slam_core.cpp
     )
 
-include_directories(
- include
- ${catkin_INCLUDE_DIRS}
-)
+add_library(ekf_utils
+    utils/ekf_utils.cpp
+    )
+
+add_library(corresp_obj
+    src/correspondence_obj_mbes.cpp
+    src/correspondence_obj_fls.cpp
+    include/correspondence_class/correspondence_class.hpp
+    )
+
+#add_library(munkres
+#    utils/munkres/munkres.cpp
+#    utils/munkres/matrix.cpp
+#)
 
 add_executable(ekf_slam_node
-    src/correspondence_obj.cpp
     src/ekf_slam.cpp
     src/ekf_slam_node.cpp
     )
@@ -84,9 +105,10 @@ add_dependencies(ekf_slam_node
     )
 
 target_link_libraries(ekf_slam_node
-    noise_kf
     ekf_core
-#    utils_matrices
+    ekf_utils
+    corresp_obj
+#    munkres
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
     )
