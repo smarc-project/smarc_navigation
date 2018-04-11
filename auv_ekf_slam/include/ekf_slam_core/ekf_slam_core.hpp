@@ -40,7 +40,6 @@ public:
     ~EKFCore();
     std::tuple<Eigen::VectorXd, Eigen::MatrixXd> ekfUpdate();
     void predictMotion(nav_msgs::Odometry odom_reading);
-//    void dataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::MeasSensor& sens_type);
     void batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::MeasSensor& sens_type);
 
 private:
@@ -66,16 +65,6 @@ private:
     double mh_dist_mbes_;
     int lm_num_;
 
-//    void predictMeasurement(const Eigen::Vector3d &landmark_j,
-//                            const Eigen::Vector3d &z_i,
-//                            unsigned int i,
-//                            unsigned int j,
-//                            const tf::Transform &transf_base_odom,
-//                            const Eigen::MatrixXd &temp_sigma,
-//                            h_comp h_comps,
-//                            const utils::MeasSensor &sens_type,
-//                            std::vector<CorrespondenceClass> &ml_i_list);
-
     void predictBatchMeasurement(const Eigen::Vector3d &landmark_j,
                                 const Eigen::Vector3d &z_i,
                                 unsigned int i,
@@ -88,9 +77,6 @@ private:
                                 Eigen::MatrixXd &corresp_table);
 
     void sequentialUpdate(const CorrespondenceClass &c_i_j, Eigen::MatrixXd temp_sigma);
-
-//    void batchUpdate(std::vector<CorrespondenceClass> const& vec_cij, Eigen::MatrixXd temp_sigma);
-
 
 };
 

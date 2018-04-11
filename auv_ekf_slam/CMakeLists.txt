@@ -105,7 +105,6 @@ add_dependencies(ekf_slam_node
     )
 
 target_link_libraries(ekf_slam_node
-    toy_mbes_processor
     ekf_core
     ekf_utils
     corresp_obj
