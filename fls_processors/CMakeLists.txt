@@ -27,14 +27,13 @@ find_package(OpenCV REQUIRED)
 
 
 catkin_package(
-  INCLUDE_DIRS include
+#  INCLUDE_DIRS include
 #  LIBRARIES fls_processors
   CATKIN_DEPENDS roscpp tf   geometry_msgs std_msgs sensor_msgs cv_bridge
 #  DEPENDS system_lib
 )
 
 include_directories(
- include
  ${catkin_INCLUDE_DIRS}
  ${OPENCV_INCLUDE_DIRS}
 )
