@@ -13,6 +13,7 @@ int main(int argc, char** argv){
     if(!ros::ok()){
         delete mbes_receptor;
     }
+    ROS_INFO("Finishing MBES receptor");
 
     return 0;
 }

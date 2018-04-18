@@ -19,7 +19,7 @@ MBESReceptor::MBESReceptor(std::string node_name, ros::NodeHandle &nh):
     pcl_pub_ = nh_->advertise<sensor_msgs::PointCloud> (pcl_pub_topic, 2);
 
     this->init();
-
+    ros::spin();
 }
 
 void MBESReceptor::init(){
@@ -43,7 +43,7 @@ void MBESReceptor::MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in){
         mbes_frame_,
         base_frame_,
         scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment),
-        ros::Duration(2.0))){
+        ros::Duration(1.0))){
         ROS_INFO("Skipping iteration");
      return;
   }
@@ -55,7 +55,6 @@ void MBESReceptor::MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in){
 //  msg->header.frame_id = base_frame_;
 //  msg->points.push_back(cloud);
 
-  ROS_INFO("Publishing PCL");
   pcl_pub_.publish(cloud);
 
 }
