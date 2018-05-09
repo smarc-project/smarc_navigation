@@ -31,7 +31,6 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     message_filters
     pcl_ros
-    mbes_processors
     smarc_lm_visualizer
  )
 
@@ -65,7 +64,7 @@ endif()
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ekf_core ekf_utils corresp_obj munkres
-  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters smarc_lm_visualizer mbes_processors
+  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters smarc_lm_visualizer
 #  DEPENDS system_lib
 )
 
