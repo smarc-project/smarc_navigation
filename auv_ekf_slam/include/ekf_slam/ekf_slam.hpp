@@ -23,6 +23,7 @@
 #include <boost/math/distributions/inverse_chi_squared.hpp>
 
 #include <nav_msgs/Odometry.h>
+#include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/TwistWithCovarianceStamped.h>
 #include <geometry_msgs/Quaternion.h>

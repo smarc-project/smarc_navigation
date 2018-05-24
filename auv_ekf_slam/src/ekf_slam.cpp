@@ -196,15 +196,15 @@ void EKFSLAM::updateMapMarkers(double color){
         marker.header.stamp = ros::Time();
         marker.ns = "map_array";
         marker.id = j;
-        marker.type = visualization_msgs::Marker::CUBE;
+        marker.type = visualization_msgs::Marker::MESH_RESOURCE;
         marker.action = visualization_msgs::Marker::ADD;
         marker.pose.position.x = landmark(0);
         marker.pose.position.y = landmark(1);
         marker.pose.position.z = landmark(2);
-        marker.pose.orientation.x = 0.0;
+        marker.pose.orientation.x = 1.0;
         marker.pose.orientation.y = 0.0;
         marker.pose.orientation.z = 0.0;
-        marker.pose.orientation.w = 1.0;
+        marker.pose.orientation.w = 0.0;
         marker.scale.x = 1;
         marker.scale.y = 1;
         marker.scale.z = 1;
@@ -212,6 +212,7 @@ void EKFSLAM::updateMapMarkers(double color){
         marker.color.r = color;
         marker.color.g = 1.0;
         marker.color.b = 0.0;
+        marker.mesh_resource = "package://smarc_worlds/world_models/large_rock/meshes/large_rock.dae";
 
         marker_array.markers.push_back(marker);
     }
