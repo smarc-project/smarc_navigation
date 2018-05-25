@@ -9,6 +9,8 @@ MBESReceptor::MBESReceptor(std::string node_name, ros::NodeHandle &nh):
 
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
     nh_->param<std::string>((node_name_ + "/mbes_frame"), mbes_frame_, "/mbes_link");
+    nh_->param<std::string>((node_name_ + "/map_frame"), map_frame_, "/map_link");
+    nh_->param<int>((node_name_ + "/submap_size"), meas_size_, 5);
     nh_->param<std::string>((node_name_ + "/mbes_laser_topic"), mbes_topic, "/mbes_laser_topic");
     nh_->param<std::string>((node_name_ + "/pcl_pub_topic"), pcl_pub_topic, "/pcl_pub_topic");
 
@@ -16,7 +18,7 @@ MBESReceptor::MBESReceptor(std::string node_name, ros::NodeHandle &nh):
     // Synch reception of mbes msgs
     // RVIZ pcl output for testing
     mbes_laser_sub_ = nh_->subscribe(mbes_topic, 10, &MBESReceptor::MBESLaserCB, this);
-    pcl_pub_ = nh_->advertise<sensor_msgs::PointCloud> (pcl_pub_topic, 2);
+    pcl_pub_ = nh_->advertise<sensor_msgs::PointCloud2> (pcl_pub_topic, 2);
 
     this->init();
     ros::spin();
