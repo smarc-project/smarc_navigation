@@ -25,6 +25,9 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
 
+#include <fstream>
+#include <iostream>
+
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
 class MBESReceptor{
@@ -64,6 +67,8 @@ private:
     void MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in);
 
     void bcMapSubmapsTF(std::vector<tf::Transform> tfs_meas_map);
+
+    void savePointCloud(PointCloud submap_pcl, std::string file_name);
 
     void pclFuser();
 

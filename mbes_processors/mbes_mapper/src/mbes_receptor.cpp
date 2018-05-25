@@ -14,8 +14,6 @@ MBESReceptor::MBESReceptor(std::string node_name, ros::NodeHandle &nh):
     nh_->param<std::string>((node_name_ + "/mbes_laser_topic"), mbes_topic, "/mbes_laser_topic");
     nh_->param<std::string>((node_name_ + "/pcl_pub_topic"), pcl_pub_topic, "/pcl_pub_topic");
 
-
-    // Synch reception of mbes msgs
     // RVIZ pcl output for testing
     mbes_laser_sub_ = nh_->subscribe(mbes_topic, 10, &MBESReceptor::MBESLaserCB, this);
     pcl_pub_ = nh_->advertise<sensor_msgs::PointCloud2> (pcl_pub_topic, 2);
@@ -35,14 +33,10 @@ void MBESReceptor::init(){
         ROS_ERROR("%s", exception.what());
     }
     ROS_INFO_STREAM(node_name_ << ": launched");
-
-    pcl_msg_ = boost::shared_ptr<PointCloud>(new PointCloud);
-    pcl_msg_->header.frame_id = base_frame_;
 }
 
 void MBESReceptor::pclFuser(){
 
-//    msg->points.push_back(cloud);
     ROS_INFO("PCL fuser called");
 
     // Check time stamps for max distance covered in the new swath
@@ -54,25 +48,10 @@ void MBESReceptor::pclFuser(){
     // Broadcast all meas frames (for testing?)
     bcMapSubmapsTF(tf_map_meas_vec_);
 
-    // Header of new swath resulting from merging the scan inputs
-    pcl_msg_->header.frame_id = base_frame_;
-
-//    // Store acquisition pose: the base_frame in the middle of the swath
-//    pcl_msg_->sensor_origin_ = Eigen::Vector4f(tf_map_meas.getOrigin().getX(),
-//                                               tf_map_meas.getOrigin().getY(),
-//                                               tf_map_meas.getOrigin().getZ(),
-//                                               1);
-//    pcl_msg_->sensor_orientation_ = Eigen::Quaternionf(tf_map_meas.getRotation().getX(),
-//                                                      tf_map_meas.getRotation().getY(),
-//                                                       tf_map_meas.getRotation().getZ(),
-//                                                      tf_map_meas.getRotation().getW());
-
-    // Clean up previous submap
-    pcl_msg_->points.clear();
-    PointCloud submap_pcl;
 
     // Transform and concatenate the PCLs to form the swath
     PointCloud tfed_pcl;
+    PointCloud submap_pcl;
 
     // For each ping
     for(std::tuple<PointCloud, tf::Transform> ping: mbes_swath_){
@@ -89,8 +68,20 @@ void MBESReceptor::pclFuser(){
     submap_msg.header.stamp = ros::Time::now();
 
     pcl_pub_.publish(submap_msg);
+    savePointCloud(submap_pcl, "submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame.txt");
 }
 
+
+void MBESReceptor::savePointCloud(PointCloud submap_pcl, std::string file_name){
+
+    std::ofstream myfile ("/home/nacho/" + file_name);
+    if (myfile.is_open()){
+        for(unsigned int i=0; i<submap_pcl.points.size(); i++){
+            myfile << submap_pcl.points.at(i).x << " " << submap_pcl.points.at(i).y << " " << submap_pcl.points.at(i).z << "\n";
+        }
+      myfile.close();
+    }
+}
 
 void MBESReceptor::bcMapSubmapsTF(std::vector<tf::Transform> tfs_meas_map){
 
@@ -131,6 +122,7 @@ void MBESReceptor::MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in){
 
     // Listen to tf map --> base pose
     try {
+        // TODO: can this made faster?
         tf_listener_.waitForTransform(base_frame_, map_frame_, scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment), ros::Duration(0.1));
         tf_listener_.lookupTransform(base_frame_, map_frame_, scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment), tf_base_map_);
         ROS_DEBUG_STREAM(node_name_ << ": locked transform map --> base at t");
@@ -147,10 +139,6 @@ void MBESReceptor::MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in){
         this->pclFuser();
         mbes_swath_.clear();
     }
-
-//    ROS_INFO("Publishing PCL msg");
-//    pcl_pub_.publish(scan_cloud);
-
 }
 
 MBESReceptor::~MBESReceptor(){
