@@ -36,28 +36,120 @@ void MBESReceptor::init(){
     }
     ROS_INFO_STREAM(node_name_ << ": launched");
 
+    pcl_msg_ = boost::shared_ptr<PointCloud>(new PointCloud);
+    pcl_msg_->header.frame_id = base_frame_;
+}
+
+void MBESReceptor::pclFuser(){
+
+//    msg->points.push_back(cloud);
+    ROS_INFO("PCL fuser called");
+
+    // Check time stamps for max distance covered in the new swath
+
+    // Build and store frame of new submap meas
+    tf::Transform tf_submap_map = std::get<1>(mbes_swath_.at((meas_size_-1)/2));
+    tf_map_meas_vec_.push_back(tf_submap_map.inverse());
+
+    // Broadcast all meas frames (for testing?)
+    bcMapSubmapsTF(tf_map_meas_vec_);
+
+    // Header of new swath resulting from merging the scan inputs
+    pcl_msg_->header.frame_id = base_frame_;
+
+//    // Store acquisition pose: the base_frame in the middle of the swath
+//    pcl_msg_->sensor_origin_ = Eigen::Vector4f(tf_map_meas.getOrigin().getX(),
+//                                               tf_map_meas.getOrigin().getY(),
+//                                               tf_map_meas.getOrigin().getZ(),
+//                                               1);
+//    pcl_msg_->sensor_orientation_ = Eigen::Quaternionf(tf_map_meas.getRotation().getX(),
+//                                                      tf_map_meas.getRotation().getY(),
+//                                                       tf_map_meas.getRotation().getZ(),
+//                                                      tf_map_meas.getRotation().getW());
+
+    // Clean up previous submap
+    pcl_msg_->points.clear();
+    PointCloud submap_pcl;
+
+    // Transform and concatenate the PCLs to form the swath
+    PointCloud tfed_pcl;
+
+    // For each ping
+    for(std::tuple<PointCloud, tf::Transform> ping: mbes_swath_){
+        // Transform from base at t to meas frame
+        pcl_ros::transformPointCloud(std::get<0>(ping), tfed_pcl, tf_submap_map * std::get<1>(ping).inverse());
+        // Add to submap pcl
+        submap_pcl += tfed_pcl;
+    }
+
+    // Create ROS msg and publish
+    sensor_msgs::PointCloud2 submap_msg;
+    pcl::toROSMsg(submap_pcl, submap_msg);
+    submap_msg.header.frame_id = "submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame";
+    submap_msg.header.stamp = ros::Time::now();
+
+    pcl_pub_.publish(submap_msg);
 }
 
 
+void MBESReceptor::bcMapSubmapsTF(std::vector<tf::Transform> tfs_meas_map){
+
+    int cnt_i = 0;
+    tf::StampedTransform tf_map_submap_stp;
+    geometry_msgs::TransformStamped msg_map_submap;
+    for(tf::Transform tf_measi_map: tfs_meas_map){
+         tf_map_submap_stp = tf::StampedTransform(tf_measi_map,
+                                                  ros::Time::now(),
+                                                  map_frame_,
+                                                  "submap_" + std::to_string(cnt_i) + "_frame");
+
+         cnt_i += 1;
+         tf::transformStampedTFToMsg(tf_map_submap_stp, msg_map_submap);
+         submaps_bc_.sendTransform(msg_map_submap);
+    }
+}
+
 void MBESReceptor::MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in){
 
-    if(!tf_listener_.waitForTransform(
-        mbes_frame_,
-        base_frame_,
-        scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment),
-        ros::Duration(1.0))){
+    // LaserScan to PCL
+    if(!tf_listener_.waitForTransform(mbes_frame_,
+                                      base_frame_,
+                                      scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment),
+                                      ros::Duration(0.1))){
         ROS_INFO("Skipping iteration");
-     return;
-  }
+        // TODO: handle this somehow?
+        return;
+    }
+    sensor_msgs::PointCloud2 scan_cloud;
+    PointCloud pcl_cloud;
+    projector_.transformLaserScanToPointCloud(base_frame_, *scan_in, scan_cloud, tf_listener_);
 
-  sensor_msgs::PointCloud cloud;
-  projector_.transformLaserScanToPointCloud(base_frame_, *scan_in, cloud, tf_listener_);
+    // Convert from PointCloud2 to PCL pointcloud
+    pcl::PCLPointCloud2 pcl_pc2;
+    pcl_conversions::toPCL(scan_cloud, pcl_pc2);
+    pcl::fromPCLPointCloud2(pcl_pc2, pcl_cloud);
 
-//  PointCloud::Ptr msg (new PointCloud);
-//  msg->header.frame_id = base_frame_;
-//  msg->points.push_back(cloud);
+    // Listen to tf map --> base pose
+    try {
+        tf_listener_.waitForTransform(base_frame_, map_frame_, scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment), ros::Duration(0.1));
+        tf_listener_.lookupTransform(base_frame_, map_frame_, scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment), tf_base_map_);
+        ROS_DEBUG_STREAM(node_name_ << ": locked transform map --> base at t");
 
-  pcl_pub_.publish(cloud);
+        // Store both PCL and tf at meas time
+        mbes_swath_.emplace_back(pcl_cloud, tf::Transform(tf_base_map_.getRotation().normalize(), tf_base_map_.getOrigin()));
+    }
+    catch(tf::TransformException &exception) {
+        ROS_ERROR("%s", exception.what());
+    }
+
+    // When desired num of pings per swath is reached, merge them and clear buffer
+    if(mbes_swath_.size() == meas_size_){
+        this->pclFuser();
+        mbes_swath_.clear();
+    }
+
+//    ROS_INFO("Publishing PCL msg");
+//    pcl_pub_.publish(scan_cloud);
 
 }
 

@@ -43,13 +43,29 @@ private:
 
     std::string mbes_frame_;
     std::string base_frame_;
+    std::string map_frame_;
 
     tf::StampedTransform tf_base_mbes_;
-
-    laser_geometry::LaserProjection projector_;
+    tf::StampedTransform tf_base_map_;
     tf::TransformListener tf_listener_;
+    tf::TransformBroadcaster submaps_bc_;
+
+    PointCloud::Ptr pcl_msg_;
+    laser_geometry::LaserProjection projector_;
+
+    // Aux
+    unsigned int pcl_cnt_;
+    int meas_size_;
+
+    // Submaps
+    std::vector<std::tuple<PointCloud, tf::Transform>> mbes_swath_;
+    std::vector<tf::Transform> tf_map_meas_vec_;
 
     void MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in);
+
+    void bcMapSubmapsTF(std::vector<tf::Transform> tfs_meas_map);
+
+    void pclFuser();
 
     void init();
 };
