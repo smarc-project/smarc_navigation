@@ -10,6 +10,8 @@
             <param name="lm_detect_topic" value="/$(arg namespace)/mbes_detections"/>
         </node>
 
+        <node name="pipe_detector" pkg="smarc_visual" type="visual_threshold_pipe_locator_node.py" respawn="false" output="screen" args="nopitch"/>
+
 <!--         <node pkg="fls_processors" name="fls_rock_detector" type="fls_rock_detector" output="screen">
             <param name="base_frame" value="/$(arg namespace)/base_link"/>
             <param name="fls_frame" value="/$(arg namespace)/forward_sonardown_link"/>
