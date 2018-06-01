@@ -12,11 +12,13 @@
             <param name="lm_detect_topic" value="/$(arg namespace)/mbes_detections"/>
         </node> -->
 
+        <node name="pipe_detector" pkg="smarc_visual" type="visual_threshold_pipe_locator_node.py" respawn="false" output="screen" args="nopitch"/>
+
         <node pkg="mbes_mapper" name="$(arg namespace)_mbes_pcl_receptor" type="mbes_pcl_receptor" output="screen">
             <param name="base_frame" value="/$(arg namespace)/base_link"/>
             <param name="map_frame" value="/$(arg namespace)_map"/>
             <param name="mbes_frame" value="/$(arg namespace)/mbes_sonardown_link"/>
-            <param name="submap_size" value="21"/>
+            <param name="submap_size" value="31"/>
             <param name="mbes_laser_topic" value="/$(arg namespace)/mbes_laser"/>
             <param name="pcl_pub_topic" value="/$(arg namespace)/mbes_pcl"/>
         </node>
