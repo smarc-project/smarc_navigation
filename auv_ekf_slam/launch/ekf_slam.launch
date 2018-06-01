@@ -35,7 +35,7 @@
                 <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
                 <!--tf frames-->
                 <param name="world_frame" value="world"/>
-                <param name="map_frame" value="map"/>
+                <param name="map_frame" value="lolo_auv_1_map"/>
                 <param name="odom_frame" value="odom"/>
                 <param name="fls_frame" value="/$(arg namespace)/forward_sonardown_link"/>
                 <param name="mbes_frame" value="/$(arg namespace)/base_link"/>

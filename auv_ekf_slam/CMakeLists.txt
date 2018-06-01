@@ -31,8 +31,7 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     message_filters
     pcl_ros
-    auv_ekf_localization
-    landmark_visualizer
+    smarc_lm_visualizer
  )
 
 find_package(PCL REQUIRED)
@@ -100,7 +99,6 @@ add_dependencies(ekf_slam_node
     )
 
 target_link_libraries(ekf_slam_node
-    noise_kf
     ekf_core
     ekf_utils
     corresp_obj

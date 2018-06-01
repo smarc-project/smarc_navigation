@@ -38,9 +38,8 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
-#include "noise_oneD_kf/noise_oneD_kf.hpp"
 #include "ekf_slam_core/ekf_slam_core.hpp"
-#include "landmark_visualizer/init_map.h"
+#include "smarc_lm_visualizer/init_map.h"
 
 #include "ceres/ceres.h"
 #include "glog/logging.h"

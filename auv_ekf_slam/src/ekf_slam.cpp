@@ -41,12 +41,12 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     cam_subs_ = nh_->subscribe(cam_path_topic, 2, &EKFSLAM::camCB, this);
 
     // Plot map in RVIZ
-    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv/rviz/landmarks", 0 );
-    pipe_pub_ = nh_->advertise<nav_msgs::Path>("/lolo_auv/path_pipeline", 0);
-    pipe_lm_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/lolo_auv/pipeline_landmark", 0);
+    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv_1/rviz/landmarks", 0 );
+    pipe_pub_ = nh_->advertise<nav_msgs::Path>("/lolo_auv_1/path_pipeline", 0);
+    pipe_lm_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/lolo_auv_1/pipeline_landmark", 0);
 
     // Get initial map of beacons from Gazebo
-    init_map_client_ = nh_->serviceClient<landmark_visualizer::init_map>("/lolo_auv/map_server");
+    init_map_client_ = nh_->serviceClient<smarc_lm_visualizer::init_map>("/rviz/map_server");
 
     // Initialize internal params
     init(Sigma_diagonal, R_diagonal, Q_fls_diag, Q_mbes_diag, delta, mh_dist_fls, mh_dist_mbes);
@@ -130,11 +130,11 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
 
 
     // Initial map of the survey area (usually artificial beacons)
-    while(!ros::service::waitForService("/lolo_auv/map_server", ros::Duration(10)) && ros::ok()){
+    while(!ros::service::waitForService("/rviz/map_server", ros::Duration(10)) && ros::ok()){
         ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
     }
 
-    landmark_visualizer::init_map init_map_srv;
+    smarc_lm_visualizer::init_map init_map_srv;
     init_map_srv.request.request_map = true;
 
     init_map_client_.call(init_map_srv);
