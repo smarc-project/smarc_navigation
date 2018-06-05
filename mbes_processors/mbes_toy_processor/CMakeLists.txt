@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(mbes_processors)
+project(mbes_toy_processor)
 
 # check c++14 / c++0x
 include(CheckCXXCompilerFlag)
