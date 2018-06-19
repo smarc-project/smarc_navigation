@@ -2,7 +2,7 @@
 
 EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_name_(node_name){
 
-    std::string map_topic;
+    std::string pose_topic;
     std::string odom_topic;
     std::string observs_topic;
     std::string lm_topic;
@@ -23,7 +23,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param<double>((node_name_ + "/system_freq"), freq, 30);
     nh_->param<double>((node_name_ + "/mhl_dist_fls"), mh_dist_fls, 0.5);
     nh_->param<double>((node_name_ + "/mhl_dist_mbes"), mh_dist_mbes, 0.2);
-    nh_->param<std::string>((node_name_ + "/map_pose_topic"), map_topic, "/map_ekf");
+    nh_->param<std::string>((node_name_ + "/pose_estimate_topic"), pose_topic, "/map_ekf");
     nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
     nh_->param<std::string>((node_name_ + "/world_frame"), world_frame_, "/world");
@@ -38,7 +38,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     // Subscribe to sensor msgs
     observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFSLAM::observationsCB, this);
     odom_subs_ = nh_->subscribe(odom_topic, 10, &EKFSLAM::odomCB, this);
-    map_pub_ = nh_->advertise<nav_msgs::Odometry>(map_topic, 10);
+    pose_pub_ = nh_->advertise<nav_msgs::Odometry>(pose_topic, 10);
 
     // Plot map in RVIZ
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>(lm_topic, 0 );
@@ -226,15 +226,23 @@ bool EKFSLAM::sendOutput(ros::Time t_meas){
     geometry_msgs::Quaternion odom_quat;
     tf::quaternionTFToMsg(q_auv_t, odom_quat);
 
-    nav_msgs::Odometry odom_filtered_msg;
-    odom_filtered_msg.header.stamp = t_meas;
-    odom_filtered_msg.header.frame_id = map_frame_;
-    odom_filtered_msg.child_frame_id = base_frame_;
-    odom_filtered_msg.pose.pose.position.x = mu_(0);
-    odom_filtered_msg.pose.pose.position.y = mu_(1);
-    odom_filtered_msg.pose.pose.position.z = mu_(2);
-    odom_filtered_msg.pose.pose.orientation = odom_quat;
-    map_pub_.publish(odom_filtered_msg);
+
+    nav_msgs::Odometry filtered_pose_msg;
+    // Copy covariance of AUV pose: serialize the matrix per column
+    for(unsigned int i = 0; i < 6; i++) {
+      for(unsigned int j = 0; j < 6; j++) {
+        filtered_pose_msg.pose.covariance[i*6 + j] = Sigma_(i,j);
+      }
+    }
+    // Compose rest of the message
+    filtered_pose_msg.header.stamp = t_meas;
+    filtered_pose_msg.header.frame_id = map_frame_;
+    filtered_pose_msg.child_frame_id = base_frame_;
+    filtered_pose_msg.pose.pose.position.x = mu_(0);
+    filtered_pose_msg.pose.pose.position.y = mu_(1);
+    filtered_pose_msg.pose.pose.position.z = mu_(2);
+    filtered_pose_msg.pose.pose.orientation = odom_quat;
+    pose_pub_.publish(filtered_pose_msg);
 
     return true;
 }

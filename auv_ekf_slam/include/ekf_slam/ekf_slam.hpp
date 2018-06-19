@@ -71,7 +71,7 @@ private:
     // Comms
     ros::Subscriber odom_subs_;
     ros::Subscriber observs_subs_;
-    ros::Publisher map_pub_;
+    ros::Publisher pose_pub_;
     ros::Publisher vis_pub_;
     ros::ServiceClient init_map_client_;
 
