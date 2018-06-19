@@ -38,9 +38,8 @@ public:
     EKFCore(Eigen::VectorXd& mu, Eigen::MatrixXd& Sigma, Eigen::MatrixXd& R, Eigen::MatrixXd& Q_fls, Eigen::MatrixXd &Q_mbes,
             double& lambda_fls, double& lambda_mbes, tf::StampedTransform& tf_base_sensor, const double mh_dist_fls, const double mh_dist_mbes);
     ~EKFCore();
-    std::tuple<Eigen::VectorXd, Eigen::MatrixXd, std::vector<Eigen::Vector3d>> ekfUpdate();
+    std::tuple<Eigen::VectorXd, Eigen::MatrixXd> ekfUpdate();
     void predictMotion(nav_msgs::Odometry odom_reading);
-
     void batchDataAssociation(std::vector<Eigen::Vector3d> z_t, const utils::MeasSensor& sens_type);
 
 private:
@@ -65,7 +64,6 @@ private:
     double mh_dist_fls_;
     double mh_dist_mbes_;
     int lm_num_;
-    std::vector<Eigen::Vector3d> map_pipe_;
 
     void predictBatchMeasurement(const Eigen::Vector3d &landmark_j,
                                 const Eigen::Vector3d &z_i,

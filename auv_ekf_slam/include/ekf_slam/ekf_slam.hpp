@@ -23,14 +23,13 @@
 #include <boost/math/distributions/inverse_chi_squared.hpp>
 
 #include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/TwistWithCovarianceStamped.h>
 #include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/TransformStamped.h>
-#include <geometry_msgs/PoseArray.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
+#include <geometry_msgs/PoseArray.h>
 
 #include <tf/tf.h>
 #include <tf2/transform_datatypes.h>
@@ -40,9 +39,6 @@
 
 #include "ekf_slam_core/ekf_slam_core.hpp"
 #include "smarc_lm_visualizer/init_map.h"
-
-#include "ceres/ceres.h"
-#include "glog/logging.h"
 
 /**
  * @brief The EKFSLAM class
@@ -74,17 +70,13 @@ private:
     // Comms
     ros::Subscriber odom_subs_;
     ros::Subscriber observs_subs_;
-    ros::Subscriber cam_subs_;
     ros::Publisher map_pub_;
     ros::Publisher vis_pub_;
-    ros::Publisher pipe_pub_;
-    ros::Publisher pipe_lm_pub_;
     ros::ServiceClient init_map_client_;
 
     // Handlers for sensors
     std::deque<geometry_msgs::PoseArray> measurements_t_;
     std::deque<nav_msgs::Odometry> odom_queue_t_;
-    std::deque<nav_msgs::Path> pipe_path_queue_t_;
     boost::mutex msg_lock_;
 
     // EKF state variables
@@ -94,15 +86,10 @@ private:
 
     // Mapping variables
     int lm_num_;
-    nav_msgs::Path pipeline_mask_;
-    bool first_pipe_rcv_;
-    std::vector<Eigen::Vector3d> map_pipe_;
-
 
     // Aux
     unsigned int size_odom_q_;
     unsigned int size_measurements_q_;
-    int pipe_meas_cnt_;
 
     // tf
     tf::TransformBroadcaster map_bc_;
@@ -129,10 +116,6 @@ private:
     void odomCB(const nav_msgs::Odometry &odom_msg);
 
     void observationsCB(const geometry_msgs::PoseArray &observ_msg);
-
-    void camCB(const nav_msgs::Path &pipe_path);
-
-    void computePipePath(const nav_msgs::Path& pipe_proj, geometry_msgs::PoseStamped &pipeline_lm);
 
     /**
      * @brief createMapMarkers

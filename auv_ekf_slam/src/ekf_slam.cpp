@@ -5,9 +5,7 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     std::string map_topic;
     std::string odom_topic;
     std::string observs_topic;
-    std::string cam_path_topic;
     std::string lm_topic;
-
     double freq;
     double delta;
     double mh_dist_mbes;
@@ -28,7 +26,6 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param<std::string>((node_name_ + "/map_pose_topic"), map_topic, "/map_ekf");
     nh_->param<std::string>((node_name_ + "/odom_pub_topic"), odom_topic, "/odom_ekf");
     nh_->param<std::string>((node_name_ + "/lm_detect_topic"), observs_topic, "/landmarks_detected");
-    nh_->param<std::string>((node_name_ + "/cam_pipe_topic"), cam_path_topic, "/lolo_auv/camera/path");
     nh_->param<std::string>((node_name_ + "/world_frame"), world_frame_, "/world");
     nh_->param<std::string>((node_name_ + "/fls_frame"), fls_frame_, "/forward_sonardown_link");
     nh_->param<std::string>((node_name_ + "/mbes_frame"), mbes_frame_, "/base_link");
@@ -42,15 +39,8 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFSLAM::observationsCB, this);
     odom_subs_ = nh_->subscribe(odom_topic, 10, &EKFSLAM::odomCB, this);
     map_pub_ = nh_->advertise<nav_msgs::Odometry>(map_topic, 10);
-    cam_subs_ = nh_->subscribe(cam_path_topic, 2, &EKFSLAM::camCB, this);
 
     // Plot map in RVIZ
-    /*vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv_1/rviz/landmarks", 0 );
-    pipe_pub_ = nh_->advertise<nav_msgs::Path>("/lolo_auv_1/path_pipeline", 0);
-    pipe_lm_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/lolo_auv_1/pipeline_landmark", 0);
-
-    // Get initial map of beacons from Gazebo
-    init_map_client_ = nh_->serviceClient<smarc_lm_visualizer::init_map>("/rviz/map_server");*/
     vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>(lm_topic, 0 );
 
     // Get initial map of beacons from Gazebo
@@ -102,9 +92,6 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     // Aux
     size_odom_q_ = 10;
     size_measurements_q_ = 1;
-    pipe_meas_cnt_ = 0;
-    first_pipe_rcv_ = false;
-    pipeline_mask_.header.frame_id = base_frame_;
 
     // Listen to necessary, fixed tf transforms
     tf::StampedTransform tf_base_sensor;
@@ -138,8 +125,6 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
 
 
     // Initial map of the survey area (usually artificial beacons)
-    /*while(!ros::service::waitForService("/rviz/map_server", ros::Duration(10)) && ros::ok()){
-        ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");*/
     while(!ros::service::waitForService(map_srv_, ros::Duration(10)) && ros::ok()){
         ROS_INFO_STREAM(node_name_ << ": waiting for the map server service to come up");
     }
@@ -199,21 +184,11 @@ void EKFSLAM::observationsCB(const geometry_msgs::PoseArray &observ_msg){
     }
 }
 
-void EKFSLAM::camCB(const nav_msgs::Path &pipe_path){
-    if(!first_pipe_rcv_){
-        first_pipe_rcv_ = true;
-    }
-    pipe_path_queue_t_.push_back(pipe_path);
-    while(pipe_path_queue_t_.size() >= 2){
-         pipe_path_queue_t_.pop_front();
-    }
-}
 
 void EKFSLAM::updateMapMarkers(double color){
 
     visualization_msgs::MarkerArray marker_array;
     Eigen::Vector3d landmark;
-    visualization_msgs::Marker marker;
     for(unsigned int j=0; j<(mu_.rows()-6)/3; j++){
         landmark = mu_.segment(3 * j + 6, 3);
         visualization_msgs::Marker marker;
@@ -240,35 +215,6 @@ void EKFSLAM::updateMapMarkers(double color){
 
         marker_array.markers.push_back(marker);
     }
-
-    tf::Quaternion q = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
-
-    int cnt = (mu_.rows()-6)/3;
-    for(Eigen::Vector3d& pipe_lm: map_pipe_){
-        marker.header.frame_id = map_frame_;
-        marker.header.stamp = ros::Time();
-        marker.ns = "map_array";
-        marker.id = cnt;
-        marker.type = visualization_msgs::Marker::CYLINDER;
-        marker.action = visualization_msgs::Marker::ADD;
-        marker.pose.position.x = pipe_lm(0);
-        marker.pose.position.y = pipe_lm(1);
-        marker.pose.position.z = pipe_lm(2);
-        marker.pose.orientation.x =  0.7071;
-        marker.pose.orientation.y = 0;
-        marker.pose.orientation.z =  0.7071;
-        marker.pose.orientation.w = 0;
-        marker.scale.x = 1;
-        marker.scale.y = 1;
-        marker.scale.z = 1;
-        marker.color.a = 1.0;
-        marker.color.r = 1.0;
-        marker.color.g = 0.0;
-        marker.color.b = 0.0;
-        cnt +=1;
-        marker_array.markers.push_back(marker);
-    }
-
     vis_pub_.publish(marker_array);
 }
 
@@ -301,12 +247,11 @@ bool EKFSLAM::bcMapOdomTF(ros::Time t_meas){
         tf_listener_.lookupTransform(base_frame_, odom_frame_, t_meas, tf_base_odom);
         // Build tf map --> base from estimated pose
         tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
-        tf::Transform tf_map_base = tf::Transform(q_auv_t, tf::Vector3(mu_(0), mu_(1), mu_(2)));
+        tf::Transform tf_base_map = tf::Transform(q_auv_t, tf::Vector3(mu_(0), mu_(1), mu_(2)));
 
         // Compute map --> odom transform
         tf::Transform tf_map_odom;
-        tf_map_odom.mult(tf_map_base, tf_base_odom);
-//        tf_map_odom = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
+        tf_map_odom.mult(tf_base_map, tf_base_odom);
         tf::StampedTransform tf_odom_map_stp = tf::StampedTransform(tf_map_odom,
                                                t_meas,
                                                map_frame_,
@@ -326,108 +271,13 @@ bool EKFSLAM::bcMapOdomTF(ros::Time t_meas){
     return broadcasted;
 }
 
-struct ThirdDegreePolyResidual {
-  ThirdDegreePolyResidual(double x, double y): x_(x), y_(y) {}
-
-  template <typename T> bool operator()(/*const T* const m3,*/
-                                        const T* const m2,
-                                        const T* const m1,
-                                        const T* const c,
-                                        T* residual) const {
-    residual[0] = y_ - (/*m3[0] * pow(x_,3)*/ + m2[0] * pow(x_,2) + m1[0] * x_ + c[0]);
-    return true;
-  }
-
- private:
-  const double x_;
-  const double y_;
-};
-
-void EKFSLAM::computePipePath(const nav_msgs::Path &pipe_proj, geometry_msgs::PoseStamped& pipeline_lm){
-
-    using ceres::AutoDiffCostFunction;
-    using ceres::CostFunction;
-    using ceres::CauchyLoss;
-    using ceres::Problem;
-    using ceres::Solve;
-    using ceres::Solver;
-
-    double m3 = 0.0;
-    double m2 = 0.0;
-    double m1 = 0.0;
-    double c = 0.0;
-    Problem problem;
-
-    tf::Transform transf_base_map = tf::Transform(tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize(),
-                                                  tf::Vector3(mu_(0), mu_(1), mu_(2))).inverse();
-
-    tf::Vector3 pose_in_base;
-    for (geometry_msgs::PoseStamped pose_sample: pipe_proj.poses) {
-        pose_in_base = transf_base_map  * tf::Vector3(pose_sample.pose.position.x,
-                                                      pose_sample.pose.position.y,
-                                                      pose_sample.pose.position.z);
-        // Store pose in base_frame
-        pose_sample.header.frame_id = base_frame_;
-        pose_sample.pose.position.x = pose_in_base.getX();
-        pose_sample.pose.position.y = pose_in_base.getY();
-        pose_sample.pose.position.z = pose_in_base.getZ();
-
-        // Add it to the mask
-        pipeline_mask_.poses.push_back(pose_sample);
-
-        CostFunction* cost_function = new AutoDiffCostFunction<ThirdDegreePolyResidual, 1, /*1,*/ 1, 1, 1>(new ThirdDegreePolyResidual(pose_sample.pose.position.x, pose_sample.pose.position.y));
-
-        problem.AddResidualBlock(cost_function, new CauchyLoss(0.5), /*&m3,*/ &m2, &m1, &c);
-    }
-
-
-
-    Solver::Options options;
-    options.linear_solver_type = ceres::DENSE_QR;
-    options.minimizer_progress_to_stdout = false;
-    Solver::Summary summary;
-    Solve(options, &problem, &summary);
-
-    // Publish interpolated curve
-    nav_msgs::Path pipeline_path;
-    pipeline_path.header.frame_id = base_frame_;
-    pipeline_path.header.stamp = ros::Time::now();
-    geometry_msgs::PoseStamped new_pose;
-    new_pose.header.frame_id = base_frame_;
-    new_pose.header.stamp = ros::Time::now();
-
-    for (const geometry_msgs::PoseStamped& pose_sample: pipeline_mask_.poses) {
-        new_pose.pose.position.x = pose_sample.pose.position.x;
-        new_pose.pose.position.y = /*m3*pow(pose_sample.pose.position.x,3)*/ + m2*pow(pose_sample.pose.position.x,2) + m1*pose_sample.pose.position.x + c;
-        new_pose.pose.position.z = pose_sample.pose.position.z;
-
-        pipeline_path.poses.push_back(new_pose);
-
-    }
-    pipe_pub_.publish(pipeline_path);
-
-    // Solve poly for x=0 and publish for visualization
-    pipeline_lm.header.frame_id = base_frame_;
-    pipeline_lm.header.stamp = ros::Time::now();
-    pipeline_lm.pose.position.x = 0.0;
-    pipeline_lm.pose.position.y = /*m3*pow(smallest_x - i,3)*/ + m2*pow(0.0,2) + m1*(0.0) + c;
-    pipeline_lm.pose.position.z = pipeline_mask_.poses.at(pipeline_mask_.poses.size()-1).pose.position.z;
-
-    pipe_lm_pub_.publish(pipeline_lm);
-
-    pipeline_mask_.poses.clear();
-
-}
-
 void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
 
     // TODO: predefine matrices so that they can be allocated in the stack!
     nav_msgs::Odometry odom_reading;
-    nav_msgs::Path pipe_path_t;
     std::vector<Eigen::Vector3d> z_t;
     utils::MeasSensor sensor_input;
-//    geometry_msgs::PoseStamped pipeline_lm;
-    ros::Time t_meas;r
+    ros::Time t_meas;
 
     if(!odom_queue_t_.empty()){
         // Fetch latest measurement
@@ -439,40 +289,7 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
         // Prediction step
         ekf_filter_->predictMotion(odom_reading);
 
-        // Pipe detected by camera (1 Hz freq)
-        /*if(first_pipe_rcv_){
-            pipe_meas_cnt_ = 0;
-            if(!pipe_path_queue_t_.empty()){
-                pipe_path_t = pipe_path_queue_t_.back();
-                pipe_path_queue_t_.pop_back();
-
-                // If the camera has found the pipe
-                if(!pipe_path_t.poses.empty()){
-//                    updatePipelineMask(pipe_path_t);
-                    computePipePath(pipe_path_t, pipeline_lm);
-                    // If observations available:
-                    if(!measurements_t_.empty()){
-                        ROS_INFO("----New measurements received----");
-                        // Fetch latest measurement
-                        auto observ = measurements_t_.back();
-                        measurements_t_.pop_back();
-
-                        // Check the sensor type
-                        sensor_input = (observ.header.frame_id == mbes_frame_)? utils::MeasSensor::MBES: utils::MeasSensor::FLS;    // TODO: generalize condition statement
-                        for(auto lm_pose: observ.poses){
-                            z_t.push_back(Eigen::Vector3d(lm_pose.position.x,
-                                                          lm_pose.position.y,
-                                                          lm_pose.position.z));
-                        }
-
-                        // Data association and sequential update
-                        ekf_filter_->dataAssociation(z_t, sensor_input, pipeline_lm);
-                        z_t.clear();
-                    }
-                }
-            }*/
-
-      // If observations available:
+        // If observations available:
         if(!measurements_t_.empty()){
 //            ROS_INFO("----New measurements received----");
             // Fetch latest measurement
@@ -494,13 +311,12 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
         }
 
         // Update mu_ and Sigma_
-        std::tie(mu_, Sigma_, map_pipe_) = ekf_filter_->ekfUpdate();
+        std::tie(mu_, Sigma_) = ekf_filter_->ekfUpdate();
 
         // Publish and broadcast
         this->sendOutput(t_meas);
         this->bcMapOdomTF(t_meas);
         this->updateMapMarkers(1.0);
-        pipe_meas_cnt_ += 1;
     }
     else{
         ROS_WARN_STREAM(node_name_ << ": No odometry info received, bc latest known map --> odom tf");
