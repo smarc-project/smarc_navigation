@@ -52,13 +52,13 @@
   <depend>message_generation</depend>
   <depend>message_runtime</depend>
   <depend>roscpp</depend>
-  <depend>auv_ekf_localization</depend>
+  <depend>mbes_processors</depend>
   <depend>tf</depend>
   <depend>rospy</depend>
   <depend>message_filters</depend>
   <depend>pcl_ros</depend>
   <depend>tf_conversions</depend>
-  <depend>landmark_visualizer</depend>
+  <depend>smarc_lm_visualizer</depend>
 
 <!--   <build_depend>genmsg</build_depend>
   <exec_depend>genmsg</exec_depend>

@@ -6,6 +6,8 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     std::string odom_topic;
     std::string observs_topic;
     std::string cam_path_topic;
+    std::string lm_topic;
+
     double freq;
     double delta;
     double mh_dist_mbes;
@@ -33,6 +35,8 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     nh_->param<std::string>((node_name_ + "/map_frame"), map_frame_, "/map");
     nh_->param<std::string>((node_name_ + "/odom_frame"), odom_frame_, "/odom");
     nh_->param<std::string>((node_name_ + "/base_frame"), base_frame_, "/base_link");
+    nh_->param<std::string>((node_name_ + "/landmarks_adv"), lm_topic, "/lolo_auv/rviz/landmarks");
+    nh_->param<std::string>((node_name_ + "/map_srv"), map_srv_, "/lolo_auv/map_server");
 
     // Subscribe to sensor msgs
     observs_subs_ = nh_->subscribe(observs_topic, 10, &EKFSLAM::observationsCB, this);
@@ -41,12 +45,16 @@ EKFSLAM::EKFSLAM(std::string node_name, ros::NodeHandle &nh): nh_(&nh), node_nam
     cam_subs_ = nh_->subscribe(cam_path_topic, 2, &EKFSLAM::camCB, this);
 
     // Plot map in RVIZ
-    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv_1/rviz/landmarks", 0 );
+    /*vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>( "/lolo_auv_1/rviz/landmarks", 0 );
     pipe_pub_ = nh_->advertise<nav_msgs::Path>("/lolo_auv_1/path_pipeline", 0);
     pipe_lm_pub_ = nh_->advertise<geometry_msgs::PoseStamped>("/lolo_auv_1/pipeline_landmark", 0);
 
     // Get initial map of beacons from Gazebo
-    init_map_client_ = nh_->serviceClient<smarc_lm_visualizer::init_map>("/rviz/map_server");
+    init_map_client_ = nh_->serviceClient<smarc_lm_visualizer::init_map>("/rviz/map_server");*/
+    vis_pub_ = nh_->advertise<visualization_msgs::MarkerArray>(lm_topic, 0 );
+
+    // Get initial map of beacons from Gazebo
+    init_map_client_ = nh_->serviceClient<smarc_lm_visualizer::init_map>(map_srv_);
 
     // Initialize internal params
     init(Sigma_diagonal, R_diagonal, Q_fls_diag, Q_mbes_diag, delta, mh_dist_fls, mh_dist_mbes);
@@ -101,18 +109,18 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     // Listen to necessary, fixed tf transforms
     tf::StampedTransform tf_base_sensor;
     try {
-        tf_listener_.waitForTransform(base_frame_, fls_frame_, ros::Time(0), ros::Duration(10));
+        tf_listener_.waitForTransform(base_frame_, fls_frame_, ros::Time(0), ros::Duration(100));
         tf_listener_.lookupTransform(base_frame_, fls_frame_, ros::Time(0), tf_base_sensor);
-        ROS_INFO("Locked transform sensor --> frame");
+        ROS_INFO_STREAM(node_name_ << ": locked transform sensor --> frame");
     }
     catch(tf::TransformException &exception) {
         ROS_WARN("%s", exception.what());
     }
 
     try {
-        tf_listener_.waitForTransform(map_frame_, world_frame_, ros::Time(0), ros::Duration(10));
+        tf_listener_.waitForTransform(map_frame_, world_frame_, ros::Time(0), ros::Duration(100));
         tf_listener_.lookupTransform(map_frame_, world_frame_, ros::Time(0), transf_map_world_);
-        ROS_INFO("Locked transform world --> map");
+        ROS_INFO_STREAM(node_name_ << ": locked transform world --> map");
     }
     catch(tf::TransformException &exception) {
         ROS_ERROR("%s", exception.what());
@@ -130,8 +138,10 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
 
 
     // Initial map of the survey area (usually artificial beacons)
-    while(!ros::service::waitForService("/rviz/map_server", ros::Duration(10)) && ros::ok()){
-        ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");
+    /*while(!ros::service::waitForService("/rviz/map_server", ros::Duration(10)) && ros::ok()){
+        ROS_INFO_NAMED(node_name_,"Waiting for the map server service to come up");*/
+    while(!ros::service::waitForService(map_srv_, ros::Duration(10)) && ros::ok()){
+        ROS_INFO_STREAM(node_name_ << ": waiting for the map server service to come up");
     }
 
     smarc_lm_visualizer::init_map init_map_srv;
@@ -160,9 +170,9 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
             Sigma_.conservativeResize(Sigma_.rows()+3, Sigma_.cols()+3);
             Sigma_.bottomRows(3).setZero();
             Sigma_.rightCols(3).setZero();
-            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 1;
-            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 1;
-            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 1;
+            Sigma_(Sigma_.rows()-3, Sigma_.cols()-3) = 20;
+            Sigma_(Sigma_.rows()-2, Sigma_.cols()-2) = 10;
+            Sigma_(Sigma_.rows()-1, Sigma_.cols()-1) = 10;
         }
     }
     std::cout << "Initial mu: " << mu_.size() << std::endl;
@@ -172,7 +182,7 @@ void EKFSLAM::init(std::vector<double> sigma_diag, std::vector<double> r_diag, s
     // Create EKF filter
     ekf_filter_ = new EKFCore(mu_, Sigma_, R, Q_fls, Q_mbes, lambda_fls, lambda_mbes, tf_base_sensor, mhl_dist_fls, mhl_dist_mbes);
 
-    ROS_INFO_NAMED(node_name_, "EKF SLAM Initialized");
+    ROS_INFO_STREAM(node_name_  << ": initialized");
 }
 
 void EKFSLAM::odomCB(const nav_msgs::Odometry &odom_msg){
@@ -206,6 +216,7 @@ void EKFSLAM::updateMapMarkers(double color){
     visualization_msgs::Marker marker;
     for(unsigned int j=0; j<(mu_.rows()-6)/3; j++){
         landmark = mu_.segment(3 * j + 6, 3);
+        visualization_msgs::Marker marker;
         marker.header.frame_id = map_frame_;
         marker.header.stamp = ros::Time();
         marker.ns = "map_array";
@@ -261,7 +272,7 @@ void EKFSLAM::updateMapMarkers(double color){
     vis_pub_.publish(marker_array);
 }
 
-bool EKFSLAM::sendOutput(ros::Time t){
+bool EKFSLAM::sendOutput(ros::Time t_meas){
 
     // Publish odom filtered msg
     tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
@@ -269,7 +280,7 @@ bool EKFSLAM::sendOutput(ros::Time t){
     tf::quaternionTFToMsg(q_auv_t, odom_quat);
 
     nav_msgs::Odometry odom_filtered_msg;
-    odom_filtered_msg.header.stamp = t;
+    odom_filtered_msg.header.stamp = t_meas;
     odom_filtered_msg.header.frame_id = map_frame_;
     odom_filtered_msg.child_frame_id = base_frame_;
     odom_filtered_msg.pose.pose.position.x = mu_(0);
@@ -281,13 +292,13 @@ bool EKFSLAM::sendOutput(ros::Time t){
     return true;
 }
 
-bool EKFSLAM::bcMapOdomTF(ros::Time t){
+bool EKFSLAM::bcMapOdomTF(ros::Time t_meas){
     // Get transform odom --> base published by odom_provider
     tf::StampedTransform tf_base_odom;
     bool broadcasted = false;
     try {
-        tf_listener_.waitForTransform(base_frame_, odom_frame_, ros::Time(0), ros::Duration(0.1));
-        tf_listener_.lookupTransform(base_frame_, odom_frame_, ros::Time(0), tf_base_odom);
+        tf_listener_.waitForTransform(base_frame_, odom_frame_, t_meas, ros::Duration(0.1));
+        tf_listener_.lookupTransform(base_frame_, odom_frame_, t_meas, tf_base_odom);
         // Build tf map --> base from estimated pose
         tf::Quaternion q_auv_t = tf::createQuaternionFromRPY(mu_(3), mu_(4), mu_(5)).normalize();
         tf::Transform tf_map_base = tf::Transform(q_auv_t, tf::Vector3(mu_(0), mu_(1), mu_(2)));
@@ -297,11 +308,12 @@ bool EKFSLAM::bcMapOdomTF(ros::Time t){
         tf_map_odom.mult(tf_map_base, tf_base_odom);
 //        tf_map_odom = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
         tf::StampedTransform tf_odom_map_stp = tf::StampedTransform(tf_map_odom,
-                                               ros::Time::now(),
+                                               t_meas,
                                                map_frame_,
                                                odom_frame_);
 
         // Broadcast map --> odom transform
+        tf_odom_map_stp.getRotation().normalize();
         tf::transformStampedTFToMsg(tf_odom_map_stp, msg_odom_map_);
         map_bc_.sendTransform(msg_odom_map_);
         broadcasted = true;
@@ -414,19 +426,21 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
     nav_msgs::Path pipe_path_t;
     std::vector<Eigen::Vector3d> z_t;
     utils::MeasSensor sensor_input;
-    geometry_msgs::PoseStamped pipeline_lm;
+//    geometry_msgs::PoseStamped pipeline_lm;
+    ros::Time t_meas;r
 
     if(!odom_queue_t_.empty()){
         // Fetch latest measurement
-        ROS_INFO("------New odom info received------");
+//        ROS_INFO("------New odom info received------");
         odom_reading = odom_queue_t_.back();
+        t_meas = odom_reading.header.stamp;
         odom_queue_t_.pop_back();
 
         // Prediction step
         ekf_filter_->predictMotion(odom_reading);
 
         // Pipe detected by camera (1 Hz freq)
-        if(first_pipe_rcv_){
+        /*if(first_pipe_rcv_){
             pipe_meas_cnt_ = 0;
             if(!pipe_path_queue_t_.empty()){
                 pipe_path_t = pipe_path_queue_t_.back();
@@ -456,20 +470,40 @@ void EKFSLAM::ekfLocalize(const ros::TimerEvent&){
                         z_t.clear();
                     }
                 }
+            }*/
+
+      // If observations available:
+        if(!measurements_t_.empty()){
+//            ROS_INFO("----New measurements received----");
+            // Fetch latest measurement
+            auto observ = measurements_t_.back();
+            t_meas = observ.header.stamp;
+            measurements_t_.pop_back();
+
+            // Check the sensor type
+            sensor_input = (observ.header.frame_id == mbes_frame_)? utils::MeasSensor::MBES: utils::MeasSensor::FLS;    // TODO: generalize condition statement
+            for(auto lm_pose: observ.poses){
+                z_t.push_back(Eigen::Vector3d(lm_pose.position.x,
+                                              lm_pose.position.y,
+                                              lm_pose.position.z));
             }
+
+            // Data association and sequential update
+            ekf_filter_->batchDataAssociation(z_t, sensor_input);
+            z_t.clear();
         }
 
         // Update mu_ and Sigma_
         std::tie(mu_, Sigma_, map_pipe_) = ekf_filter_->ekfUpdate();
 
         // Publish and broadcast
-        this->sendOutput(ros::Time::now());
-        this->bcMapOdomTF(ros::Time::now());
+        this->sendOutput(t_meas);
+        this->bcMapOdomTF(t_meas);
         this->updateMapMarkers(1.0);
         pipe_meas_cnt_ += 1;
     }
     else{
-        ROS_WARN("No odometry info received, bc latest known map --> odom tf");
+        ROS_WARN_STREAM(node_name_ << ": No odometry info received, bc latest known map --> odom tf");
         this->sendOutput(ros::Time::now());
 
         // Broadcast latest known map --> odom transform if no inputs received
