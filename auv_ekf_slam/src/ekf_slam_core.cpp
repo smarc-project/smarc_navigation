@@ -20,6 +20,8 @@ EKFCore::EKFCore(Eigen::VectorXd &mu, Eigen::MatrixXd &Sigma, Eigen::MatrixXd &R
     tf_sensor_base_ = tf_base_sensor.inverse();
     mh_dist_fls_ = mh_dist_fls;
     mh_dist_mbes_ = mh_dist_mbes;
+
+//    const Eigen::MatrixXd CorrespondenceMBES::Q_ = Q;
 }
 
 
@@ -350,13 +352,12 @@ void EKFCore::sequentialUpdate(CorrespondenceClass const& c_i_j, Eigen::MatrixXd
 
     Eigen::MatrixXd aux_mat = (Eigen::MatrixXd::Identity(temp_sigma.rows(), temp_sigma.cols()) - K_t_i * c_i_j.H_t_) * temp_sigma;
     Sigma_hat_.block(0,0,6,6) = aux_mat.block(0,0,6,6);
-
     Sigma_hat_.block((c_i_j.i_j_.second) * 3 + 6, (c_i_j.i_j_.second) * 3 + 6, 3, 3) = aux_mat.block(6, 6, 3, 3);
     Sigma_hat_.block((c_i_j.i_j_.second) * 3 + 6, 0, 3, 6) = aux_mat.block(6,0,3,6);
     Sigma_hat_.block(0, (c_i_j.i_j_.second) * 3 + 6, 6, 3) = aux_mat.block(0,6,6,3);
 }
 
-std::tuple<Eigen::VectorXd, Eigen::MatrixXd, std::vector<Eigen::Vector3d> > EKFCore::ekfUpdate(){
+std::tuple<Eigen::VectorXd, Eigen::MatrixXd> EKFCore::ekfUpdate(){
 
     // Update step
     if (mu_.rows()!= mu_hat_.rows()){

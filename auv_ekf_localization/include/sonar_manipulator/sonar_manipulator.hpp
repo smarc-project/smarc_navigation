@@ -65,7 +65,7 @@ public:
             }
             else{
                 if(!cluster_i.empty()){
-                    if(cluster_i.size()>6){
+                    if(cluster_i.size()>1){
                         // Compute polar coordinates of landmark
                         int reminder = cluster_i.size()%2;
                         int landmark_idx = (reminder == 0)? cluster_i.at((cluster_i.size()/2)): cluster_i.at(((cluster_i.size()+1)/2));

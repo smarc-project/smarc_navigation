@@ -47,12 +47,6 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
-# CERES libs
-find_package(Ceres REQUIRED)
-if(CERES_FOUND)
-    include_directories(${CERES_INCLUDE_DIRS})
-endif()
-
 #find_package(Munkres)
 #if(MUNKRES_FOUND)
 #  include_directories(${MUNKRES_INCLUDE_DIRS})
@@ -70,7 +64,7 @@ endif()
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ekf_core ekf_utils corresp_obj munkres
-  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters smarc_lm_visualizer mbes_processors
+  CATKIN_DEPENDS roscpp rospy std_msgs tf message_runtime message_filters smarc_lm_visualizer
 #  DEPENDS system_lib
 )
 
@@ -116,7 +110,6 @@ target_link_libraries(ekf_slam_node
 #    munkres
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
-    ${CERES_LIBRARIES}
     )
 
 
