@@ -31,7 +31,6 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     message_filters
     pcl_ros
-    mbes_processors
     smarc_lm_visualizer
  )
 
@@ -46,6 +45,12 @@ endif()
 find_package(Boost REQUIRED COMPONENTS system signals)
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
+endif()
+
+# CERES libs
+find_package(Ceres REQUIRED)
+if(CERES_FOUND)
+    include_directories(${CERES_INCLUDE_DIRS})
 endif()
 
 #find_package(Munkres)
@@ -111,6 +116,7 @@ target_link_libraries(ekf_slam_node
 #    munkres
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
+    ${CERES_LIBRARIES}
     )
 
 

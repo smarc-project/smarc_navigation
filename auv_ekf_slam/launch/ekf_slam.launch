@@ -30,6 +30,7 @@
                 <rosparam param="/$(arg namespace)/meas_fls_noise_cov_diag">[600.0, 100.0]</rosparam>
                 <!--Topics-->
                 <param name="landmarks_adv" value="/$(arg namespace)/$(arg nav_name)/landmarks_mapped"/>
+                <param name="cam_pipe_topic" value="/$(arg namespace)/lolo_auv/camera/pipeline_locator"/>
                 <param name="odom_pub_topic" value="/$(arg namespace)/pose_odom"/>
                 <param name="map_pose_topic" value="/$(arg namespace)/$(arg nav_name)/pose_estimate"/>
                 <param name="lm_detect_topic" value="/$(arg namespace)/mbes_detections"/>
@@ -43,7 +44,14 @@
                 <param name="base_frame" value="/$(arg namespace)/base_link"/>
             </node>
 
-            <!--For experiments-->
+<!--            <node pkg="rfs_slam" name="detect_rocks" type="detect_rocks" output="screen">
+                <param name="base_frame" value="/$(arg namespace)/base_link"/>
+                <param name="fls_frame" value="/$(arg namespace)/forward_sonardown_link"/>
+                <param name="image_raw_sonar" value="/$(arg namespace)/depth/image_raw_raw_sonar"/>
+                <param name="lm_detect_topic" value="/$(arg namespace)/landmarks_detected"/>
+            </node>-->
+
+  <!--For experiments-->
 <!--            <node pkg="rosbag" type="record" name="experiment_bag" output="screen"
                   args=" record -o $(find auv_ekf_slam)/rosbags/ /$(arg namespace)/depth/image_raw_raw_sonar" />-->
 
