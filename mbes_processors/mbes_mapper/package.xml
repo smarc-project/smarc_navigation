@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>mbes_processors</name>
+  <name>mbes_mapper</name>
   <version>0.0.0</version>
-  <description>The mbes_processors package</description>
+  <description>The mbes_mapper package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -19,7 +19,7 @@
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/mbes_processors</url> -->
+  <!-- <url type="website">http://wiki.ros.org/mbes_mapper</url> -->
 
 
   <!-- Author tags are optional, multiple are allowed, one per tag -->
@@ -51,11 +51,10 @@
   <buildtool_depend>catkin</buildtool_depend>
   <depend>roscpp</depend>
   <depend>tf</depend>
-  <depend>sensor_msgs</depend>
-  <depend>geometry_msgs</depend>
-  <depend>message_filters</depend>
+  <depend>tf_conversions</depend>
   <depend>pcl_ros</depend>
-
+  <depend>pcl_conversions</depend>
+  <depend>laser_geometry</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
