@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>sam_localization</name>
+  <name>sam_dead_reckoning</name>
   <version>0.0.0</version>
-  <description>The sam_localization package</description>
+  <description>The sam_dead_reckoning package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
