@@ -1,6 +1,6 @@
 <launch>
 
-    <arg name="namespace" default="sam_auv"/>
+    <arg name="namespace" default="sam"/>
     <arg name="mode" default="default"/>
     <arg name="debug" default="0"/>
 
@@ -11,15 +11,12 @@
     <arg name="pitch" default="0.0"/>
     <arg name="yaw" default="0.0"/>
 
-      <!-- TF broadcaster world to AUV odom -->
-    <node pkg="tf" type="static_transform_publisher" name="$(arg namespace)_world_odom" args="$(arg x) $(arg y) $(arg z) $(arg roll) $(arg pitch) $(arg yaw) world $(arg namespace)_odom 50" />
-
     <!-- STIM300 IMU driver -->
     <node pkg="stim300_ros_driver" name="stim_imu_driver" type="driver" output="screen">
         <param name="device_path" value="/dev/ttyUSB0" />
-<!--         <param name="output_topic" value="sam_imu" />
-        <param name="imu_frame" value="/base_link" />
- -->    </node>
+        <param name="imu_frame" value="(arg namespace)/base_link" />
+        <param name="imu_output" value="/stim_imu" />
+    </node>
 
 
     <!-- EKF for fusing continuous position data from wheel odometry and IMU -->
@@ -63,7 +60,7 @@
 
 
         <!-- IMU -->
-        <param name="imu0" value="/imu"/>
+        <param name="imu0" value="/stim_imu"/>
         <rosparam param="imu0_config">[false, false, false,
                                        true, true, false,
                                        false, false, false,
@@ -74,7 +71,6 @@
         <param name="imu0_relative" value="true"/>
         <param name="imu0_remove_gravitational_acceleration" value="true"/>
         <param name="gravitational_acceleration" value="9.852"/>
-
 
         <!-- Node params -->
         <param name="publish_tf" value="true"/>
@@ -89,6 +85,6 @@
         <remap from="set_pose" to="/initialpose"/> <!--Service to reset initial pose -->
     </node>
 
-    <include file="$(find smarc_private_auvs)/models/sam_auv/launch/upload_sam_auv.launch"/>
+    <!-- <include file="$(find smarc_private_auvs)/models/sam_auv/launch/upload_sam_auv.launch"/> -->
 
 </launch>
