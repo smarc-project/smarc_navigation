@@ -14,7 +14,7 @@
     <!-- STIM300 IMU driver -->
     <node pkg="stim300_ros_driver" name="stim_imu_driver" type="driver">
         <param name="device_path" value="/dev/ttyUSB0" />
-        <param name="imu_frame" value="(arg namespace)/base_link" />
+        <param name="imu_frame" value="$(arg namespace)/base_link" />
         <param name="imu_output" value="/stim_imu" />
     </node>
 
