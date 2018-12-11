@@ -14,10 +14,16 @@
     <!-- STIM300 IMU driver -->
     <node pkg="stim300_ros_driver" name="stim_imu_driver" type="driver" output="screen">
         <param name="device_path" value="/dev/ttyUSB0" />
-        <param name="imu_frame" value="(arg namespace)/base_link" />
+        <param name="imu_frame" value="$(arg namespace)/base_link" />
         <param name="imu_output" value="/stim_imu" />
     </node>
 
+    <!-- Depth from pressure sensor converter -->
+    <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
+        <param name="odom_frame" value="$(arg namespace)_odom" />
+        <param name="pressure_topic" value="/uavcan_pressure2" />
+        <param name="depth_topic" value="/uavcan_depth2" />
+    </node>
 
     <!-- EKF for fusing continuous position data from wheel odometry and IMU -->
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_local" output="screen" clear_params="true">
@@ -48,8 +54,8 @@
                                          0.0,  0.0,  0.0]</rosparam>
 
         <!-- Depth sensor -->
-        <param name="pose0" value="/depth_dummy"/>
-        <rosparam param="pose0_config">[false, false, true,
+        <param name="pose0" value="/uavcan_depth2"/>
+        <rosparam param="pose0_config">[true, true, true,
                                         false, false, false,
                                         false, false, false,
                                         false, false, false,
