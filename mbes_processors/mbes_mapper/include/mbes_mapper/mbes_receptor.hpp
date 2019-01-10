@@ -31,12 +31,14 @@
 #include <tf/transform_broadcaster.h>
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
+#include <tf_conversions/tf_eigen.h>
 
 #include <tuple>
 #include <vector>
 
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Geometry>
 
 #include <fstream>
 #include <iostream>
@@ -81,11 +83,12 @@ private:
 
     void bcMapSubmapsTF(std::vector<tf::Transform> tfs_meas_map);
 
-    void savePointCloud(PointCloud submap_pcl, std::string file_name);
-
     void pclFuser();
 
     void init();
+
+    Eigen::Matrix4f inverseTfMatrix(Eigen::Matrix4f tf_mat);
+
 };
 
 #endif // MBES_RECEPTOR_HPP

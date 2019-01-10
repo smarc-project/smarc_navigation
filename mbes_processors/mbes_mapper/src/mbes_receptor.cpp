@@ -48,6 +48,19 @@ void MBESReceptor::init(){
     ROS_INFO_STREAM(node_name_ << ": launched");
 }
 
+Eigen::Matrix4f MBESReceptor::inverseTfMatrix(Eigen::Matrix4f tf_mat){
+
+    Eigen::Matrix3f R_inv = tf_mat.topLeftCorner(3,3).transpose();
+
+    Eigen::Matrix4f tf_mat_inv = Eigen::Matrix4f::Identity();
+    tf_mat_inv.topLeftCorner(3,3) = R_inv;
+    tf_mat_inv.topRightCorner(3,1) = R_inv * (-tf_mat.topRightCorner(3,1));
+
+    return tf_mat_inv;
+
+}
+
+
 void MBESReceptor::pclFuser(){
 
     ROS_INFO("PCL fuser called");
@@ -61,7 +74,6 @@ void MBESReceptor::pclFuser(){
     // Broadcast all meas frames (for testing?)
     bcMapSubmapsTF(tf_map_meas_vec_);
 
-
     // Transform and concatenate the PCLs to form the swath
     PointCloud tfed_pcl;
     PointCloud submap_pcl;
@@ -73,27 +85,22 @@ void MBESReceptor::pclFuser(){
         // Add to submap pcl
         submap_pcl += tfed_pcl;
     }
+    submap_pcl.width = std::get<0>(mbes_swath_.at(0)).size();
+    submap_pcl.height = mbes_swath_.size();
 
     // Create ROS msg and publish
     sensor_msgs::PointCloud2 submap_msg;
     pcl::toROSMsg(submap_pcl, submap_msg);
     submap_msg.header.frame_id = "submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame";
     submap_msg.header.stamp = ros::Time::now();
-
     pcl_pub_.publish(submap_msg);
-    savePointCloud(submap_pcl, "submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame.txt");
-}
 
+    // Save pcl in .pdc. Convert to map frame first
+    Eigen::Affine3d tf_eigen;
+    tf::transformTFToEigen(tf_submap_map.inverse(), tf_eigen);
+    pcl::transformPointCloud(submap_pcl, submap_pcl, inverseTfMatrix(tf_eigen.matrix().cast <float> ()));
+    pcl::io::savePCDFileASCII("/home/nacho/workspace/UWDatasets/submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame.pdc", submap_pcl);
 
-void MBESReceptor::savePointCloud(PointCloud submap_pcl, std::string file_name){
-
-    std::ofstream myfile ("/home/nacho/" + file_name);
-    if (myfile.is_open()){
-        for(unsigned int i=0; i<submap_pcl.points.size(); i++){
-            myfile << submap_pcl.points.at(i).x << " " << submap_pcl.points.at(i).y << " " << submap_pcl.points.at(i).z << "\n";
-        }
-      myfile.close();
-    }
 }
 
 void MBESReceptor::bcMapSubmapsTF(std::vector<tf::Transform> tfs_meas_map){
@@ -124,6 +131,7 @@ void MBESReceptor::MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in){
         // TODO: handle this somehow?
         return;
     }
+
     sensor_msgs::PointCloud2 scan_cloud;
     PointCloud pcl_cloud;
     projector_.transformLaserScanToPointCloud(base_frame_, *scan_in, scan_cloud, tf_listener_);
