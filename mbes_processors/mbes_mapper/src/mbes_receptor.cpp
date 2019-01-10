@@ -85,8 +85,16 @@ void MBESReceptor::pclFuser(){
         // Add to submap pcl
         submap_pcl += tfed_pcl;
     }
-    submap_pcl.width = std::get<0>(mbes_swath_.at(0)).size();
-    submap_pcl.height = mbes_swath_.size();
+
+    // Store tf pose in submap
+    submap_pcl.sensor_origin_ = Eigen::Vector4f(tf_submap_map.getOrigin().getX(),
+                                                tf_submap_map.getOrigin().getY(),
+                                                tf_submap_map.getOrigin().getZ(),
+                                                0);
+    submap_pcl.sensor_orientation_ = Eigen::Quaternionf(tf_submap_map.getRotation().getX(),
+                                                        tf_submap_map.getRotation().getY(),
+                                                        tf_submap_map.getRotation().getZ(),
+                                                        tf_submap_map.getRotation().getW());
 
     // Create ROS msg and publish
     sensor_msgs::PointCloud2 submap_msg;
@@ -100,6 +108,17 @@ void MBESReceptor::pclFuser(){
     tf::transformTFToEigen(tf_submap_map.inverse(), tf_eigen);
     pcl::transformPointCloud(submap_pcl, submap_pcl, inverseTfMatrix(tf_eigen.matrix().cast <float> ()));
     pcl::io::savePCDFileASCII("/home/nacho/workspace/UWDatasets/submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame.pdc", submap_pcl);
+
+//    // Save dead reckoning poses in file
+//    std::ofstream tfsFile;
+//    tfsFile.open("/home/nacho/workspace/UWDatasets/tfs.txt", std::ios_base::app);
+//    if (tfsFile.is_open()){
+//        tfsFile << tf_submap_map.getOrigin().getX() << " " << tf_submap_map.getOrigin().getY() << " " << tf_submap_map.getOrigin().getZ() << " "
+//                << tf_submap_map.getRotation().getX() << " "
+//                << tf_submap_map.getRotation().getY() << " "
+//                << tf_submap_map.getRotation().getZ() << " "
+//                << tf_submap_map.getRotation().getW() << "\n";
+//    }
 
 }
 
