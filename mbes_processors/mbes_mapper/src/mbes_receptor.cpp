@@ -87,14 +87,13 @@ void MBESReceptor::pclFuser(){
     }
 
     // Store tf pose in submap
-    submap_pcl.sensor_origin_ = Eigen::Vector4f(tf_submap_map.getOrigin().getX(),
-                                                tf_submap_map.getOrigin().getY(),
-                                                tf_submap_map.getOrigin().getZ(),
-                                                0);
-    submap_pcl.sensor_orientation_ = Eigen::Quaternionf(tf_submap_map.getRotation().getX(),
-                                                        tf_submap_map.getRotation().getY(),
-                                                        tf_submap_map.getRotation().getZ(),
-                                                        tf_submap_map.getRotation().getW());
+    Eigen::Vector3d tf_vec;
+    tf::vectorTFToEigen (tf_submap_map.inverse().getOrigin(), tf_vec);
+    submap_pcl.sensor_origin_ << tf_vec.cast<float>(), 0;
+
+    Eigen::Quaterniond tf_quat;
+    tf::quaternionTFToEigen (tf_submap_map.inverse().getRotation(), tf_quat);
+    submap_pcl.sensor_orientation_ = tf_quat.cast<float>();
 
     // Create ROS msg and publish
     sensor_msgs::PointCloud2 submap_msg;
@@ -103,23 +102,8 @@ void MBESReceptor::pclFuser(){
     submap_msg.header.stamp = ros::Time::now();
     pcl_pub_.publish(submap_msg);
 
-    // Save pcl in .pdc. Convert to map frame first
-    Eigen::Affine3d tf_eigen;
-    tf::transformTFToEigen(tf_submap_map.inverse(), tf_eigen);
-    pcl::transformPointCloud(submap_pcl, submap_pcl, inverseTfMatrix(tf_eigen.matrix().cast <float> ()));
+    // Save pcls in .pdc
     pcl::io::savePCDFileASCII("/home/nacho/workspace/UWDatasets/submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame.pdc", submap_pcl);
-
-//    // Save dead reckoning poses in file
-//    std::ofstream tfsFile;
-//    tfsFile.open("/home/nacho/workspace/UWDatasets/tfs.txt", std::ios_base::app);
-//    if (tfsFile.is_open()){
-//        tfsFile << tf_submap_map.getOrigin().getX() << " " << tf_submap_map.getOrigin().getY() << " " << tf_submap_map.getOrigin().getZ() << " "
-//                << tf_submap_map.getRotation().getX() << " "
-//                << tf_submap_map.getRotation().getY() << " "
-//                << tf_submap_map.getRotation().getZ() << " "
-//                << tf_submap_map.getRotation().getW() << "\n";
-//    }
-
 }
 
 void MBESReceptor::bcMapSubmapsTF(std::vector<tf::Transform> tfs_meas_map){
@@ -162,7 +146,6 @@ void MBESReceptor::MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in){
 
     // Listen to tf map --> base pose
     try {
-        // TODO: can this made faster?
         tf_listener_.waitForTransform(base_frame_, map_frame_, scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment), ros::Duration(0.1));
         tf_listener_.lookupTransform(base_frame_, map_frame_, scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment), tf_base_map_);
         ROS_DEBUG_STREAM(node_name_ << ": locked transform map --> base at t");
