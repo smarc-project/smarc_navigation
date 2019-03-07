@@ -103,7 +103,7 @@ void MBESReceptor::pclFuser(){
     pcl_pub_.publish(submap_msg);
 
     // Save pcls in .pdc
-    pcl::io::savePCDFileASCII("/home/nacho/workspace/UWDatasets/submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame.pdc", submap_pcl);
+    pcl::io::savePCDFileASCII("./submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame.pdc", submap_pcl);
 }
 
 void MBESReceptor::bcMapSubmapsTF(std::vector<tf::Transform> tfs_meas_map){
