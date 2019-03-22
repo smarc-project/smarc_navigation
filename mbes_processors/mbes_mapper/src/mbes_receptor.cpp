@@ -48,6 +48,19 @@ void MBESReceptor::init(){
     ROS_INFO_STREAM(node_name_ << ": launched");
 }
 
+Eigen::Matrix4f MBESReceptor::inverseTfMatrix(Eigen::Matrix4f tf_mat){
+
+    Eigen::Matrix3f R_inv = tf_mat.topLeftCorner(3,3).transpose();
+
+    Eigen::Matrix4f tf_mat_inv = Eigen::Matrix4f::Identity();
+    tf_mat_inv.topLeftCorner(3,3) = R_inv;
+    tf_mat_inv.topRightCorner(3,1) = R_inv * (-tf_mat.topRightCorner(3,1));
+
+    return tf_mat_inv;
+
+}
+
+
 void MBESReceptor::pclFuser(){
 
     ROS_INFO("PCL fuser called");
@@ -61,7 +74,6 @@ void MBESReceptor::pclFuser(){
     // Broadcast all meas frames (for testing?)
     bcMapSubmapsTF(tf_map_meas_vec_);
 
-
     // Transform and concatenate the PCLs to form the swath
     PointCloud tfed_pcl;
     PointCloud submap_pcl;
@@ -74,26 +86,24 @@ void MBESReceptor::pclFuser(){
         submap_pcl += tfed_pcl;
     }
 
+    // Store tf pose in submap
+    Eigen::Vector3d tf_vec;
+    tf::vectorTFToEigen (tf_submap_map.inverse().getOrigin(), tf_vec);
+    submap_pcl.sensor_origin_ << tf_vec.cast<float>(), 0;
+
+    Eigen::Quaterniond tf_quat;
+    tf::quaternionTFToEigen (tf_submap_map.inverse().getRotation(), tf_quat);
+    submap_pcl.sensor_orientation_ = tf_quat.cast<float>();
+
     // Create ROS msg and publish
     sensor_msgs::PointCloud2 submap_msg;
     pcl::toROSMsg(submap_pcl, submap_msg);
     submap_msg.header.frame_id = "submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame";
     submap_msg.header.stamp = ros::Time::now();
-
     pcl_pub_.publish(submap_msg);
-    savePointCloud(submap_pcl, "submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame.txt");
-}
 
-
-void MBESReceptor::savePointCloud(PointCloud submap_pcl, std::string file_name){
-
-    std::ofstream myfile ("/home/nacho/" + file_name);
-    if (myfile.is_open()){
-        for(unsigned int i=0; i<submap_pcl.points.size(); i++){
-            myfile << submap_pcl.points.at(i).x << " " << submap_pcl.points.at(i).y << " " << submap_pcl.points.at(i).z << "\n";
-        }
-      myfile.close();
-    }
+    // Save pcls in .pdc
+    pcl::io::savePCDFileASCII("./submap_" + std::to_string(tf_map_meas_vec_.size()-1) + "_frame.pdc", submap_pcl);
 }
 
 void MBESReceptor::bcMapSubmapsTF(std::vector<tf::Transform> tfs_meas_map){
@@ -124,6 +134,7 @@ void MBESReceptor::MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in){
         // TODO: handle this somehow?
         return;
     }
+
     sensor_msgs::PointCloud2 scan_cloud;
     PointCloud pcl_cloud;
     projector_.transformLaserScanToPointCloud(base_frame_, *scan_in, scan_cloud, tf_listener_);
@@ -135,7 +146,6 @@ void MBESReceptor::MBESLaserCB(const sensor_msgs::LaserScan::ConstPtr& scan_in){
 
     // Listen to tf map --> base pose
     try {
-        // TODO: can this made faster?
         tf_listener_.waitForTransform(base_frame_, map_frame_, scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment), ros::Duration(0.1));
         tf_listener_.lookupTransform(base_frame_, map_frame_, scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment), tf_base_map_);
         ROS_DEBUG_STREAM(node_name_ << ": locked transform map --> base at t");
