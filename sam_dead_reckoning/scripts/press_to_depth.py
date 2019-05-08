@@ -4,6 +4,7 @@ import rospy
 import numpy as np
 from sensor_msgs.msg import FluidPressure
 from geometry_msgs.msg import PoseWithCovarianceStamped
+import tf
 
 class Press2Depth(object):
 
@@ -19,20 +20,34 @@ class Press2Depth(object):
 		self.depth_msg.header.frame_id = self.odom_frame
 		self.depth_msg.pose.covariance = [1., 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1., 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
 		self.depth_msg.pose.pose.orientation.w = 1.
-		
+	
+                self.listener_odom = tf.TransformListener()
+
+                self.x_base_depth = 477.0
+
 		rospy.spin()
 
 
 	def depthCB(self, press_msg):
 
+            try:
+                (trans, quaternion) = self.listener_odom.lookupTransform('sam/base_link', self.odom_frame, rospy.Time(0))
+                euler = tf.trasformations.euler_from_quaternion(quaternion)
+                pitch = euler[1]
+
+                depth_abs = - self.pascal_pressure_to_depth(press_msg.fluid_pressure)
+                depth_base_link = depth_abs + self.x_base_depth * np.sin(pitch)
+
                 if press_msg.fluid_pressure > 90000. and press_msg.fluid_pressure < 500000.:
 		    self.depth_msg.header.stamp = rospy.Time.now()
-		    self.depth_msg.pose.pose.position.z = - self.pascal_pressure_to_depth(press_msg.fluid_pressure) # = [0., 0., 2.]
+		    self.depth_msg.pose.pose.position.z = depth_base_link
 		    self.pub.publish(self.depth_msg)
 
-	def pascal_pressure_to_depth(self, pressure):
-
-		return 10.*((pressure / 100000.) - 1.) # 117000 -> 1.7
+            except (tf.LookupException):
+                exit
+            
+        def pascal_pressure_to_depth(self, pressure):
+            return 10.*((pressure / 100000.) - 1.) # 117000 -> 1.7
 
 
 
