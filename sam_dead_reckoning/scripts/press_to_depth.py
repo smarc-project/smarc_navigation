@@ -2,6 +2,7 @@
 
 import rospy
 import numpy as np
+import tf
 from sensor_msgs.msg import FluidPressure
 from geometry_msgs.msg import PoseWithCovarianceStamped
 
@@ -20,14 +21,40 @@ class Press2Depth(object):
 		self.depth_msg.pose.covariance = [1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
 		self.depth_msg.pose.pose.orientation.w = 1.
 		
+		self.listener_odom = tf.TransformListener()
+		self.listener_press = tf.TransformListener()
+
+		# try:
+			# (trans,quaternion) = listener_press.lookupTransform('sam_auv/depth_link', 'sam_auv/base_link', rospy.Time(10))
+			# self.x_base_depth = abs(trans[0])
+		self.x_base_depth = 477.0
+
+		# except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+			# continue
+
 		rospy.spin()
 
 
 	def depthCB(self, press_msg):
 
-		self.depth_msg.header.stamp = rospy.Time.now()
-		self.depth_msg.pose.pose.position.z = - self.pascal_pressure_to_depth(press_msg.fluid_pressure) # = [0., 0., 2.]
-		self.pub.publish(self.depth_msg)
+		try:
+            (trans,quaternion) = listener_odom.lookupTransform('sam_auv/base_link', self.odom_frame, rospy.Time(0))
+            euler = tf.transformations.euler_from_quaternion(quaternion)
+			pitch = euler[1]
+
+			# depth_abs is positive, must be manually negated
+			depth_abs = - self.pascal_pressure_to_depth(press_msg.fluid_pressure)
+			# Check signs here
+			depth_base_link = depth_abs + self.x_base_depth * np.sin(pitch)
+
+			self.depth_msg.header.stamp = rospy.Time.now()
+			self.depth_msg.pose.pose.position.z = -  # = [0., 0., 2.]
+			self.pub.publish(self.depth_msg)
+
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            continue
+
+
 
 	def pascal_pressure_to_depth(self, pressure):
 
