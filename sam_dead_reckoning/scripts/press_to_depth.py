@@ -38,7 +38,7 @@ class Press2Depth(object):
 	def depthCB(self, press_msg):
 
 		try:
-            (trans,quaternion) = listener_odom.lookupTransform('sam_auv/base_link', self.odom_frame, rospy.Time(0))
+            (trans,quaternion) = self.listener_odom.lookupTransform('sam_auv/base_link', self.odom_frame, rospy.Time(0))
             euler = tf.transformations.euler_from_quaternion(quaternion)
 			pitch = euler[1]
 
@@ -49,7 +49,7 @@ class Press2Depth(object):
 
             # if press_msg.fluid_pressure > 90000. and press_msg.fluid_pressure < 500000.:
 			self.depth_msg.header.stamp = rospy.Time.now()
-			self.depth_msg.pose.pose.position.z = -  # = [0., 0., 2.]
+			self.depth_msg.pose.pose.position.z = depth_base_link # = [0., 0., 2.]
 			self.pub.publish(self.depth_msg)
 
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
