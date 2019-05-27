@@ -23,6 +23,8 @@
         <param name="odom_frame" value="$(arg namespace)_odom" />
         <param name="pressure_topic" value="/uavcan_pressure2" />
         <param name="depth_topic" value="/uavcan_depth2" />
+        <param name="base_frame" value="$(arg namespace)/base_link" />
+        <!-- <param name="depth_frame" value="$(arg namespace)/pressure_link" /> -->
     </node>
 
     <!-- EKF for fusing continuous position data from wheel odometry and IMU -->
