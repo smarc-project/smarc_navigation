@@ -21,8 +21,9 @@
     <!-- Depth from pressure sensor converter -->
     <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
         <param name="odom_frame" value="$(arg namespace)_odom" />
-        <param name="pressure_topic" value="/uavcan_pressure1" />
+        <param name="pressure_topic" value="/uavcan_to_ros_bridge_node/sensor_pressure1" />
         <param name="depth_topic" value="/uavcan_depth2" />
+        <param name="base_frame" value="$(arg namespace)/base_link" />
     </node>
 
     <!-- EKF for fusing continuous position data from wheel odometry and IMU -->
