@@ -23,6 +23,7 @@
         <param name="odom_frame" value="$(arg namespace)_odom" />
         <param name="pressure_topic" value="/uavcan_pressure2" />
         <param name="depth_topic" value="/uavcan_depth2" />
+        <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
         <param name="base_frame" value="$(arg namespace)/base_link" />
         <!-- <param name="depth_frame" value="$(arg namespace)/pressure_link" /> -->
     </node>
@@ -47,6 +48,7 @@
             vx,    vy,     vz,
             vroll, vpitch, vyaw,
             ax,    ay,     az
+            These values are wrt the sensor frame. Remember the IMU has been rotated!
          -->
 
         <rosparam param="initial_state">[$(arg x), $(arg y), $(arg z),
