@@ -18,6 +18,7 @@
 #include <ros/ros.h>
 #include <tf/transform_datatypes.h>
 #include <tf/tf.h>
+#include <numeric>
 
 /**
  * @brief The SonarManipulator class
