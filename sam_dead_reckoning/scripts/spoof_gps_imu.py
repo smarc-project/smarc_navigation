@@ -6,19 +6,20 @@ import math
 from sensor_msgs.msg import Imu, NavSatFix
 from geometry_msgs.msg import PoseWithCovarianceStamped, TwistStamped, Quaternion
 import tf_conversions
+import tf
 from geodesy import utm
-from nav_msgs import Odometry
+from nav_msgs.msg import Odometry
 
 class SpoofIMU(object):
 
     def __init__(self):
-        self.imu_frame =  rospy.get_param(rospy.get_name() + '/imu_frame', '/sam/base_link')
+        self.imu_frame =  rospy.get_param(rospy.get_name() + '/imu_frame', 'sam/base_link')
         self.gps_topic = rospy.get_param(rospy.get_name() + '/gps_topic', '/fix')
         self.vel_topic = rospy.get_param(rospy.get_name() + '/vel_topic', '/vel')
         self.heading_imu_topic = rospy.get_param(rospy.get_name() + '/heading_imu_topic', '/heading_imu')
-        self.odom_topic = '/odom'
+        self.odom_topic = '/odometry/filtered/sam'
 
-        if False:
+        if True:
             self.gps_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.gps_callback)
         else:
             self.vel_sub = rospy.Subscriber(self.vel_topic, TwistStamped, self.vel_callback)
@@ -30,7 +31,7 @@ class SpoofIMU(object):
         self.imu_msg.orientation_covariance = [.5, 0., 0., 0., .5, 0., 0., 0., .5]
         #self.imu_msg.pose.pose.orientation.w = 1.
 
-        self.window = 10
+        self.window = 5
         self.positions = []
         self.vels = []
         self.roll = 0.
