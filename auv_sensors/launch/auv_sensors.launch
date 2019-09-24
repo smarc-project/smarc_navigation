@@ -17,8 +17,8 @@
         <node pkg="mbes_mapper" name="$(arg namespace)_mbes_pcl_receptor" type="mbes_pcl_receptor" output="screen">
             <param name="base_frame" value="/$(arg namespace)/base_link"/>
             <param name="map_frame" value="/$(arg namespace)_map"/>
-            <param name="mbes_frame" value="/$(arg namespace)/sonardown_link"/>
-            <param name="submap_size" value="31"/>
+            <param name="mbes_frame" value="/$(arg namespace)/mbes_sonar_link"/>
+            <param name="submap_size" value="101"/>
             <param name="mbes_laser_topic" value="/$(arg namespace)/mbes_laser"/>
             <param name="pcl_pub_topic" value="/$(arg namespace)/mbes_pcl"/>
         </node>
