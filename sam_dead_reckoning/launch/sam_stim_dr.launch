@@ -19,10 +19,22 @@
         <param name="imu_output" value="/stim_imu" />
     </node>
 
+
+<!--     <group ns="$(arg namespace)">
+
+    <param name="robot_description"
+           command="$(find xacro)/xacro.py --inorder '$(find sam_description)/robots/sam_auv_$(arg mode).urdf.xacro' debug:=$(arg debug) namespace:=$(arg namespace)" />
+
+    Publish robot model for ROS
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen">
+          <param name="robot_description" value="/$(arg namespace)/robot_description" />
+        </node>
+    </group> -->
+
     <!-- Depth from pressure sensor converter -->
     <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
         <param name="odom_frame" value="$(arg namespace)_odom" />
-        <param name="pressure_topic" value="/uavcan_pressure2" />
+        <param name="pressure_topic" value="/uavcan_pressure20" />
         <param name="depth_topic" value="/uavcan_depth2" />
     </node>
 
@@ -66,13 +78,25 @@
         <param name="pose0_relative" value="false"/>
 
 
+        <!-- DVL -->
+        <param name="twist0" value="/dvl_vel"/>
+        <rosparam param="twist0_config">[false, false, false,
+                                        false, false, false,
+                                        true, true, true,
+                                        false, false, false,
+                                        false, false, false]</rosparam>
+
+        <param name="twist0_differential" value="false"/>
+        <param name="twist0_relative" value="false"/>
+
+
         <!-- IMU -->
         <param name="imu0" value="/stim_imu"/>
         <rosparam param="imu0_config">[false, false, false,
                                        true, true, false,
                                        false, false, false,
                                        true, true, true,
-                                       false, false, false]</rosparam>
+                                       true, true, true]</rosparam>
 
         <param name="imu0_differential" value="false"/>
         <param name="imu0_relative" value="true"/>
