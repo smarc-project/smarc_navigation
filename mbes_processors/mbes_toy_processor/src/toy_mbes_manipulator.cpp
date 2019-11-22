@@ -12,6 +12,7 @@
  */
 
 #include "toy_mbes_receptor/toy_mbes_manipulator.hpp"
+#include <numeric>
 
 
 SonarManipulator::SonarManipulator(){}
