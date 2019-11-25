@@ -26,7 +26,7 @@ class Press2Depth(object):
 		
 		self.listener_odom = tf.TransformListener()
 		self.listener_press = tf.TransformListener()
-		self.x_base_depth = 0.477
+		self.x_base_depth = 0.580
 
 		# try:
 		# 	(trans,quaternion) = self.listener_press.lookupTransform(self.base_frame, self.depth_frame, rospy.Time(10))
@@ -39,11 +39,7 @@ class Press2Depth(object):
 
 	def depthCB(self, press_msg):
 		try:
-			# (trans,quaternion) = self.listener_odom.lookupTransform(self.base_frame, self.odom_frame, rospy.Time(0))
-			# euler = tf.transformations.euler_from_quaternion(quaternion)
-			# pitch = euler[1]
-			# rospy.loginfo("Pitch %s", pitch)
-			
+		
 			# # depth_abs is positive, must be manually negated
 			depth_abs = - self.pascal_pressure_to_depth(press_msg.fluid_pressure)
 			rospy.loginfo("Depth abs %s", depth_abs)
@@ -57,8 +53,7 @@ class Press2Depth(object):
 				self.pub.publish(self.depth_msg)
 		
 		except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-			print('Could not get tf base to odom.')
-
+			rospy.logerr("Depth transform missing tf")
 
 	def pascal_pressure_to_depth(self, pressure):
 
