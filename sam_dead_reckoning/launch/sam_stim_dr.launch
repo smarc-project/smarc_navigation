@@ -36,6 +36,9 @@
         <param name="odom_frame" value="$(arg namespace)_odom" />
         <param name="pressure_topic" value="/uavcan_pressure20" />
         <param name="depth_topic" value="/uavcan_depth2" />
+        <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
+        <param name="base_frame" value="$(arg namespace)/base_link" />
+        <!-- <param name="depth_frame" value="$(arg namespace)/pressure_link" /> -->
     </node>
 
     <!-- EKF for fusing continuous position data from wheel odometry and IMU -->
@@ -58,6 +61,7 @@
             vx,    vy,     vz,
             vroll, vpitch, vyaw,
             ax,    ay,     az
+            These values are wrt the sensor frame. Remember the IMU has been rotated!
          -->
 
         <rosparam param="initial_state">[$(arg x), $(arg y), $(arg z),
@@ -93,15 +97,15 @@
         <!-- IMU -->
         <param name="imu0" value="/stim_imu"/>
         <rosparam param="imu0_config">[false, false, false,
-                                       true, true, false,
+                                       false, false, false,
                                        false, false, false,
                                        true, true, true,
                                        false, false, false]</rosparam>
 
-        <param name="imu0_differential" value="false"/>
+        <!--<param name="imu0_differential" value="true"/>-->
         <param name="imu0_relative" value="true"/>
         <param name="imu0_remove_gravitational_acceleration" value="true"/>
-        <param name="gravitational_acceleration" value="9.852"/>
+        <param name="gravitational_acceleration" value="9.806"/>
 
         <!-- Node params -->
         <param name="publish_tf" value="true"/>
