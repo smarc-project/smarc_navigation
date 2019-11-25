@@ -8,4 +8,3 @@ The output of the main node is an estimate of the pose of the AUV, defined by it
 This package also contains a service provider node that hands out the map when requested and a handler for MBES inputs which extracts landmarks from incoming MBES sensory input.
 
 In order to run it, set the flag "navigation_on" to true in the launch file in the smarc_bringup package.
-
