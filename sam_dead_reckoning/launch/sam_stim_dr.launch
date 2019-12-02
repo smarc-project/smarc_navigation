@@ -19,16 +19,30 @@
         <param name="imu_output" value="/stim_imu" />
     </node>
 
+
+<!--     <group ns="$(arg namespace)">
+
+    <param name="robot_description"
+           command="$(find xacro)/xacro.py --inorder '$(find sam_description)/robots/sam_auv_$(arg mode).urdf.xacro' debug:=$(arg debug) namespace:=$(arg namespace)" />
+
+    Publish robot model for ROS
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen">
+          <param name="robot_description" value="/$(arg namespace)/robot_description" />
+        </node>
+    </group> -->
+
     <!-- Depth from pressure sensor converter -->
     <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
         <param name="odom_frame" value="$(arg namespace)_odom" />
-        <param name="pressure_topic" value="/uavcan_pressure2" />
+        <param name="pressure_topic" value="/uavcan_pressure20" />
         <param name="depth_topic" value="/uavcan_depth2" />
+        <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
+        <param name="base_frame" value="$(arg namespace)/base_link" />
     </node>
 
     <!-- EKF for fusing continuous position data from wheel odometry and IMU -->
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_local" output="screen" clear_params="true">
-        <param name="frequency" value="30"/>
+        <param name="frequency" value="50"/>
         <param name="sensor_timeout" value="0.1"/>
         <param name="two_d_mode" value="false"/>
 
@@ -46,6 +60,7 @@
             vx,    vy,     vz,
             vroll, vpitch, vyaw,
             ax,    ay,     az
+            These values are wrt the sensor frame. Remember the IMU has been rotated!
          -->
 
         <rosparam param="initial_state">[$(arg x), $(arg y), $(arg z),
@@ -56,7 +71,7 @@
 
         <!-- Depth sensor -->
         <param name="pose0" value="/uavcan_depth2"/>
-        <rosparam param="pose0_config">[true, true, true,
+        <rosparam param="pose0_config">[false, false, true,
                                         false, false, false,
                                         false, false, false,
                                         false, false, false,
@@ -66,15 +81,27 @@
         <param name="pose0_relative" value="false"/>
 
 
+        <!-- DVL -->
+        <param name="twist0" value="/dvl_vel"/>
+        <rosparam param="twist0_config">[false, false, false,
+                                        false, false, false,
+                                        true, true, true,
+                                        false, false, false,
+                                        false, false, false]</rosparam>
+
+        <param name="twist0_differential" value="false"/>
+        <param name="twist0_relative" value="false"/>
+
+
         <!-- IMU -->
         <param name="imu0" value="/stim_imu"/>
         <rosparam param="imu0_config">[false, false, false,
-                                       true, true, false,
+                                       false, false, false,
                                        false, false, false,
                                        true, true, true,
                                        false, false, false]</rosparam>
 
-        <param name="imu0_differential" value="false"/>
+        <!--<param name="imu0_differential" value="true"/>-->
         <param name="imu0_relative" value="true"/>
         <param name="imu0_remove_gravitational_acceleration" value="true"/>
         <param name="gravitational_acceleration" value="9.80665"/>
