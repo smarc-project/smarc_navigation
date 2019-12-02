@@ -104,7 +104,7 @@
         <!--<param name="imu0_differential" value="true"/>-->
         <param name="imu0_relative" value="true"/>
         <param name="imu0_remove_gravitational_acceleration" value="true"/>
-        <param name="gravitational_acceleration" value="9.806"/>
+        <param name="gravitational_acceleration" value="9.80665"/>
 
         <!-- Node params -->
         <param name="publish_tf" value="true"/>
