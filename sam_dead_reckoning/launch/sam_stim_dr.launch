@@ -11,114 +11,107 @@
     <arg name="pitch" default="0.0"/>
     <arg name="yaw" default="0.0"/>
 
-    <!-- STIM300 IMU driver -->
-    <node pkg="stim300_ros_driver" name="stim_imu_driver" type="driver">
-        <param name="device_path" value="/dev/ttyUSB0" />
-        <param name="imu_frame" value="$(arg namespace)/imu_link" />
-        <!-- <param name="imu_frame" value="$(arg namespace)/base_link" /> -->
-        <param name="imu_output" value="/stim_imu" />
-    </node>
+    <group ns="$(arg namespace)">
+
+        <group ns="core">
+            <!-- STIM300 IMU driver -->
+            <node pkg="stim300_ros_driver" name="stim_imu_driver" type="driver">
+                <param name="device_path" value="/dev/ttyUSB0" />
+                <param name="imu_frame" value="$(arg namespace)/imu_link" />
+                <param name="imu_output" value="stim_imu"/>
+            </node>
+        </group>
+
+        <group ns="dr">
+            <!-- Depth from pressure sensor converter -->
+            <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
+                <param name="odom_frame" value="$(arg namespace)_odom" />
+                <param name="pressure_topic" value="/sam/core/depth20_pressure" />
+                <param name="depth_topic" value="pressure_depth"/>
+                <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
+                <param name="base_frame" value="$(arg namespace)/base_link" />
+            </node>
+
+            <!-- EKF for fusing continuous position data from wheel odometry and IMU -->
+            <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_local" output="screen" clear_params="true">
+                <param name="frequency" value="50"/>
+                <param name="sensor_timeout" value="0.1"/>
+                <param name="two_d_mode" value="false"/>
+
+                <!-- <param name="map_frame" value="map"/> -->
+                <param name="odom_frame" value="$(arg namespace)_odom"/>
+                <param name="base_link_frame" value="$(arg namespace)/base_link"/>
+                <param name="world_frame" value="$(arg namespace)_odom"/>
+
+                <param name="transform_time_offset" value="0.0"/>
+                <param name="transform_timeout" value="0.0"/>
+
+                <!--
+                    x,     y,      z,
+                    roll,  pitch,  yaw,
+                    vx,    vy,     vz,
+                    vroll, vpitch, vyaw,
+                    ax,    ay,     az
+                    These values are wrt the sensor frame. Remember the IMU has been rotated!
+                 -->
+
+                <rosparam param="initial_state">[$(arg x), $(arg y), $(arg z),
+                                                 $(arg roll), $(arg pitch), $(arg yaw),
+                                                 0.0,  0.0,  0.0,
+                                                 0.0,  0.0,  0.0,
+                                                 0.0,  0.0,  0.0]</rosparam>
+
+                <!-- Depth sensor -->
+                <param name="pose0" value="pressure_depth"/>
+                <rosparam param="pose0_config">[false, false, true,
+                                                false, false, false,
+                                                false, false, false,
+                                                false, false, false,
+                                                false, false, false]</rosparam>
+
+                <param name="pose0_differential" value="false"/>
+                <param name="pose0_relative" value="false"/>
 
 
-<!--     <group ns="$(arg namespace)">
+                <!-- DVL -->
+                <param name="twist0" value="/$(arg namespace)/core/dvl_vel"/>
+                <rosparam param="twist0_config">[false, false, false,
+                                                false, false, false,
+                                                true, true, true,
+                                                false, false, false,
+                                                false, false, false]</rosparam>
 
-    <param name="robot_description"
-           command="$(find xacro)/xacro.py --inorder '$(find sam_description)/robots/sam_auv_$(arg mode).urdf.xacro' debug:=$(arg debug) namespace:=$(arg namespace)" />
-
-    Publish robot model for ROS
-        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen">
-          <param name="robot_description" value="/$(arg namespace)/robot_description" />
-        </node>
-    </group> -->
-
-    <!-- Depth from pressure sensor converter -->
-    <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
-        <param name="odom_frame" value="$(arg namespace)_odom" />
-        <param name="pressure_topic" value="/uavcan_pressure20" />
-        <param name="depth_topic" value="/uavcan_depth2" />
-        <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
-        <param name="base_frame" value="$(arg namespace)/base_link" />
-    </node>
-
-    <!-- EKF for fusing continuous position data from wheel odometry and IMU -->
-    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_local" output="screen" clear_params="true">
-        <param name="frequency" value="50"/>
-        <param name="sensor_timeout" value="0.1"/>
-        <param name="two_d_mode" value="false"/>
-
-        <!-- <param name="map_frame" value="map"/> -->
-        <param name="odom_frame" value="$(arg namespace)_odom"/>
-        <param name="base_link_frame" value="$(arg namespace)/base_link"/>
-        <param name="world_frame" value="$(arg namespace)_odom"/>
-
-        <param name="transform_time_offset" value="0.0"/>
-        <param name="transform_timeout" value="0.0"/>
-
-        <!--
-            x,     y,      z,
-            roll,  pitch,  yaw,
-            vx,    vy,     vz,
-            vroll, vpitch, vyaw,
-            ax,    ay,     az
-            These values are wrt the sensor frame. Remember the IMU has been rotated!
-         -->
-
-        <rosparam param="initial_state">[$(arg x), $(arg y), $(arg z),
-                                         $(arg roll), $(arg pitch), $(arg yaw),
-                                         0.0,  0.0,  0.0,
-                                         0.0,  0.0,  0.0,
-                                         0.0,  0.0,  0.0]</rosparam>
-
-        <!-- Depth sensor -->
-        <param name="pose0" value="/uavcan_depth2"/>
-        <rosparam param="pose0_config">[false, false, true,
-                                        false, false, false,
-                                        false, false, false,
-                                        false, false, false,
-                                        false, false, false]</rosparam>
-
-        <param name="pose0_differential" value="false"/>
-        <param name="pose0_relative" value="false"/>
+                <param name="twist0_differential" value="false"/>
+                <param name="twist0_relative" value="false"/>
 
 
-        <!-- DVL -->
-        <param name="twist0" value="/dvl_vel"/>
-        <rosparam param="twist0_config">[false, false, false,
-                                        false, false, false,
-                                        true, true, true,
-                                        false, false, false,
-                                        false, false, false]</rosparam>
+                <!-- IMU -->
+                <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
+                <rosparam param="imu0_config">[false, false, false,
+                                               true, true, false,
+                                               false, false, false,
+                                               true, true, true,
+                                               false, false, false]</rosparam>
 
-        <param name="twist0_differential" value="false"/>
-        <param name="twist0_relative" value="false"/>
+                <!--<param name="imu0_differential" value="true"/>-->
+                <param name="imu0_relative" value="true"/>
+                <param name="imu0_remove_gravitational_acceleration" value="true"/>
+                <param name="gravitational_acceleration" value="9.80665"/>
 
+                <!-- Node params -->
+                <param name="publish_tf" value="true"/>
+                <param name="publish_acceleration" value="false"/>
 
-        <!-- IMU -->
-        <param name="imu0" value="/stim_imu"/>
-        <rosparam param="imu0_config">[false, false, false,
-                                       true, true, false,
-                                       false, false, false,
-                                       true, true, true,
-                                       false, false, false]</rosparam>
+                <!-- Advanced node params -->
+                <param name="use_control" value="false"/>
+                <param name="stamped_control" value="false"/>
 
-        <!--<param name="imu0_differential" value="true"/>-->
-        <param name="imu0_relative" value="true"/>
-        <param name="imu0_remove_gravitational_acceleration" value="true"/>
-        <param name="gravitational_acceleration" value="9.80665"/>
+                <!-- Outputs -->
+                <remap from="odometry/filtered" to="odom"/>
+                <remap from="set_pose" to="/initialpose"/> <!--Service to reset initial pose -->
+            </node>
+        </group>
 
-        <!-- Node params -->
-        <param name="publish_tf" value="true"/>
-        <param name="publish_acceleration" value="false"/>
-
-        <!-- Advanced node params -->
-        <param name="use_control" value="false"/>
-        <param name="stamped_control" value="false"/>
-
-        <!-- Outputs -->
-        <remap from="odometry/filtered" to="odometry/filtered/sam"/>
-        <remap from="set_pose" to="/initialpose"/> <!--Service to reset initial pose -->
-    </node>
-
-    <!-- <include file="$(find smarc_private_auvs)/models/sam_auv/launch/upload_sam_auv.launch"/> -->
+    </group>
 
 </launch>
