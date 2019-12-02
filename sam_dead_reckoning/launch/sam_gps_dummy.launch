@@ -3,9 +3,6 @@
     <arg name="namespace" default="sam"/>
     <arg name="mode" default="default"/>
     <arg name="debug" default="0"/>
-    <arg name="gps_port" value="/dev/ttyUSB2"/>
-    <arg name="gps_baud" value="9600"/>
-    <arg name="gps_frame_id" value="gps"/>
 
     <!-- Get these coordinates by clicking in Google maps and converting lat/lon to UTM -->
     <arg name="latitude" default="59.348513"/>
@@ -30,12 +27,6 @@
 
     <node pkg="sam_dead_reckoning" type="publish_gps_path.py" name="publish_gps_path" output="screen"/>
     <node pkg="sam_dead_reckoning" type="spoof_gps_imu.py" name="spoof_gps_imu" output="screen"/>
-
-    <node pkg="nmea_navsat_driver" type="nmea_serial_driver" name="navsat" respawn="true">
-        <param name="port" value="$(arg gps_port)"/>
-        <param name="baud" value="$(arg gps_baud)"/>
-        <param name="frame_id" value="$(arg gps_frame_id)"/>
-    </node>
 
     <include file="$(find sam_dead_reckoning)/launch/sam_stim_dr.launch">
         <arg name="namespace" default="$(arg namespace)"/>
