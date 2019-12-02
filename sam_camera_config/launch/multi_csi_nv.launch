@@ -1,0 +1,21 @@
+<launch>
+  <!-- This launchfile should bring up three nodes for three cameras that broadcasts a ros image
+       transport on /webcam/image_raw -->
+
+<arg name="namespace" default="sam"/>
+<arg name="mode" default="default"/>
+
+
+<include file="$(find sam_camera_config)/launch/csi_nv.launch">
+  <arg name="sensor_id" default="0"/>
+</include>
+
+<include file="$(find sam_camera_config)/launch/csi_nv.launch">
+  <arg name="sensor_id" default="1"/>
+</include>
+
+<include file="$(find sam_camera_config)/launch/csi_nv.launch">
+  <arg name="sensor_id" default="2"/>
+</include>
+
+</launch>

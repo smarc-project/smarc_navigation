@@ -1,0 +1,9 @@
+<launch>
+  <arg name="namespace" default="sam"/>
+  <arg name="mode" default="default"/>
+  <arg name="time" default="5h"/>
+  <arg name="rootpath" default="/xavier_ssd/bagfiles"/>
+
+  <node pkg="rosbag" type="record" name="record_cam_all" args="/csi_cam_0/csi_cam_0/image_raw/compressed /csi_cam_1/csi_cam_1/image_raw/compressed /csi_cam_2/csi_cam_2/image_raw/compressed --duration=$(arg time) -o $(arg rootpath)/cam_all"/>
+
+</launch>

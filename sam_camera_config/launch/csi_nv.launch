@@ -1,0 +1,36 @@
+<launch>
+  <!-- This launchfile should bring up a node that broadcasts a ros image
+       transport on /webcam/image_raw -->
+
+  <arg name="sensor_id" default="0"/>
+  <!-- The GStreamer framerate needs to be an integral fraction -->
+  <arg name="FPS" default="60"/>
+  <arg name="WIDTH" default="3840"/>
+  <arg name="HEIGHT" default="2160"/>
+  <arg name="PUBLISH_FRAME" default="false"/>
+  <arg name="GST10" default="false"/>
+  <arg name="cam_name" default="csi_cam_$(arg sensor_id)" />
+  <arg name="frame_id" default="/$(arg cam_name)_link" />
+
+  <node ns="$(arg cam_name)" name="gscam_driver_csi" pkg="gscam" type="gscam" output="screen">
+    
+    <!-- Make arguments available to parameter server -->
+  <param name="$(arg cam_name)/camera_id" type="int" value="$(arg sensor_id)" />
+  <param name="$(arg cam_name)/image_width" type="int" value="$(arg WIDTH)" />
+  <param name="$(arg cam_name)/image_height" type="int" value="$(arg HEIGHT)" />
+  <param name="$(arg cam_name)/target_fps" type="int" value="$(arg FPS)" />
+
+    <param name="camera_info_url" value="$(find sam_camera_config)/uncalibrated_parameters1.ini" />
+
+    <param unless="$(arg GST10)" name="gscam_config" value="nvarguscamerasrc sensor-id=$(arg sensor_id) ! video/x-raw(memory:NVMM), width=(int)$(arg WIDTH), height=(int)$(arg HEIGHT), framerate=$(arg FPS)/1 ! nvvidconv flip-method=0 ! video/x-raw,format=(string)I420 ! videoconvert ! video/x-raw, format=(string)BGRx"/>
+    <param if="$(arg GST10)" name="gscam_config" value="nvarguscamerasrc sensor-id=$(arg sensor_id) ! video/x-raw(memory:NVMM), width=(int)$(arg WIDTH), height=(int)$(arg HEIGHT), framerate=$(arg FPS)/1 ! nvvidconv flip-method=0 ! video/x-raw,format=(string)I420 ! videoconvert ! video/x-raw, format=(string)BGRx"/>
+    
+    <param name="sync_sink" value="true"/>
+    <param name="camera_name" value="$(arg cam_name)" />
+    <param name="frame_id" value="$(arg frame_id)" />
+    <remap from="camera/image_raw" to="$(arg cam_name)/image_raw" />
+    <remap from="/set_camera_info" to="$(arg cam_name)/set_camera_info" />
+  </node>
+
+  <node if="$(arg PUBLISH_FRAME)" name="v4l_transform" pkg="tf" type="static_transform_publisher" args="1 2 3 0 -3.141 0 /world /v4l_frame 10"/>
+</launch>
