@@ -16,9 +16,6 @@ class GPSOdomPublisher(object):
         self.gps_topic = rospy.get_param(rospy.get_name() + '/gps_topic', '/fix')
         self.imu_topic = rospy.get_param(rospy.get_name() + '/imu_topic', '/heading_imu')
 
-        self.gps_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.gps_callback)
-        self.imu_sub = rospy.Subscriber(self.imu_topic, Imu, self.imu_callback)
-
         self.odom_topic = "sam/utm_odom"
         self.odom_frame = "world_utm"
         self.odom_pub = rospy.Publisher(self.odom_topic, Odometry)
@@ -31,6 +28,9 @@ class GPSOdomPublisher(object):
 
         self.br = tf.TransformBroadcaster()
         self.listener = tf.TransformListener()
+
+        self.gps_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.gps_callback)
+        self.imu_sub = rospy.Subscriber(self.imu_topic, Imu, self.imu_callback)
 
         rospy.spin()
 
@@ -54,6 +54,7 @@ class GPSOdomPublisher(object):
 
         self.odom_pub.publish(self.odom_msg)
 
+        self.listener.waitForTransform("sam_odom", "sam/base_link", rospy.Time(), rospy.Duration(4.0))
         try:
             now = rospy.Time(0)
             (odom_trans, odom_rot) = self.listener.lookupTransform("sam_odom", "sam/base_link", now)
