@@ -17,7 +17,7 @@ class SpoofIMU(object):
         self.gps_topic = rospy.get_param(rospy.get_name() + '/gps_topic', '/fix')
         self.vel_topic = rospy.get_param(rospy.get_name() + '/vel_topic', '/vel')
         self.heading_imu_topic = rospy.get_param(rospy.get_name() + '/heading_imu_topic', '/heading_imu')
-        self.odom_topic = '/odometry/filtered/sam'
+        self.odom_topic = '/odom'
 
         if True:
             self.gps_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.gps_callback)

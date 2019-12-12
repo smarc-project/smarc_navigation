@@ -4,7 +4,7 @@ import rospy
 import numpy as np
 import math
 from sensor_msgs.msg import Imu, NavSatFix
-from geometry_msgs.msg import PoseWithCovarianceStamped, TwistStamped, Quaternion, Point
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TwistStamped, Quaternion, Point
 import tf_conversions
 import tf
 from geodesy import utm
@@ -15,9 +15,6 @@ class GPSOdomPublisher(object):
     def __init__(self):
         self.gps_topic = rospy.get_param(rospy.get_name() + '/gps_topic', '/fix')
         self.imu_topic = rospy.get_param(rospy.get_name() + '/imu_topic', '/heading_imu')
-
-        self.gps_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.gps_callback)
-        self.imu_sub = rospy.Subscriber(self.imu_topic, Imu, self.imu_callback)
 
         self.odom_topic = "sam/utm_odom"
         self.odom_frame = "world_utm"
@@ -32,7 +29,40 @@ class GPSOdomPublisher(object):
         self.br = tf.TransformBroadcaster()
         self.listener = tf.TransformListener()
 
-        rospy.spin()
+        self.correction_rot = None
+        self.correction_trans = None
+
+        self.gps_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.gps_callback)
+        self.imu_sub = rospy.Subscriber(self.imu_topic, Imu, self.imu_callback)
+        self.goal_sub = rospy.Subscriber("/move_base_simple/goal", PoseStamped, self.goal_callback)
+
+
+        #rospy.spin()
+        rate = rospy.Rate(10.)
+        while not rospy.is_shutdown():
+            if self.correction_rot is not None and self.correction_trans is not None:
+                self.br.sendTransform(self.correction_trans,
+                             self.correction_rot,
+                             rospy.Time.now(),
+                             "world",
+                             "world_local")
+
+    def goal_callback(self, goal_msg):
+
+        self.odom_msg.pose.pose.orientation = goal_msg.pose.orientation
+        rospy.loginfo("Frame id of goal pose: %s", goal_msg.header.frame_id)
+
+        try:
+            goal_point_utm = self.listener.transformPose("/world_utm", goal_msg)
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            print ("Not transforming point to world local")
+            goal_point_utm = goal_msg
+            pass
+
+        print goal_msg
+        print goal_point_utm
+
+        self.process(goal_point_utm.pose.position.x, goal_point_utm.pose.position.y)
 
     def imu_callback(self, imu_msg):
 
@@ -49,11 +79,15 @@ class GPSOdomPublisher(object):
         print utm_point.gridZone()
         easting = utm_point.easting
         northing = utm_point.northing
+        self.process(easting, northing)
+
+    def process(self, easting, northing):
 
         self.odom_msg.pose.pose.position = Point(*[easting, northing, 0.])
 
         self.odom_pub.publish(self.odom_msg)
 
+        self.listener.waitForTransform("sam_odom", "sam/base_link", rospy.Time(), rospy.Duration(4.0))
         try:
             now = rospy.Time(0)
             (odom_trans, odom_rot) = self.listener.lookupTransform("sam_odom", "sam/base_link", now)
@@ -85,14 +119,9 @@ class GPSOdomPublisher(object):
         correction = np.dot(np.dot(tf.transformations.inverse_matrix(world_transform), gps_transform), tf.transformations.inverse_matrix(odom_transform))
         print "got correction", correction
 
-        correction_trans = tf.transformations.translation_from_matrix(correction)
-        correction_rot = tf.transformations.quaternion_from_matrix(correction)
+        self.correction_trans = tf.transformations.translation_from_matrix(correction)
+        self.correction_rot = tf.transformations.quaternion_from_matrix(correction)
 
-        self.br.sendTransform(correction_trans,
-                     correction_rot,
-                     rospy.Time.now(),
-                     "world",
-                     "world_local")
 
         print "Published transform!"
 
