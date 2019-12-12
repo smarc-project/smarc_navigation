@@ -11,16 +11,25 @@
     <arg name="pitch" default="0.0"/>
     <arg name="yaw" default="0.0"/>
 
+  <group ns="$(arg namespace)">
+
+    <node pkg="dvl_ros_driver" type="dvl_driver.py" name="dvl_driver" output="screen" ns="core">
+      <!-- <param name="dvl_topic" value="dvl_vel"/> -->
+    </node>
+
+  </group>
+
+
     <group ns="$(arg namespace)">
 
         <group ns="core">
-        	  <node name="stim300driver" pkg="driver_stim300" type="stim300_driver_node" />
+       <!--  	  <node name="stim300driver" pkg="driver_stim300" type="stim300_driver_node" />
 			  <param name = "device_name" value="/dev/ttyUSB0" type="string" />
 			  <param name = "stanard_deviation_of_gyro" value="0.0004" type="double" />
 			  <param name = "stanard_deviation_of_acc" value="0.004" type="double" />
 			  <param name = "imu_output" value="stim_imu" type="string"/>
 			  <param name = "imu_frame" value="$(arg namespace)/imu_link" type="string"/>
-			  <param name = "sample_rate" value="125" type="double" />
+			  <param name = "sample_rate" value="125" type="double" /> -->
 
 
             <!-- STIM300 IMU driver -->

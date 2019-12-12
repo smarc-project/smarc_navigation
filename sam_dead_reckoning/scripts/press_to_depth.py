@@ -44,7 +44,7 @@ class Press2Depth(object):
 		
 			# # depth_abs is positive, must be manually negated
 			depth_abs = - self.pascal_pressure_to_depth(press_msg.fluid_pressure)
-			rospy.loginfo("Depth abs %s", depth_abs)
+			# rospy.loginfo("Depth abs %s", depth_abs)
 			# # Check signs here
 			# depth_base_link = depth_abs + self.x_base_depth * np.sin(pitch)
 			# rospy.loginfo("Depth base link %s", depth_base_link)
