@@ -11,19 +11,29 @@
     <arg name="pitch" default="0.0"/>
     <arg name="yaw" default="0.0"/>
 
+  <group ns="$(arg namespace)">
+
+    <node pkg="dvl_ros_driver" type="dvl_driver.py" name="dvl_driver" output="screen" ns="core">
+      <!-- <param name="dvl_topic" value="dvl_vel"/> -->
+    </node>
+
+  </group>
+
+    <!-- <node pkg="rosbag" type="play" name="bags_imu" output="screen" args="-l $(find sam_dead_reckoning)/launch/imu_2.bag"/> -->
+
     <group ns="$(arg namespace)">
 
-<!--         <group ns="core">
-        	  <node name="stim300driver" pkg="driver_stim300" type="stim300_driver_node" />
-			  <param name = "device_name" value="/dev/ttyUSB0" type="string" />
-			  <param name = "stanard_deviation_of_gyro" value="0.0004" type="double" />
-			  <param name = "stanard_deviation_of_acc" value="0.004" type="double" />
-			  <param name = "imu_output" value="stim_imu" type="string"/>
-			  <param name = "imu_frame" value="$(arg namespace)/imu_link" type="string"/>
-			  <param name = "sample_rate" value="125" type="double" /> -->
+        <group ns="core">
+			<!-- STIM300 IMU driver -->
+<!-- 			<node name="stim300driver" pkg="driver_stim300" type="stim300_driver_node" />
+			<param name = "device_name" value="/dev/ttyUSB0" type="string" />
+			<param name = "stanard_deviation_of_gyro" value="0.0004" type="double" />
+			<param name = "stanard_deviation_of_acc" value="0.004" type="double" />
+			<param name = "imu_output" value="stim_imu" type="string"/>
+			<param name = "imu_frame" value="$(arg namespace)/imu_link" type="string"/>
+			<param name = "sample_rate" value="125" type="double" /> -->
 
 
-            <!-- STIM300 IMU driver -->
 <!--             <node pkg="stim300_ros_driver" name="stim_imu_driver" type="driver">
                 <param name="device_path" value="/dev/ttyUSB0" />
                 <param name="imu_frame" value="$(arg namespace)/imu_link" />
@@ -31,7 +41,7 @@
             </node>
  -->
      
- <!-- </group> -->
+	 </group>
 
         <group ns="dr">
             <!-- Depth from pressure sensor converter -->
@@ -80,7 +90,7 @@
                                                  0.0,  0.0,  0.0]</rosparam>
 
                 <!-- Depth sensor -->
-                <param name="pose0" value="pressure_depth"/>
+<!--                 <param name="pose0" value="pressure_depth"/>
                 <rosparam param="pose0_config">[false, false, true,
                                                 false, false, false,
                                                 false, false, false,
@@ -88,11 +98,11 @@
                                                 false, false, false]</rosparam>
 
                 <param name="pose0_differential" value="false"/>
-                <param name="pose0_relative" value="false"/>
+                <param name="pose0_relative" value="false"/> -->
 
 
                 <!-- DVL -->
-                <param name="twist0" value="dvl_twist"/>
+<!--                 <param name="twist0" value="dvl_twist"/>
                 <rosparam param="twist0_config">[false, false, false,
                                                 false, false, false,
                                                 true, true, true,
@@ -101,7 +111,7 @@
 
                 <param name="twist0_differential" value="false"/>
                 <param name="twist0_relative" value="false"/>
-
+ -->
 
                 <!-- IMU -->
                 <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
