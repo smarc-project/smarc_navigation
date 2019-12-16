@@ -87,14 +87,14 @@ class GPSOdomPublisher(object):
 
         self.odom_pub.publish(self.odom_msg)
 
-        self.listener.waitForTransform("sam_odom", "sam/base_link", rospy.Time(), rospy.Duration(4.0))
+        self.listener.waitForTransform("sam/odom", "sam/base_link", rospy.Time(), rospy.Duration(4.0))
         try:
             now = rospy.Time(0)
-            (odom_trans, odom_rot) = self.listener.lookupTransform("sam_odom", "sam/base_link", now)
-            #(odom_trans, odom_rot) = self.listener.lookupTransform("sam/base_link", "sam_odom", now)
+            (odom_trans, odom_rot) = self.listener.lookupTransform("sam/odom", "sam/base_link", now)
+            #(odom_trans, odom_rot) = self.listener.lookupTransform("sam/base_link", "sam/odom", now)
             odom_transform = tf.transformations.concatenate_matrices(tf.transformations.translation_matrix(odom_trans), tf.transformations.quaternion_matrix(odom_rot))
         except (tf.LookupException, tf.ConnectivityException):
-            print "Could not get transform between ", "sam_odom", "and", "sam/base_link"
+            print "Could not get transform between ", "sam/odom", "and", "sam/base_link"
             return
 
         try:

@@ -56,7 +56,7 @@ void drNode::imuCB(const sensor_msgs::Imu::ConstPtr &imu_msg){
 
     nav_msgs::Odometry odom_imul_msg;
     odom_imul_msg.header.stamp = ros::Time(t_now);
-    odom_imul_msg.header.frame_id = "sam_odom";
+    odom_imul_msg.header.frame_id = "sam/odom";
     odom_imul_msg.child_frame_id = "sam/imu_link";
     odom_imul_msg.pose.pose.position.x = odom_x_;
     odom_imul_msg.pose.pose.position.y = odom_y_;

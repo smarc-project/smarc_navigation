@@ -26,7 +26,7 @@ class SamDR(object):
 
 			msg_odom = Odometry()
 			msg_odom.header.stamp = rospy.Time.now()
-			msg_odom.header.frame_id = "sam_odom"
+			msg_odom.header.frame_id = "sam/odom"
 			msg_odom.child_frame_id = "sam/base_link"
 
 			msg_odom.twist.twist.linear.x = (self.rpm_1 + self.rpm_2) * self.coeff 
