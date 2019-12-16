@@ -13,14 +13,14 @@
 
     <group ns="$(arg namespace)">
 
-        <group ns="core">
+<!--         <group ns="core">
         	  <node name="stim300driver" pkg="driver_stim300" type="stim300_driver_node" />
 			  <param name = "device_name" value="/dev/ttyUSB0" type="string" />
 			  <param name = "stanard_deviation_of_gyro" value="0.0004" type="double" />
 			  <param name = "stanard_deviation_of_acc" value="0.004" type="double" />
 			  <param name = "imu_output" value="stim_imu" type="string"/>
 			  <param name = "imu_frame" value="$(arg namespace)/imu_link" type="string"/>
-			  <param name = "sample_rate" value="125" type="double" />
+			  <param name = "sample_rate" value="125" type="double" /> -->
 
 
             <!-- STIM300 IMU driver -->
@@ -29,7 +29,9 @@
                 <param name="imu_frame" value="$(arg namespace)/imu_link" />
                 <param name="imu_output" value="stim_imu"/>
             </node>
- --></group>
+ -->
+     
+ <!-- </group> -->
 
         <group ns="dr">
             <!-- Depth from pressure sensor converter -->
@@ -40,6 +42,13 @@
                 <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
                 <param name="base_frame" value="$(arg namespace)/base_link" />
             </node>
+
+            <!-- DVL to Twist msg converter -->
+            <node pkg="sam_dead_reckoning" name="dvl_to_twist" type="dvl_to_twist.py" output="screen">
+                <param name="dvl_topic" value="/sam/core/dvl" />
+                <param name="dvl_twist_topic" value="dvl_twist"/>
+            </node>
+
 
             <!-- EKF for fusing continuous position data from wheel odometry and IMU -->
             <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_local" output="screen" clear_params="true">
@@ -83,7 +92,7 @@
 
 
                 <!-- DVL -->
-                <param name="twist0" value="/$(arg namespace)/core/dvl_vel"/>
+                <param name="twist0" value="dvl_twist"/>
                 <rosparam param="twist0_config">[false, false, false,
                                                 false, false, false,
                                                 true, true, true,
