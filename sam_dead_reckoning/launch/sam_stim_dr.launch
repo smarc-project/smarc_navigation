@@ -13,9 +13,9 @@
 
   <group ns="$(arg namespace)">
 
-    <node pkg="dvl_ros_driver" type="dvl_driver.py" name="dvl_driver" output="screen" ns="core">
-      <!-- <param name="dvl_topic" value="dvl_vel"/> -->
-    </node>
+<!--     <node pkg="dvl_ros_driver" type="dvl_driver.py" name="dvl_driver" output="screen" ns="core">
+ -->      <!-- <param name="dvl_topic" value="dvl_vel"/> -->
+    <!-- </node> -->
 
   </group>
 
@@ -41,9 +41,15 @@
             </node>
  -->
      
-	 </group>
+	    </group>
 
         <group ns="dr">
+
+            <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
+                <param name="thrust_dr" value="/$(arg namespace)/dr/motion_dr" />
+                <param name="thrust_fb" value="/sam/core/rpm_cmd" />
+            </node>
+
             <!-- Depth from pressure sensor converter -->
             <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
                 <param name="odom_frame" value="$(arg namespace)_odom" />
@@ -60,7 +66,7 @@
             </node>
 
 
-            <!-- EKF for fusing continuous position data from wheel odometry and IMU -->
+            <!-- EKF for fusing continuous data from DVL, depth, motion model and IMU -->
             <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_local" output="screen" clear_params="true">
                 <param name="frequency" value="125"/>
                 <param name="sensor_timeout" value="0.1"/>
@@ -113,8 +119,19 @@
                 <param name="twist0_relative" value="false"/>
  -->
 
+                <!-- DR from thrusters -->
+                <param name="odom0" value="/$(arg namespace)/dr/motion_dr"/>
+                <rosparam param="odom0_config">[false,  false,  false,
+                                                false, false, false,
+                                                true,  false, false,
+                                                false, false, false,
+                                                false, false, false]</rosparam>
+
+                <param name="odom0_differential" value="false"/>
+                <param name="odom0_relative" value="true"/>
+
                 <!-- IMU -->
-                <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
+<!--                 <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
                 <rosparam param="imu0_config">[false, false, false,
                                                true, true, false,
                                                false, false, false,
@@ -125,7 +142,7 @@
                 <param name="imu0_relative" value="true"/>
                 <param name="imu0_remove_gravitational_acceleration" value="true"/>
                 <param name="gravitational_acceleration" value="9.80665"/>
-
+ -->
                 <!-- Node params -->
                 <param name="publish_tf" value="true"/>
                 <param name="publish_acceleration" value="false"/>
@@ -138,6 +155,7 @@
                 <remap from="odometry/filtered" to="odom"/>
                 <remap from="set_pose" to="/initialpose"/> <!--Service to reset initial pose -->
             </node>
+
         </group>
 
     </group>
