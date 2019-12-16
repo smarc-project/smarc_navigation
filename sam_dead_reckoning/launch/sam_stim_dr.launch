@@ -11,49 +11,24 @@
     <arg name="pitch" default="0.0"/>
     <arg name="yaw" default="0.0"/>
 
-  <group ns="$(arg namespace)">
-
-<!--     <node pkg="dvl_ros_driver" type="dvl_driver.py" name="dvl_driver" output="screen" ns="core">
- -->      <!-- <param name="dvl_topic" value="dvl_vel"/> -->
-    <!-- </node> -->
-
-  </group>
-
     <!-- <node pkg="rosbag" type="play" name="bags_imu" output="screen" args="-l $(find sam_dead_reckoning)/launch/imu_2.bag"/> -->
 
     <group ns="$(arg namespace)">
 
-        <group ns="core">
-			<!-- STIM300 IMU driver -->
-<!-- 			<node name="stim300driver" pkg="driver_stim300" type="stim300_driver_node" />
-			<param name = "device_name" value="/dev/ttyUSB0" type="string" />
-			<param name = "stanard_deviation_of_gyro" value="0.0004" type="double" />
-			<param name = "stanard_deviation_of_acc" value="0.004" type="double" />
-			<param name = "imu_output" value="stim_imu" type="string"/>
-			<param name = "imu_frame" value="$(arg namespace)/imu_link" type="string"/>
-			<param name = "sample_rate" value="125" type="double" /> -->
-
-
-<!--             <node pkg="stim300_ros_driver" name="stim_imu_driver" type="driver">
-                <param name="device_path" value="/dev/ttyUSB0" />
-                <param name="imu_frame" value="$(arg namespace)/imu_link" />
-                <param name="imu_output" value="stim_imu"/>
-            </node>
- -->
-     
-	    </group>
-
         <group ns="dr">
+
+            <!-- Static transform -->
+            <node pkg="tf" type="static_transform_publisher" name="world_utm_broadcaster" args="535529 4864397 0 0 0 0 1 world_utm world_local 100" />
 
             <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
                 <param name="thrust_dr" value="/$(arg namespace)/dr/motion_dr" />
-                <param name="thrust_fb" value="/sam/core/rpm_cmd" />
+                <param name="thrust_fb" value="/$(arg namespace)/core/rpm_cmd" />
             </node>
 
             <!-- Depth from pressure sensor converter -->
             <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
-                <param name="odom_frame" value="$(arg namespace)_odom" />
-                <param name="pressure_topic" value="/sam/core/depth20_pressure" />
+                <param name="odom_frame" value="$(arg namespace)/odom" />
+                <param name="pressure_topic" value="/$(arg namespace)/core/depth20_pressure" />
                 <param name="depth_topic" value="pressure_depth"/>
                 <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
                 <param name="base_frame" value="$(arg namespace)/base_link" />
