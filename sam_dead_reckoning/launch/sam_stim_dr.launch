@@ -104,7 +104,7 @@
 
 
                 <!-- DR from thrusters -->
-                <param name="odom0" value="/$(arg namespace)/dr/motion_dr"/>
+<!--                 <param name="odom0" value="/$(arg namespace)/dr/motion_dr"/>
                 <rosparam param="odom0_config">[false,  false,  false,
                                                 false, false, false,
                                                 true,  false, false,
@@ -112,9 +112,9 @@
                                                 false, false, false]</rosparam>
 
                 <param name="odom0_differential" value="false"/>
-                <param name="odom0_relative" value="true"/>
+                <param name="odom0_relative" value="false"/>
                 <param name="odom0_nodelay" value="true"/>
-                <param name="odom0_queue_size" value="10"/>
+                <param name="odom0_queue_size" value="10"/> -->
 
                 <!-- IMU -->
                 <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
@@ -127,7 +127,7 @@
                 <param name="imu0_differential" value="false"/>
                 <param name="imu0_relative" value="true"/>
                 <param name="imu0_remove_gravitational_acceleration" value="true"/>
-                <param name="imu0_nodelay" value="true"/>
+                <param name="imu0_nodelay" value="false"/>
                 <param name="imu0_queue_size" value="10"/>
                 <param name="gravitational_acceleration" value="9.80665"/>
 
@@ -140,13 +140,13 @@
                 <param name="stamped_control" value="false"/>
 
                 <!-- Outputs -->
-                <remap from="odometry/filtered" to="odom"/>
+                <remap from="odometry/filtered" to="odom_ekf_local"/>
                 <remap from="set_pose" to="/initialpose"/>
             </node>
 
             <!-- EKF for fusing continuous data from DVL, depth, motion model, IMU and GPS -->
             <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_global" output="screen" clear_params="true">
-                <param name="frequency" value="125"/>
+                <param name="frequency" value="100"/>
                 <param name="sensor_timeout" value="0.1"/>
                 <param name="two_d_mode" value="false"/>
 
@@ -235,7 +235,7 @@
                 <param name="imu0_differential" value="false"/>
                 <param name="imu0_relative" value="true"/>
                 <param name="imu0_remove_gravitational_acceleration" value="true"/>
-                <param name="imu0_nodelay" value="true"/>
+                <param name="imu0_nodelay" value="false"/>
                 <param name="imu0_queue_size" value="10"/>
                 <param name="gravitational_acceleration" value="9.80665"/>
 
