@@ -44,6 +44,9 @@
 
             <node pkg="robot_localization" type="navsat_transform_node" name="navsat_transform" clear_params="true">
                 <remap from="odometry/filtered" to="odometry/filtered_map"/>
+                <remap from="imu/data" to="/$(arg namespace)/core/stim_imu"/>
+                <remap from="odometry/filtered" to="odom_ekf_global"/>
+                <remap from="gps/fix" to="/$(arg namespace)/core/gps"/>
             </node>
 
 
@@ -195,7 +198,7 @@
 
 
                 <!-- DR from thrusters -->
-                <param name="odom0" value="/$(arg namespace)/dr/motion_dr"/>
+<!--                 <param name="odom0" value="/$(arg namespace)/dr/motion_dr"/>
                 <rosparam param="odom0_config">[false,  false,  false,
                                                 false, false, false,
                                                 true,  false, false,
@@ -203,23 +206,23 @@
                                                 false, false, false]</rosparam>
 
                 <param name="odom0_differential" value="false"/>
-                <param name="odom0_relative" value="true"/>
+                <param name="odom0_relative" value="false"/>
                 <param name="odom0_nodelay" value="true"/>
-                <param name="odom0_queue_size" value="10"/>
+                <param name="odom0_queue_size" value="10"/> -->
 
 
                 <!-- GPS -->
-                <param name="odom1" value="/$(arg namespace)/core/gps"/>
-                <rosparam param="odom1_config">[true,  true,  false,
+                <param name="odom0" value="/sam/dr/odometry/gps"/>
+                <rosparam param="odom0_config">[true,  true,  false,
                                                 false, false, false,
-                                                true,  false, false,
+                                                false, false, false,
                                                 false, false, false,
                                                 false, false, false]</rosparam>
 
-                <param name="odom1_differential" value="false"/>
-                <param name="odom1_relative" value="false"/>
-                <param name="odom1_nodelay" value="true"/>
-                <param name="odom1_queue_size" value="10"/>
+                <param name="odom0_differential" value="false"/>
+                <param name="odom0_relative" value="false"/>
+                <param name="odom0_nodelay" value="true"/>
+                <param name="odom0_queue_size" value="10"/>
 
                 <!-- IMU -->
                 <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
@@ -245,7 +248,7 @@
                 <param name="stamped_control" value="false"/>
 
                 <!-- Outputs -->
-                <remap from="odometry/filtered" to="odom"/>
+                <remap from="odometry/filtered" to="odom_ekf_global"/>
                 <remap from="set_pose" to="/initialpose"/>
             </node>
 
