@@ -2,54 +2,52 @@
 
 import rospy
 import numpy as np
-from sam_msgs.msg import ThrusterRPMs
-from nav_msgs.msg import Odometry
+#from sam_msgs.msg import ThrusterRPMs
+from geometry_msgs.msg import TwistStamped
+from uavcan_ros_bridge.msg import ESCStatus
 
-class SamDR(object):
+class SamMM(object):
 
 	def __init__(self):
-		
-		self.dr_thrust_topic = rospy.get_param(rospy.get_name() + '/thrust_dr', '/motion_dr')
-		self.rpm_fb_topic = rospy.get_param(rospy.get_name() + '/thrust_fb', '/rpm_fb')
-		self.subs_thrust = rospy.Subscriber(self.rpm_fb_topic, ThrusterRPMs, self.thrustCB)	
- 		self.odom_pub = rospy.Publisher(self.dr_thrust_topic, Odometry, queue_size=10)
+            self.dr_thrust_topic = rospy.get_param(rospy.get_name() + '/thrust_dr', '/motion_dr')
+            self.rpm_fb_topic = rospy.get_param(rospy.get_name() + '/thrust_fb', '/rpm_fb')
+            self.subs_thrust = rospy.Subscriber(self.rpm_fb_topic, ESCStatus, self.thrustCB)	    
+            self.control_pub = rospy.Publisher(self.dr_thrust_topic, TwistStamped, queue_size=10)
+            
+            self.prev_time = rospy.Time.now()
+            self.coeff = 0.001
+            self.first_it = True
+            self.rpm_0 = 0.0
+            self.rpm_1 = 0.0
+            self.rpm_t = 0.
 
- 		self.prev_time = rospy.Time.now()
-		self.coeff = 0.0001
- 		self.first_it = True
- 		self.rpm_1 = 0.0
- 		self.rpm_2 = 0.0
+            rospy.spin()
 
+ 	def thrustCB(self, esc_msg):
+            if esc_msg.esc_index == 0:
+		self.rpm_0 = esc_msg.rpm
+            if esc_msg.esc_index == 1:
+		self.rpm_1 = esc_msg.rpm
 
- 		rate = rospy.Rate(125.)
- 		while not rospy.is_shutdown():
+            twist_msg = TwistStamped()
+            twist_msg.header.stamp = rospy.Time.now()
+            twist_msg.header.frame_id = "sam/base_link"
+            twist_msg.twist.linear.x = (self.rpm_0 + self.rpm_1) * self.coeff
+#            msg_odom.twist.covariance = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0,
+#                                         0.0, 1, 0.0, 0.0, 0.0, 0.0,
+#                                         0.0, 0.0, 1, 0.0, 0.0, 0.0,
+#                                         0.0, 0.0, 0.0, 1, 0.0, 0.0,
+#                                         0.0, 0.0, 0.0, 0.0, 1, 0.0,
+#                                         0.0, 0.0, 0.0, 0.0, 0.0, 1]
 
-			msg_odom = Odometry()
-			msg_odom.header.stamp = rospy.Time.now()
-			msg_odom.header.frame_id = "sam/odom"
-			msg_odom.child_frame_id = "sam/base_link"
-
-			msg_odom.twist.twist.linear.x = (self.rpm_1 + self.rpm_2) * self.coeff 
-	 		msg_odom.twist.covariance = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0,
-	 		0.0, 1, 0.0, 0.0, 0.0, 0.0,
-	 		0.0, 0.0, 1, 0.0, 0.0, 0.0,
-	 		0.0, 0.0, 0.0, 1, 0.0, 0.0,
-	 		0.0, 0.0, 0.0, 0.0, 1, 0.0,
-	 		0.0, 0.0, 0.0, 0.0, 0.0, 1]
-
-			self.odom_pub.publish(msg_odom)	
-			rate.sleep()
-
-	def thrustCB(self, thrust_msg):
-		self.rpm_1 = thrust_msg.thruster_1_rpm
-		self.rpm_2 = thrust_msg.thruster_2_rpm
+            self.control_pub.publish(twist_msg)
 
 
 if __name__ == "__main__":
 
 	rospy.init_node('sam_mm')
 	try:
-		SamDR()
+		SamMM()
 	except rospy.ROSInterruptException:
 		pass
 
