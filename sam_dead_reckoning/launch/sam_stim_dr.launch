@@ -22,7 +22,7 @@
 
             <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
                 <param name="thrust_dr" value="/$(arg namespace)/dr/motion_dr" />
-                <param name="thrust_fb" value="/$(arg namespace)/core/rpm_cmd" />
+                <param name="thrust_fb" value="/$(arg namespace)/core/esc_status_fb" />
             </node>
 
             <!-- Depth from pressure sensor converter -->
@@ -102,24 +102,10 @@
                 <param name="twist0_differential" value="false"/>
                 <param name="twist0_relative" value="false"/>
 
-
-                <!-- DR from thrusters -->
-<!--                 <param name="odom0" value="/$(arg namespace)/dr/motion_dr"/>
-                <rosparam param="odom0_config">[false,  false,  false,
-                                                false, false, false,
-                                                true,  false, false,
-                                                false, false, false,
-                                                false, false, false]</rosparam>
-
-                <param name="odom0_differential" value="false"/>
-                <param name="odom0_relative" value="false"/>
-                <param name="odom0_nodelay" value="true"/>
-                <param name="odom0_queue_size" value="10"/> -->
-
                 <!-- IMU -->
                 <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
                 <rosparam param="imu0_config">[false, false, false,
-                                               true, true, false,
+                                               false, true, true,
                                                false, false, false,
                                                true, true, true,
                                                false, false, false]</rosparam>
@@ -135,17 +121,29 @@
                 <param name="publish_tf" value="true"/>
                 <param name="publish_acceleration" value="false"/>
 
-                <!-- Advanced node params -->
+                <!-- Control signal from thrusters motion model -->
                 <param name="use_control" value="false"/>
                 <param name="stamped_control" value="false"/>
+                <rosparam param="control_config">[true,  false, false,
+                                                  false, false, false]</rosparam>
+                <rosparam param="acceleration_limits">[0.5, 0.0, 0.0,
+                                                       0.0, 0.0, 0.0]</rosparam>
+                <rosparam param="acceleration_gains">[0.1, 0.0, 0.0,
+                                                      0.0, 0.0, 0.0]</rosparam>
+                <rosparam param="deceleration_limits">[0.5, 0.0, 0.0,
+                                                       0.0, 0.0, 0.0]</rosparam>
+                <rosparam param="deceleration_gains">[0.1, 0.0, 0.0,
+                                                      0.0, 0.0, 0.0]</rosparam>
+
+                <remap from="cmd_vel" to="motion_dr"/>
 
                 <!-- Outputs -->
-                <remap from="odometry/filtered" to="odom_ekf_local"/>
+                <remap from="odometry/filtered" to="odom"/>
                 <remap from="set_pose" to="/initialpose"/>
             </node>
 
             <!-- EKF for fusing continuous data from DVL, depth, motion model, IMU and GPS -->
-            <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_global" output="screen" clear_params="true">
+            <!--<node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_global" output="screen" clear_params="true">
                 <param name="frequency" value="100"/>
                 <param name="sensor_timeout" value="0.1"/>
                 <param name="two_d_mode" value="false"/>
@@ -156,7 +154,7 @@
                 <param name="world_frame" value="world"/>
 
                 <param name="transform_time_offset" value="0.0"/>
-                <param name="transform_timeout" value="0.0"/>
+                <param name="transform_timeout" value="0.0"/>-->
 
                 <!--
                     x,     y,      z,
@@ -167,14 +165,14 @@
                     These values are wrt the sensor frame. Remember the IMU has been rotated!
                  -->
 
-                <rosparam param="initial_state">[$(arg x), $(arg y), $(arg z),
+                <!-- <rosparam param="initial_state">[$(arg x), $(arg y), $(arg z),
                                                  $(arg roll), $(arg pitch), $(arg yaw),
                                                  0.0,  0.0,  0.0,
                                                  0.0,  0.0,  0.0,
                                                  0.0,  0.0,  0.0]</rosparam>
-
+ -->
                 <!-- Depth sensor -->
-                <param name="pose0" value="pressure_depth"/>
+<!--                 <param name="pose0" value="pressure_depth"/>
                 <rosparam param="pose0_config">[false, false, true,
                                                 false, false, false,
                                                 false, false, false,
@@ -183,10 +181,10 @@
 
                 <param name="pose0_differential" value="false"/>
                 <param name="pose0_relative" value="false"/>
-
+ -->
 
                 <!-- DVL -->
-                <param name="twist0" value="dvl_twist"/>
+<!--                 <param name="twist0" value="dvl_twist"/>
                 <rosparam param="twist0_config">[false, false, false,
                                                 false, false, false,
                                                 true, true, true,
@@ -195,7 +193,7 @@
 
                 <param name="twist0_differential" value="false"/>
                 <param name="twist0_relative" value="false"/>
-
+ -->
 
                 <!-- DR from thrusters -->
 <!--                 <param name="odom0" value="/$(arg namespace)/dr/motion_dr"/>
@@ -212,7 +210,7 @@
 
 
                 <!-- GPS -->
-                <param name="odom0" value="/sam/dr/odometry/gps"/>
+<!--                 <param name="odom0" value="/sam/dr/odometry/gps"/>
                 <rosparam param="odom0_config">[true,  true,  false,
                                                 false, false, false,
                                                 false, false, false,
@@ -223,9 +221,9 @@
                 <param name="odom0_relative" value="false"/>
                 <param name="odom0_nodelay" value="true"/>
                 <param name="odom0_queue_size" value="10"/>
-
+ -->
                 <!-- IMU -->
-                <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
+<!--                 <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
                 <rosparam param="imu0_config">[false, false, false,
                                                true, true, false,
                                                false, false, false,
@@ -238,20 +236,20 @@
                 <param name="imu0_nodelay" value="false"/>
                 <param name="imu0_queue_size" value="10"/>
                 <param name="gravitational_acceleration" value="9.80665"/>
-
+ -->
                 <!-- Node params -->
-                <param name="publish_tf" value="true"/>
+<!--                 <param name="publish_tf" value="true"/>
                 <param name="publish_acceleration" value="false"/>
-
+ -->
                 <!-- Advanced node params -->
-                <param name="use_control" value="false"/>
+<!--                 <param name="use_control" value="false"/>
                 <param name="stamped_control" value="false"/>
-
+ -->
                 <!-- Outputs -->
-                <remap from="odometry/filtered" to="odom_ekf_global"/>
+<!--                 <remap from="odometry/filtered" to="odom_ekf_global"/>
                 <remap from="set_pose" to="/initialpose"/>
             </node>
-
+ -->
 
         </group>
 
