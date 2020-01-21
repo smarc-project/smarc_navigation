@@ -22,7 +22,7 @@
 
             <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
                 <param name="thrust_dr" value="/$(arg namespace)/dr/motion_dr" />
-                <param name="thrust_fb" value="/$(arg namespace)/core/esc_status_fb" />
+                <param name="thrust_fb" value="/$(arg namespace)/core/rpm_fb" />
             </node>
 
             <!-- Depth from pressure sensor converter -->
@@ -122,17 +122,17 @@
                 <param name="publish_acceleration" value="false"/>
 
                 <!-- Control signal from thrusters motion model -->
-                <param name="use_control" value="false"/>
-                <param name="stamped_control" value="false"/>
-                <rosparam param="control_config">[true,  false, false,
+                <param name="use_control" value="true"/>
+                <param name="stamped_control" value="true"/>
+                <rosparam param="control_config">[true,  true, false,
                                                   false, false, false]</rosparam>
-                <rosparam param="acceleration_limits">[0.5, 0.0, 0.0,
+                <rosparam param="acceleration_limits">[1.0, 1.0, 0.0,
                                                        0.0, 0.0, 0.0]</rosparam>
-                <rosparam param="acceleration_gains">[0.1, 0.0, 0.0,
+                <rosparam param="acceleration_gains">[0.10, 0.10, 0.0,
                                                       0.0, 0.0, 0.0]</rosparam>
-                <rosparam param="deceleration_limits">[0.5, 0.0, 0.0,
+                <rosparam param="deceleration_limits">[0.5, 0.10, 0.0,
                                                        0.0, 0.0, 0.0]</rosparam>
-                <rosparam param="deceleration_gains">[0.1, 0.0, 0.0,
+                <rosparam param="deceleration_gains">[0.1, 0.10, 0.0,
                                                       0.0, 0.0, 0.0]</rosparam>
 
                 <remap from="cmd_vel" to="motion_dr"/>
