@@ -21,6 +21,6 @@
             position_covariance: [3.9561210000000004, 0.0, 0.0, 0.0, 3.9561210000000004, 0.0, 0.0, 0.0, 7.650756],
             position_covariance_type: 2}'" output="screen"/>
 
-    <node pkg="state_feedback" type="publish_gps_pose.py" name="publish_gps_pose"  output="screen"/>
+    <node pkg="sam_dead_reckoning" type="publish_gps_pose.py" name="publish_gps_pose"  output="screen"/>
 
 </launch>

@@ -33,6 +33,9 @@ class PublishGPSPose(object):
 
     def gps_callback(self, gps_msg):
 
+        if gps_msg.status.status == -1:
+            return
+
         try:
             now = rospy.Time(0)
             (world_trans, world_rot) = self.listener.lookupTransform("world_utm", "world_local", now)
