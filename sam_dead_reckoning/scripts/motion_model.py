@@ -15,7 +15,7 @@ class SamMM(object):
             self.control_pub = rospy.Publisher(self.dr_thrust_topic, TwistStamped, queue_size=10)
             
             self.prev_time = rospy.Time.now()
-            self.coeff = 0.001
+            self.coeff = 0.0005
             self.first_it = True
             self.rpm_0 = 0.0
             self.rpm_1 = 0.0
