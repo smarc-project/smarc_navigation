@@ -11,15 +11,31 @@
     <arg name="pitch" default="0.0"/>
     <arg name="yaw" default="0.0"/>
 
+    <!-- Values for Kristineberg -->
+    <arg name="latitude" default="58.250046"/>
+    <arg name="longitude" default="11.446099"/>
+    <!-- UTM Zone: 32V -->
+    <arg name="utm_easting" default="643558.24"/>
+    <arg name="utm_northing" default="6459155.57"/>
+    <arg name="utm_zone" default="32"/>
+
     <!-- <node pkg="rosbag" type="play" name="bags_imu" output="screen" args="-l $(find sam_dead_reckoning)/launch/imu_2.bag"/> -->
 
     <group ns="$(arg namespace)">
 
         <group ns="dr">
 
+            <include file="$(find sam_dead_reckoning)/launch/nav_sat_interface.launch">
+                <arg name="latitude" value="$(arg latitude)"/>
+                <arg name="longitude" value="$(arg longitude)"/>
+                <arg name="utm_easting" value="$(arg utm_easting)"/>
+                <arg name="utm_northing" value="$(arg utm_northing)"/>
+                <arg name="utm_zone" value="$(arg utm_zone)"/>
+            </include>
+            
             <!-- Static transform -->
-            <!-- <node pkg="tf" type="static_transform_publisher" name="world_utm_broadcaster" args="535529 4864397 0 0 0 0 1 world_utm world_local 100" /> -->
-            <node pkg="tf" type="static_transform_publisher" name="world_utm_broadcaster" args="0 0 0 0 0 0 1 world sam/odom 100" />
+            <node pkg="tf" type="static_transform_publisher" name="world_local_broadcaster" args="0 0 0 0 0 0 1 world_local world 100" />
+            <node pkg="tf" type="static_transform_publisher" name="world_odom_broadcaster" args="0 0 0 0 0 0 1 world sam/odom 100" />
 
             <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
                 <param name="thrust_dr" value="/$(arg namespace)/dr/motion_dr" />
@@ -131,7 +147,7 @@
                 <param name="odom0_queue_size" value="10"/>
                 -->
 
-                <param name="pose1" value="/gps_pose"/>
+                <param name="pose1" value="gps_pose"/>
                 <rosparam param="pose1_config">[true, true, false,
                                                 false, false, false,
                                                 false, false, false,
