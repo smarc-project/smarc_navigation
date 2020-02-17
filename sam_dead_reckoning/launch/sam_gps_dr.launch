@@ -119,7 +119,7 @@
                 <!-- IMU -->
                 <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
                 <rosparam param="imu0_config">[false, false, false,
-                                               false, true, true,
+                                               true, true, false,
                                                false, false, false,
                                                true, true, true,
                                                false, false, false]</rosparam>
