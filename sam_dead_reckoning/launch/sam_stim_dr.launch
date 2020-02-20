@@ -18,7 +18,7 @@
         <group ns="dr">
 
             <!-- Static transform -->
-            <node pkg="tf" type="static_transform_publisher" name="world_utm_broadcaster" args="535529 4864397 0 0 0 0 1 world_utm world_local 100" />
+            <node pkg="tf" type="static_transform_publisher" name="world_odom" args="0 0 0 0 0 0 world sam/odom 100" />
 
             <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
                 <param name="thrust_dr" value="/$(arg namespace)/dr/motion_dr" />
@@ -42,12 +42,12 @@
 
             <rosparam command="load" file="$(find sam_dead_reckoning)/params/ekf_sam.yaml" />
 
-            <node pkg="robot_localization" type="navsat_transform_node" name="navsat_transform" clear_params="true">
+<!--             <node pkg="robot_localization" type="navsat_transform_node" name="navsat_transform" clear_params="true">
                 <remap from="odometry/filtered" to="odometry/filtered_map"/>
                 <remap from="imu/data" to="/$(arg namespace)/core/stim_imu"/>
                 <remap from="odometry/filtered" to="odom_ekf_global"/>
                 <remap from="gps/fix" to="/$(arg namespace)/core/gps"/>
-            </node>
+            </node> -->
 
 
             <!-- EKF for fusing continuous data from DVL, depth, motion model and IMU -->
@@ -56,7 +56,7 @@
                 <param name="sensor_timeout" value="0.1"/>
                 <param name="two_d_mode" value="false"/>
 
-                <param name="map_frame" value="world"/>
+                <!-- <param name="map_frame" value="world"/> -->
                 <param name="odom_frame" value="$(arg namespace)/odom"/>
                 <param name="base_link_frame" value="$(arg namespace)/base_link"/>
                 <param name="world_frame" value="$(arg namespace)/odom"/>
@@ -105,7 +105,7 @@
                 <!-- IMU -->
                 <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
                 <rosparam param="imu0_config">[false, false, false,
-                                               false, true, true,
+                                               true, true, false,
                                                false, false, false,
                                                true, true, true,
                                                false, false, false]</rosparam>
