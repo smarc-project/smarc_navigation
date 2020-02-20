@@ -51,6 +51,12 @@
                 <param name="base_frame" value="$(arg namespace)/base_link" />
             </node>
 
+            <!-- DVL to Twist msg converter -->
+            <node pkg="sam_dead_reckoning" name="dvl_to_twist" type="dvl_to_twist.py" output="screen">
+                <param name="dvl_topic" value="/$(arg namespace)/core/dvl" />
+                <param name="dvl_twist_topic" value="dvl_twist"/>
+            </node>
+
             <rosparam command="load" file="$(find sam_dead_reckoning)/params/ekf_gps_sam.yaml" />
 
             <!--
