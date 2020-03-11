@@ -21,6 +21,7 @@ class DVL2Twist(object):
 	def dvlCB(self, dvl_msg):
             twist_msg = TwistWithCovarianceStamped()
             twist_msg.header = dvl_msg.header
+            twist_msg.header.frame_id = "sam/dvl_link"
             twist_msg.twist.twist.linear = dvl_msg.velocity
             for i in range(0,3):
                 for j in range(0,3):

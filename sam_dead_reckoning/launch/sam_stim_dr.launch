@@ -49,6 +49,9 @@
                 <remap from="gps/fix" to="/$(arg namespace)/core/gps"/>
             </node> -->
 
+            <!-- <node pkg="dvl_ros_driver" type="dvl_driver.py" name="dvl_driver" output="screen" ns="core"> -->
+              <!-- <param name="dvl_topic" value="dvl_vel"/> -->
+            <!-- </node> -->
 
             <!-- EKF for fusing continuous data from DVL, depth, motion model and IMU -->
             <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_local" output="screen" clear_params="true">
@@ -100,7 +103,7 @@
                                                 false, false, false]</rosparam>
 
                 <param name="twist0_differential" value="false"/>
-                <param name="twist0_relative" value="false"/>
+                <param name="twist0_relative" value="true"/> 
 
                 <!-- IMU -->
                 <param name="imu0" value="/$(arg namespace)/core/stim_imu"/>
@@ -111,7 +114,7 @@
                                                false, false, false]</rosparam>
 
                 <param name="imu0_differential" value="false"/>
-                <param name="imu0_relative" value="true"/>
+                <param name="imu0_relative" value="false"/>
                 <param name="imu0_remove_gravitational_acceleration" value="true"/>
                 <param name="imu0_nodelay" value="false"/>
                 <param name="imu0_queue_size" value="10"/>
@@ -126,7 +129,7 @@
                 <param name="stamped_control" value="true"/>
                 <rosparam param="control_config">[true,  true, false,
                                                   false, false, false]</rosparam>
-                <rosparam param="acceleration_limits">[1.0, 1.0, 0.0,
+                <rosparam param="acceleration_limits">[1.0, 0.1, 0.0,
                                                        0.0, 0.0, 0.0]</rosparam>
                 <rosparam param="acceleration_gains">[0.10, 0.10, 0.0,
                                                       0.0, 0.0, 0.0]</rosparam>
