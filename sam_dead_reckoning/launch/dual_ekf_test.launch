@@ -32,7 +32,7 @@
 	<node pkg="tf" type="static_transform_publisher" name="sam_2" args="0 0 0 0 0 0 $(arg namespace)/base_link $(arg namespace)/sbg_link 10" />
 
 	<node name="sbg_ellipseA" pkg="sbg_driver" type="sbg_device" output="screen">
-		<rosparam command="load" file="$(find sbg_driver)/config/example/ellipse_A_custom.yaml" />
+		<rosparam command="load" file="$(find sbg_driver)/config/ellipse_A_sam.yaml" />
 	</node>
 
 	<node pkg="sam_dead_reckoning" name="sbg_2_ros" type="sbg_to_ros.py" output="screen">
@@ -94,7 +94,7 @@
 
         <param name="imu0_differential" value="false"/>
         <param name="imu0_relative" value="false"/>
-        <param name="imu0_remove_gravitational_acceleration" value="false"/>
+        <param name="imu0_remove_gravitational_acceleration" value="true"/>
         <param name="imu0_nodelay" value="false"/>
         <param name="imu0_queue_size" value="10"/>
         <param name="gravitational_acceleration" value="9.80665"/>
@@ -120,7 +120,7 @@
         <remap from="cmd_vel" to="motion_dr"/>
 
         <!-- Outputs -->
-        <remap from="odometry/filtered" to="/sam/local/odom/filtered"/>
+        <remap from="odometry/filtered" to="local/odom/filtered"/>
         <remap from="set_pose" to="/initialpose"/>
     </node>
 
@@ -173,7 +173,7 @@
 
         <param name="imu0_differential" value="false"/>
         <param name="imu0_relative" value="false"/>
-        <param name="imu0_remove_gravitational_acceleration" value="false"/>
+        <param name="imu0_remove_gravitational_acceleration" value="true"/>
         <param name="imu0_nodelay" value="false"/>
         <param name="imu0_queue_size" value="10"/>
         <param name="gravitational_acceleration" value="9.80665"/>
@@ -199,7 +199,7 @@
         <remap from="cmd_vel" to="motion_dr"/>
 
         <!-- Outputs -->
-        <remap from="odometry/filtered" to="/sam/global/odom/filtered"/>
+        <remap from="odometry/filtered" to="global/odom/filtered"/>
         <remap from="set_pose" to="/initialpose"/>
     </node>
 
