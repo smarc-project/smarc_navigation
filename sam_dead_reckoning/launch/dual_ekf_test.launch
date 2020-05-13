@@ -15,19 +15,36 @@
   <arg name="gps_baud" value="9600"/>
   <arg name="with_gps" default="true"/>
 
-  <group ns="$(arg namespace)">
-
 	<node pkg="nmea_navsat_driver" type="nmea_serial_driver" name="nmea_navsat" respawn="true" if="$(arg with_gps)" ns="core">
 		<param name="port" value="$(arg gps_port)"/>
 		<param name="baud" value="$(arg gps_baud)"/>
 		<param name="frame_id" value="$(arg namespace)/gps_link"/>
-		<remap from="fix" to="/sam/core/gps"/>
+		<remap from="fix" to="/$(arg namespace)/core/gps"/>
 	</node>
+
+  <group ns="$(arg namespace)">
+
+    <!-- Static transform -->
+    <!-- <node pkg="tf" type="static_transform_publisher" name="world" args="0 0 0 0 0 0 utm map 10" /> -->
+
+	<node pkg="tf" type="static_transform_publisher" name="sam_1" args="0 0 0 0 0 0 $(arg namespace)/base_link $(arg namespace)/gps_link 10" />
+
+	<node pkg="tf" type="static_transform_publisher" name="sam_2" args="0 0 0 0 0 0 $(arg namespace)/base_link $(arg namespace)/sbg_link 10" />
 
 	<node name="sbg_ellipseA" pkg="sbg_driver" type="sbg_device" output="screen">
 		<rosparam command="load" file="$(find sbg_driver)/config/example/ellipse_A_custom.yaml" />
 	</node>
 
+	<node pkg="sam_dead_reckoning" name="sbg_2_ros" type="sbg_to_ros.py" output="screen">
+		<param name="sbg_imu_data" value="/$(arg namespace)/sbg/imu_data"/>
+		<param name="sbg_ekf_quat" value="/$(arg namespace)/sbg/ekf_quat"/>
+		<param name="sbg_mag" value="/$(arg namespace)/sbg/mag"/>
+		<param name="sbg_utc_time" value="/$(arg namespace)/sbg/utc_time"/>
+		<param name="sbg_frame" value="$(arg namespace)/sbg_link"/>
+		<param name="sbg_imu_out" value="/$(arg namespace)/core/sbg_imu"/>
+	</node>
+
+	<rosparam command="load" file="$(find sam_dead_reckoning)/params/dual_ekf_sam.yaml" />
 
 	<node pkg="robot_localization" type="navsat_transform_node" name="navsat_transform_node" clear_params="true">
 		<param name="magnetic_declination_radians" value="0"/>
@@ -37,13 +54,14 @@
 		<remap from="odometry/filtered" to="global/odom/filtered" />
 	</node>
 
+
 	<!-- EKF for fusing continuous data from DVL, depth, motion model and IMU -->
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_local" output="screen" clear_params="true">
-        <param name="frequency" value="10"/>
+        <param name="frequency" value="100"/>
         <param name="sensor_timeout" value="0.1"/>
-        <param name="two_d_mode" value="false"/>
+        <param name="two_d_mode" value="true"/>
 
-        <param name="map_frame" value="$(arg namespace)/map"/>
+        <param name="map_frame" value="map"/>
         <param name="odom_frame" value="$(arg namespace)/odom"/>
         <param name="base_link_frame" value="$(arg namespace)/base_link"/>
         <param name="world_frame" value="$(arg namespace)/odom"/>
@@ -76,7 +94,7 @@
 
         <param name="imu0_differential" value="false"/>
         <param name="imu0_relative" value="false"/>
-        <param name="imu0_remove_gravitational_acceleration" value="true"/>
+        <param name="imu0_remove_gravitational_acceleration" value="false"/>
         <param name="imu0_nodelay" value="false"/>
         <param name="imu0_queue_size" value="10"/>
         <param name="gravitational_acceleration" value="9.80665"/>
@@ -109,14 +127,14 @@
 
 	<!-- EKF for fusing GPS and continuous estimate -->
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_global" output="screen" clear_params="true">
-        <param name="frequency" value="10"/>
+        <param name="frequency" value="100"/>
         <param name="sensor_timeout" value="0.1"/>
-        <param name="two_d_mode" value="false"/>
+        <param name="two_d_mode" value="true"/>
 
-        <param name="map_frame" value="$(arg namespace)/map"/>
+        <param name="map_frame" value="map"/>
         <param name="odom_frame" value="$(arg namespace)/odom"/>
         <param name="base_link_frame" value="$(arg namespace)/base_link"/>
-        <param name="world_frame" value="$(arg namespace)/map"/>
+        <param name="world_frame" value="map"/>
 
         <param name="transform_time_offset" value="0.0"/>
         <param name="transform_timeout" value="0.0"/>
@@ -155,7 +173,7 @@
 
         <param name="imu0_differential" value="false"/>
         <param name="imu0_relative" value="false"/>
-        <param name="imu0_remove_gravitational_acceleration" value="true"/>
+        <param name="imu0_remove_gravitational_acceleration" value="false"/>
         <param name="imu0_nodelay" value="false"/>
         <param name="imu0_queue_size" value="10"/>
         <param name="gravitational_acceleration" value="9.80665"/>
