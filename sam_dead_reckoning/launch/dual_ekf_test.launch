@@ -15,29 +15,9 @@
   <arg name="gps_baud" value="9600"/>
   <arg name="with_gps" default="true"/>
 
-<!-- 	<node pkg="nmea_navsat_driver" type="nmea_serial_driver" name="nmea_navsat" respawn="true" if="$(arg with_gps)" ns="core">
-		<param name="port" value="$(arg gps_port)"/>
-		<param name="baud" value="$(arg gps_baud)"/>
-		<param name="frame_id" value="$(arg namespace)/gps_link"/>
-		<remap from="fix" to="/$(arg namespace)/core/gps"/>
-	</node> -->
-
-
   <group ns="$(arg namespace)">
 
-  <node name="sbg_ellipseA" pkg="sbg_driver" type="sbg_device" output="screen">
-    <rosparam command="load" file="$(find sbg_driver)/config/ellipse_A_sam.yaml" />
-  </node>
-
         <group ns="dr">
-    <!-- Static transform -->
-    <!-- <node pkg="tf" type="static_transform_publisher" name="world" args="0 0 0 0 0 0 utm map 10" /> -->
-
-<!-- 	<node pkg="tf" type="static_transform_publisher" name="sam_1" args="0 0 0 0 0 0 $(arg namespace)/base_link $(arg namespace)/gps_link 10" />
-
-	<node pkg="tf" type="static_transform_publisher" name="sam_2" args="0 0 0 -1.57 0 0 $(arg namespace)/base_link $(arg namespace)/sbg_link 10" /> -->
-
-
 
   <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
     <param name="thrust_dr" value="/$(arg namespace)/dr/motion_dr" />
