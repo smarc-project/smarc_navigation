@@ -22,7 +22,12 @@
 		<remap from="fix" to="/$(arg namespace)/core/gps"/>
 	</node> -->
 
+
   <group ns="$(arg namespace)">
+
+  <node name="sbg_ellipseA" pkg="sbg_driver" type="sbg_device" output="screen">
+    <rosparam command="load" file="$(find sbg_driver)/config/ellipse_A_sam.yaml" />
+  </node>
 
         <group ns="dr">
     <!-- Static transform -->
@@ -53,12 +58,6 @@
     <param name="dvl_topic" value="/$(arg namespace)/core/dvl" />
     <param name="dvl_twist_topic" value="dvl_twist"/>
   </node>
-
-
-
-	<node name="sbg_ellipseA" pkg="sbg_driver" type="sbg_device" output="screen">
-		<rosparam command="load" file="$(find sbg_driver)/config/ellipse_A_sam.yaml" />
-	</node>
 
 	<node pkg="sam_dead_reckoning" name="sbg_2_ros" type="sbg_to_ros.py" output="screen">
 		<param name="sbg_imu_data" value="/$(arg namespace)/sbg/imu_data"/>
