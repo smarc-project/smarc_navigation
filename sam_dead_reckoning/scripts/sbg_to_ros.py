@@ -14,8 +14,14 @@ class SBG2ROS(object):
     def sbg_cb(self, sbg_imu, sbg_quat, sbg_mag):
         imu_msg = Imu()
         imu_msg.header.frame_id = self.imu_frame
-        imu_msg.header.stamp = sbg_imu.header.stamp 
-        imu_msg.orientation = sbg_quat.quaternion 
+        imu_msg.header.stamp = sbg_imu.header.stamp
+
+        # NED to ENU
+        imu_msg.orientation.x = sbg_quat.quaternion.y
+        imu_msg.orientation.y = sbg_quat.quaternion.x
+        imu_msg.orientation.z = - sbg_quat.quaternion.z
+        imu_msg.orientation.w = sbg_quat.quaternion.w
+
         imu_msg.angular_velocity = sbg_imu.gyro
         imu_msg.linear_acceleration = sbg_imu.accel
         imu_msg.linear_acceleration_covariance = [0.] * 9
