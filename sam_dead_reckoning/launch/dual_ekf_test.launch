@@ -74,8 +74,8 @@
 	<node pkg="robot_localization" type="navsat_transform_node" name="navsat_transform_node" clear_params="true">
 		<param name="magnetic_declination_radians" value="0"/>
 		<param name="yaw_offset" value="0"/>
-		<remap from="imu/data" to="core/sbg_imu" />
-		<remap from="gps/fix" to="core/gps" />
+		<remap from="imu/data" to="/$(arg namespace)/core/sbg_imu" />
+		<remap from="gps/fix" to="/$(arg namespace)/core/gps" />
 		<remap from="odometry/filtered" to="global/odom/filtered" />
 	</node>
 
