@@ -29,7 +29,7 @@
 
 	<node pkg="tf" type="static_transform_publisher" name="sam_1" args="0 0 0 0 0 0 $(arg namespace)/base_link $(arg namespace)/gps_link 10" />
 
-	<node pkg="tf" type="static_transform_publisher" name="sam_2" args="0 0 0 0 0 0 $(arg namespace)/base_link $(arg namespace)/sbg_link 10" />
+	<node pkg="tf" type="static_transform_publisher" name="sam_2" args="0 0 0 -1.57 0 0 $(arg namespace)/base_link $(arg namespace)/sbg_link 10" />
 
 	<node name="sbg_ellipseA" pkg="sbg_driver" type="sbg_device" output="screen">
 		<rosparam command="load" file="$(find sbg_driver)/config/ellipse_A_sam.yaml" />
