@@ -15,21 +15,46 @@
   <arg name="gps_baud" value="9600"/>
   <arg name="with_gps" default="true"/>
 
-	<node pkg="nmea_navsat_driver" type="nmea_serial_driver" name="nmea_navsat" respawn="true" if="$(arg with_gps)" ns="core">
+<!-- 	<node pkg="nmea_navsat_driver" type="nmea_serial_driver" name="nmea_navsat" respawn="true" if="$(arg with_gps)" ns="core">
 		<param name="port" value="$(arg gps_port)"/>
 		<param name="baud" value="$(arg gps_baud)"/>
 		<param name="frame_id" value="$(arg namespace)/gps_link"/>
 		<remap from="fix" to="/$(arg namespace)/core/gps"/>
-	</node>
+	</node> -->
 
   <group ns="$(arg namespace)">
 
+        <group ns="dr">
     <!-- Static transform -->
     <!-- <node pkg="tf" type="static_transform_publisher" name="world" args="0 0 0 0 0 0 utm map 10" /> -->
 
-	<node pkg="tf" type="static_transform_publisher" name="sam_1" args="0 0 0 0 0 0 $(arg namespace)/base_link $(arg namespace)/gps_link 10" />
+<!-- 	<node pkg="tf" type="static_transform_publisher" name="sam_1" args="0 0 0 0 0 0 $(arg namespace)/base_link $(arg namespace)/gps_link 10" />
 
-	<node pkg="tf" type="static_transform_publisher" name="sam_2" args="0 0 0 -1.57 0 0 $(arg namespace)/base_link $(arg namespace)/sbg_link 10" />
+	<node pkg="tf" type="static_transform_publisher" name="sam_2" args="0 0 0 -1.57 0 0 $(arg namespace)/base_link $(arg namespace)/sbg_link 10" /> -->
+
+
+
+  <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
+    <param name="thrust_dr" value="/$(arg namespace)/dr/motion_dr" />
+    <param name="thrust_fb" value="/$(arg namespace)/core/rpm_fb" />
+  </node>
+
+  <!-- Depth from pressure sensor converter -->
+  <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
+    <param name="odom_frame" value="$(arg namespace)/odom" />
+    <param name="pressure_topic" value="/$(arg namespace)/core/depth20_pressure" />
+    <param name="depth_topic" value="pressure_depth"/>
+    <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
+    <param name="base_frame" value="$(arg namespace)/base_link" />
+  </node>
+
+  <!-- DVL to Twist msg converter -->
+  <node pkg="sam_dead_reckoning" name="dvl_to_twist" type="dvl_to_twist.py" output="screen">
+    <param name="dvl_topic" value="/$(arg namespace)/core/dvl" />
+    <param name="dvl_twist_topic" value="dvl_twist"/>
+  </node>
+
+
 
 	<node name="sbg_ellipseA" pkg="sbg_driver" type="sbg_device" output="screen">
 		<rosparam command="load" file="$(find sbg_driver)/config/ellipse_A_sam.yaml" />
@@ -84,6 +109,29 @@
                                          0.0,  0.0,  0.0,
                                          0.0,  0.0,  0.0]</rosparam>
 
+        <!-- Depth sensor -->
+        <param name="pose0" value="pressure_depth"/>
+        <rosparam param="pose0_config">[false, false, true,
+                                        false, false, false,
+                                        false, false, false,
+                                        false, false, false,
+                                        false, false, false]</rosparam>
+
+        <param name="pose0_differential" value="false"/>
+        <param name="pose0_relative" value="false"/>
+
+
+        <!-- DVL -->
+        <param name="twist0" value="dvl_twist"/>
+        <rosparam param="twist0_config">[false, false, false,
+                                        false, false, false,
+                                        true, true, true,
+                                        false, false, false,
+                                        false, false, false]</rosparam>
+
+        <param name="twist0_differential" value="false"/>
+        <param name="twist0_relative" value="true"/> 
+        
         <!-- IMU -->
         <param name="imu0" value="/$(arg namespace)/core/sbg_imu"/>
         <rosparam param="imu0_config">[false, false, false,
@@ -104,8 +152,8 @@
         <param name="publish_acceleration" value="false"/>
 
         <!-- Control signal from thrusters motion model -->
-        <param name="use_control" value="false"/>
-        <param name="stamped_control" value="false"/>
+        <param name="use_control" value="true"/>
+        <param name="stamped_control" value="true"/>
         <rosparam param="control_config">[true,  true, false,
                                           false, false, false]</rosparam>
         <rosparam param="acceleration_limits">[0.5, 0.1, 0.0,
@@ -163,6 +211,29 @@
                                        false, false, false]</rosparam>
 		<param name="odom0_differential" value="false"/>
 
+        <!-- Depth sensor -->
+        <param name="pose0" value="pressure_depth"/>
+        <rosparam param="pose0_config">[false, false, true,
+                                        false, false, false,
+                                        false, false, false,
+                                        false, false, false,
+                                        false, false, false]</rosparam>
+
+        <param name="pose0_differential" value="false"/>
+        <param name="pose0_relative" value="false"/>
+
+
+        <!-- DVL -->
+        <param name="twist0" value="dvl_twist"/>
+        <rosparam param="twist0_config">[false, false, false,
+                                        false, false, false,
+                                        true, true, true,
+                                        false, false, false,
+                                        false, false, false]</rosparam>
+
+        <param name="twist0_differential" value="false"/>
+        <param name="twist0_relative" value="true"/> 
+
         <!-- IMU -->
         <param name="imu0" value="/$(arg namespace)/core/sbg_imu"/>
         <rosparam param="imu0_config">[false, false, false,
@@ -183,8 +254,8 @@
         <param name="publish_acceleration" value="false"/>
 
         <!-- Control signal from thrusters motion model -->
-        <param name="use_control" value="false"/>
-        <param name="stamped_control" value="false"/>
+        <param name="use_control" value="true"/>
+        <param name="stamped_control" value="true"/>
         <rosparam param="control_config">[true,  true, false,
                                           false, false, false]</rosparam>
         <rosparam param="acceleration_limits">[0.5, 0.1, 0.0,
@@ -203,6 +274,7 @@
         <remap from="set_pose" to="/initialpose"/>
     </node>
 
+        </group>
 
   </group>
 
