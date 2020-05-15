@@ -24,7 +24,7 @@ class SamMM(object):
         self.subs_thrust = message_filters.Subscriber(self.rpm_fb_topic, ThrusterRPMs)
         self.subs_imu = message_filters.Subscriber(self.imu_topic, Imu)  
         self.ts = message_filters.ApproximateTimeSynchronizer([self.subs_thrust, self.subs_imu],
-                                                          10, slop=1.0, allow_headerless=False)
+                                                          50, slop=50.0, allow_headerless=True)
         self.ts.registerCallback(self.drCB)
 
         self.pub_odom = rospy.Publisher(self.dr_thrust_topic, Odometry, queue_size=10)
@@ -50,6 +50,7 @@ class SamMM(object):
 
     def drCB(self, rpm_msg, imu_msg):
 
+        print("Hola!")
         # Velocity at time t
         thrust = (rpm_msg.thruster_1_rpm + rpm_msg.thruster_2_rpm) * self.coeff
         t_now = rospy.Time.now()
@@ -72,9 +73,9 @@ class SamMM(object):
         odom_msg.pose.pose.position.y = position_t[1]
         odom_msg.pose.pose.position.z = position_t[2]
         odom_msg.pose.covariance = [0.] * 36
-        odom_msg.pose.covariance[0] = 2.
-        odom_msg.pose.covariance[7] = 2.
-        odom_msg.pose.covariance[16] = 4.
+        odom_msg.pose.covariance[0] = 20.
+        odom_msg.pose.covariance[7] = 20.
+        odom_msg.pose.covariance[16] = 40.
 
         odom_msg.pose.pose.orientation.x = quat_t[0]
         odom_msg.pose.pose.orientation.y = quat_t[1]
