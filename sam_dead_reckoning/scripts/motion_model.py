@@ -8,6 +8,7 @@ from uavcan_ros_bridge.msg import ESCStatus
 from sbg_driver.msg import SbgEkfEuler
 from nav_msgs.msg import Odometry
 import message_filters
+from sensor_msgs.msg import Imu
 import tf
 
 class SamMM(object):
@@ -16,21 +17,20 @@ class SamMM(object):
         
         self.dr_thrust_topic = rospy.get_param('~thrust_dr', '/odom_dr')
         self.rpm_fb_topic = rospy.get_param('~thrust_fb', '/rpm_fb')
-        self.euler_topic = rospy.get_param('~sbg_euler', '/sbg/ekf_euler')
+        self.imu_topic = rospy.get_param('~sbg_imu', '/sbg/imu')
         self.base_frame = rospy.get_param('~base_frame', 'base_link')
         self.odom_frame = rospy.get_param('~odom_frame', 'odom')
 
-        self.subs_thrust = message_filter.Subscriber(self.rpm_fb_topic, ThrusterRPMs)
-        self.subs_euler = message_filter.Subscriber(self.euler_topic, SbgEkfEuler)  
-        self.ts = message_filters.ApproximateTimeSynchronizer([self.subs_thrust, self.subs_euler],
+        self.subs_thrust = message_filters.Subscriber(self.rpm_fb_topic, ThrusterRPMs)
+        self.subs_imu = message_filters.Subscriber(self.imu_topic, Imu)  
+        self.ts = message_filters.ApproximateTimeSynchronizer([self.subs_thrust, self.subs_imu],
                                                           10, slop=1.0, allow_headerless=False)
         self.ts.registerCallback(self.drCB)
 
         self.pub_odom = rospy.Publisher(self.dr_thrust_topic, Odometry, queue_size=10)
 
-        self.prev_time = rospy.Time.now()
         self.coeff = 0.0005
-        self.t_prev = 0.0
+        self.t_prev = rospy.Time.now()
         self.position_prev = [0.] * 3
         
         rospy.spin()
@@ -48,19 +48,21 @@ class SamMM(object):
 
         self.rot_t = rot_z*rot_y*rot_x
 
-    def drCB(self, thrust_msg, euler_msg):
+    def drCB(self, rpm_msg, imu_msg):
 
         # Velocity at time t
         thrust = (rpm_msg.thruster_1_rpm + rpm_msg.thruster_2_rpm) * self.coeff
         t_now = rospy.Time.now()
         self.dt = (t_now - self.t_prev)
 
-        self.fullRotation(euler_msg.angle.x, euler_msg.angle.y, euler_msg.angle.z)
+        # Current angles
+        (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(imu_msg.orientation)
+        self.fullRotation(roll, pitch, yaw)
         vel_t = np.matmul(self.rot_t, np.array([thrust, 0., 0.]))
 
         # Integrate velocities
-        position_t = self.position_prev + vel_t * self.dt 
-        quat_t = tf.transformations.quaternion_from_euler(roll_t, pitch_t, yaw_t)
+        position_t = self.position_prev + vel_t * self.dt.to_sec() 
+        quat_t = tf.transformations.quaternion_from_euler(roll, pitch, yaw)
 
         odom_msg = Odometry()
         odom_msg.header.frame_id = self.odom_frame
@@ -79,7 +81,7 @@ class SamMM(object):
         odom_msg.pose.pose.orientation.z = quat_t[2]
         odom_msg.pose.pose.orientation.w = quat_t[3]
 
-        pub_odom.publish(odom_msg)
+        self.pub_odom.publish(odom_msg)
 
         self.t_prev = t_now 
         self.position_prev = position_t 
