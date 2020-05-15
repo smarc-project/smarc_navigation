@@ -111,6 +111,16 @@
 
         <param name="twist0_differential" value="false"/>
         <param name="twist0_relative" value="true"/> 
+
+        <!-- DR from motion model -->
+        <param name="odom0" value="motion_dr"/>
+        <rosparam param="odom0_config">[true, true, true,
+                                           false, false, false,
+                                           false, false, false,
+                                           false, false, false,
+                                           false, false, false]</rosparam>
+        <param name="odom0_differential" value="false"/>
+
         
         <!-- IMU -->
         <param name="imu0" value="/$(arg namespace)/core/sbg_imu"/>
@@ -132,8 +142,8 @@
         <param name="publish_acceleration" value="false"/>
 
         <!-- Control signal from thrusters motion model -->
-        <param name="use_control" value="true"/>
-        <param name="stamped_control" value="true"/>
+        <param name="use_control" value="false"/>
+        <param name="stamped_control" value="false"/>
         <rosparam param="control_config">[true,  true, false,
                                           false, false, false]</rosparam>
         <rosparam param="acceleration_limits">[0.5, 0.1, 0.0,
@@ -191,6 +201,16 @@
                                        false, false, false]</rosparam>
 		<param name="odom0_differential" value="false"/>
 
+
+    <!-- DR from motion model -->
+        <param name="odom1" value="motion_dr"/>
+    <rosparam param="odom1_config">[true, true, true,
+                                       false, false, false,
+                                       false, false, false,
+                                       false, false, false,
+                                       false, false, false]</rosparam>
+    <param name="odom1_differential" value="false"/>
+
         <!-- Depth sensor -->
         <param name="pose0" value="pressure_depth"/>
         <rosparam param="pose0_config">[false, false, true,
@@ -234,8 +254,8 @@
         <param name="publish_acceleration" value="false"/>
 
         <!-- Control signal from thrusters motion model -->
-        <param name="use_control" value="true"/>
-        <param name="stamped_control" value="true"/>
+        <param name="use_control" value="false"/>
+        <param name="stamped_control" value="false"/>
         <rosparam param="control_config">[true,  true, false,
                                           false, false, false]</rosparam>
         <rosparam param="acceleration_limits">[0.5, 0.1, 0.0,
