@@ -22,14 +22,19 @@ class SBG2ROS(object):
         imu_msg.orientation.z = - sbg_quat.quaternion.z
         imu_msg.orientation.w = sbg_quat.quaternion.w
 
-        imu_msg.angular_velocity = sbg_imu.gyro
-        imu_msg.linear_acceleration = sbg_imu.accel
+        imu_msg.angular_velocity.x = sbg_imu.gyro.y
+        imu_msg.angular_velocity.y = sbg_imu.gyro.x
+        imu_msg.angular_velocity.z = -sbg_imu.gyro.z
+
+        imu_msg.linear_acceleration.x = sbg_imu.accel.y
+        imu_msg.linear_acceleration.y = sbg_imu.accel.x
+        imu_msg.linear_acceleration.z = -sbg_imu.accel.z
+        
         imu_msg.linear_acceleration_covariance = [0.] * 9
         imu_msg.linear_acceleration_covariance[0] = 100
         imu_msg.linear_acceleration_covariance[4] = 100
         imu_msg.linear_acceleration_covariance[8] = 100
-
-
+        
         self.imu_pub.publish(imu_msg)
 
     def __init__(self):
