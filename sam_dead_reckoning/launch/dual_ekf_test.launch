@@ -51,8 +51,6 @@
 	<rosparam command="load" file="$(find sam_dead_reckoning)/params/dual_ekf_sam.yaml" />
 
 	<node pkg="robot_localization" type="navsat_transform_node" name="navsat_transform_node" clear_params="true">
-		<param name="magnetic_declination_radians" value="0"/>
-		<param name="yaw_offset" value="0"/>
 		<remap from="imu/data" to="/$(arg namespace)/core/sbg_imu" />
 		<remap from="gps/fix" to="/$(arg namespace)/core/gps" />
 		<remap from="odometry/filtered" to="global/odom/filtered" />
@@ -63,7 +61,7 @@
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_local" output="screen" clear_params="true">
         <param name="frequency" value="100"/>
         <param name="sensor_timeout" value="0.1"/>
-        <param name="two_d_mode" value="true"/>
+        <param name="two_d_mode" value="false"/>
 
         <param name="map_frame" value="map"/>
         <param name="odom_frame" value="$(arg namespace)/odom"/>
@@ -156,7 +154,7 @@
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_global" output="screen" clear_params="true">
         <param name="frequency" value="100"/>
         <param name="sensor_timeout" value="0.1"/>
-        <param name="two_d_mode" value="true"/>
+        <param name="two_d_mode" value="false"/>
 
         <param name="map_frame" value="map"/>
         <param name="odom_frame" value="$(arg namespace)/odom"/>
