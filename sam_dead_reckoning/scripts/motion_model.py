@@ -15,11 +15,11 @@ class SamMM(object):
 
     def __init__(self):
         
-        self.dr_thrust_topic = rospy.get_param('~thrust_dr', '/odom_dr')
-        self.rpm_fb_topic = rospy.get_param('~thrust_fb', '/rpm_fb')
-        self.imu_topic = rospy.get_param('~sbg_imu', '/sbg/imu')
-        self.base_frame = rospy.get_param('~base_frame', 'base_link')
-        self.odom_frame = rospy.get_param('~odom_frame', 'odom')
+        self.dr_thrust_topic = rospy.get_param('~thrust_dr', '/sam/dr/motion_dr')
+        self.rpm_fb_topic = rospy.get_param('~thrust_fb', '/sam/core/rpm_fb')
+        self.imu_topic = rospy.get_param('~sbg_imu', '/sam/core/sbg_imu')
+        self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
+        self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
 
         self.subs_thrust = message_filters.Subscriber(self.rpm_fb_topic, ThrusterRPMs)
         self.subs_imu = message_filters.Subscriber(self.imu_topic, Imu)  
@@ -50,15 +50,17 @@ class SamMM(object):
 
     def drCB(self, rpm_msg, imu_msg):
 
-        print("Hola!")
         # Velocity at time t
         thrust = (rpm_msg.thruster_1_rpm + rpm_msg.thruster_2_rpm) * self.coeff
         t_now = rospy.Time.now()
         self.dt = (t_now - self.t_prev)
 
         # Current angles
-        (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(imu_msg.orientation)
-        self.fullRotation(roll, pitch, yaw)
+        (roll, pitch, yaw) = tf.transformations.euler_from_quaternion([imu_msg.orientation.x,
+                                                                      imu_msg.orientation.y, 
+                                                                      imu_msg.orientation.z,
+                                                                      imu_msg.orientation.w])
+        self.fullRotation(roll, pitch, yaw+1.57)
         vel_t = np.matmul(self.rot_t, np.array([thrust, 0., 0.]))
 
         # Integrate velocities
