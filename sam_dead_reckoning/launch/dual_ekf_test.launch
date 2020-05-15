@@ -22,6 +22,9 @@
   <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
     <param name="thrust_dr" value="/$(arg namespace)/dr/motion_dr" />
     <param name="thrust_fb" value="/$(arg namespace)/core/rpm_fb" />
+    <param name="sbg_euler" value="/$(arg namespace)/sbg/ekf_euler" />
+    <param name="odom_frame" value="$(arg namespace)/odom" />
+    <param name="base_frame" value="$(arg namespace)/base_link" />
   </node>
 
   <!-- Depth from pressure sensor converter -->
