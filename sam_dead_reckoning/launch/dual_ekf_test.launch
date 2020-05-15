@@ -167,7 +167,7 @@
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_global" output="screen" clear_params="true">
         <param name="frequency" value="100"/>
         <param name="sensor_timeout" value="0.1"/>
-        <param name="two_d_mode" value="false"/>
+        <param name="two_d_mode" value="true"/>
 
         <param name="map_frame" value="map"/>
         <param name="odom_frame" value="$(arg namespace)/odom"/>
