@@ -121,8 +121,7 @@
                                            false, false, false]</rosparam>
         <param name="odom0_differential" value="false"/>
 
-        
-        <!-- IMU -->
+        <!-- SBG IMU -->
         <param name="imu0" value="/$(arg namespace)/core/sbg_imu"/>
         <rosparam param="imu0_config">[false, false, false,
                                        true, true, true,
@@ -135,6 +134,22 @@
         <param name="imu0_remove_gravitational_acceleration" value="true"/>
         <param name="imu0_nodelay" value="false"/>
         <param name="imu0_queue_size" value="10"/>
+        <param name="gravitational_acceleration" value="9.80665"/>
+
+
+        <!-- STIM IMU -->
+        <param name="imu1" value="/$(arg namespace)/core/stim_imu"/>
+        <rosparam param="imu1_config">[false, false, false,
+                                       true, true, false,
+                                       false, false, false,
+                                       true, true, false,
+                                       false, false, false]</rosparam>
+
+        <param name="imu1_differential" value="false"/>
+        <param name="imu1_relative" value="false"/>
+        <param name="imu1_remove_gravitational_acceleration" value="true"/>
+        <param name="imu1_nodelay" value="false"/>
+        <param name="imu1_queue_size" value="10"/>
         <param name="gravitational_acceleration" value="9.80665"/>
 
         <!-- Node params -->
@@ -167,7 +182,7 @@
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_global" output="screen" clear_params="true">
         <param name="frequency" value="100"/>
         <param name="sensor_timeout" value="0.1"/>
-        <param name="two_d_mode" value="true"/>
+        <param name="two_d_mode" value="false"/>
 
         <param name="map_frame" value="map"/>
         <param name="odom_frame" value="$(arg namespace)/odom"/>
@@ -234,7 +249,7 @@
         <param name="twist0_differential" value="false"/>
         <param name="twist0_relative" value="true"/> 
 
-        <!-- IMU -->
+        <!-- SBG IMU -->
         <param name="imu0" value="/$(arg namespace)/core/sbg_imu"/>
         <rosparam param="imu0_config">[false, false, false,
                                        true, true, true,
@@ -247,6 +262,21 @@
         <param name="imu0_remove_gravitational_acceleration" value="true"/>
         <param name="imu0_nodelay" value="false"/>
         <param name="imu0_queue_size" value="10"/>
+        <param name="gravitational_acceleration" value="9.80665"/>
+
+        <!-- STIM IMU -->
+        <param name="imu1" value="/$(arg namespace)/core/stim_imu"/>
+        <rosparam param="imu1_config">[false, false, false,
+                                       true, true, false,
+                                       false, false, false,
+                                       true, true, false,
+                                       false, false, false]</rosparam>
+
+        <param name="imu1_differential" value="false"/>
+        <param name="imu1_relative" value="false"/>
+        <param name="imu1_remove_gravitational_acceleration" value="true"/>
+        <param name="imu1_nodelay" value="false"/>
+        <param name="imu1_queue_size" value="10"/>
         <param name="gravitational_acceleration" value="9.80665"/>
 
         <!-- Node params -->
