@@ -1,0 +1,26 @@
+<launch>
+
+    <arg name="latitude" default="58.250046"/>
+    <arg name="longitude" default="11.446099"/>
+    <!-- UTM Zone: 32V -->
+    <arg name="utm_easting" default="643558.24"/>
+    <arg name="utm_northing" default="6459155.57"/>
+    <arg name="utm_zone" default="32"/>
+
+    <!-- Static transforms -->
+    <node pkg="tf" type="static_transform_publisher" name="map_utm_broadcaster" args="0 0 0 0 0 0 1 map world_utm 100" />
+    <node pkg="tf" type="static_transform_publisher" name="world_utm_broadcaster" args="$(arg utm_easting) $(arg utm_northing) 0 0 0 0 1 world_utm world_local 100" />
+
+    <node pkg="rostopic" type="rostopic" name="fake_gps_fix"
+          args="pub /fake_fix sensor_msgs/NavSatFix -r 1
+          '{header: {seq: 999, stamp: {secs: 0, nsecs: 0}, frame_id: 'world_local'},
+            status: {status: 0, service: 1},
+            latitude: $(arg latitude),
+            longitude: $(arg longitude),
+            altitude: 0,
+            position_covariance: [3.9561210000000004, 0.0, 0.0, 0.0, 3.9561210000000004, 0.0, 0.0, 0.0, 7.650756],
+            position_covariance_type: 2}'" output="screen"/>
+
+    <node pkg="sam_dead_reckoning" type="publish_gps_pose.py" name="publish_gps_pose"  output="screen"/>
+
+</launch>

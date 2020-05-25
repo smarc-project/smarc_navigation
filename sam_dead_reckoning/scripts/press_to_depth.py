@@ -22,7 +22,7 @@ class Press2Depth(object):
 
 		self.depth_msg = PoseWithCovarianceStamped()
 		self.depth_msg.header.frame_id = self.odom_frame
-		self.depth_msg.pose.covariance = [100, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
+		self.depth_msg.pose.covariance = [100, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1., 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
 
 		self.depth_msg.pose.pose.orientation.w = 1.
 		
@@ -44,10 +44,8 @@ class Press2Depth(object):
 		
 			# # depth_abs is positive, must be manually negated
 			depth_abs = - self.pascal_pressure_to_depth(press_msg.fluid_pressure)
-			rospy.loginfo("Depth abs %s", depth_abs)
-			# # Check signs here
-			# depth_base_link = depth_abs + self.x_base_depth * np.sin(pitch)
-			# rospy.loginfo("Depth base link %s", depth_base_link)
+			# rospy.loginfo("Depth abs %s", depth_abs)
+			# rospy.loginfo("Fluid press %s", press_msg.fluid_pressure)
 
 			if press_msg.fluid_pressure > 90000. and press_msg.fluid_pressure < 500000.:
 				self.depth_msg.header.stamp = rospy.Time.now()
