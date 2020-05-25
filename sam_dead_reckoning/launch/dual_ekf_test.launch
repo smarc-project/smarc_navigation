@@ -14,18 +14,21 @@
   <arg name="gps_port" value="/dev/ttyUSB2"/>
   <arg name="gps_baud" value="9600"/>
   <arg name="with_gps" default="true"/>
+  <arg name="map_odom_tf_ekf" default="false"/>
 
   <group ns="$(arg namespace)">
 
         <group ns="dr">
-
-  <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
+    
+    <!-- If EKF set to not bc this transform, do it here -->
+    <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100" unless="$(arg map_odom_tf_ekf)"/>
+<!--   <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
     <param name="thrust_dr" value="/$(arg namespace)/dr/motion_dr" />
     <param name="thrust_fb" value="/$(arg namespace)/core/rpm_fb" />
     <param name="sbg_imu" value="/$(arg namespace)/core/sbg_imu" />
     <param name="odom_frame" value="$(arg namespace)/odom" />
     <param name="base_frame" value="$(arg namespace)/base_link" />
-  </node>
+  </node> -->
 
   <!-- Depth from pressure sensor converter -->
   <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
@@ -280,7 +283,7 @@
         <param name="gravitational_acceleration" value="9.80665"/>
 
         <!-- Node params -->
-        <param name="publish_tf" value="true"/>
+        <param name="publish_tf" value="$(arg map_odom_tf_ekf)"/>
         <param name="publish_acceleration" value="false"/>
 
         <!-- Control signal from thrusters motion model -->
