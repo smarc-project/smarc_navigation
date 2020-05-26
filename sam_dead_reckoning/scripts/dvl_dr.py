@@ -10,11 +10,10 @@ import message_filters
 from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 
-class DVL2Twist(object):
+class DVL2DR(object):
 
 	def __init__(self):
             self.dvl_topic = rospy.get_param('~dvl_topic', '/sam/core/dvl')
-            self.dvl_twist_topic = rospy.get_param('~dvl_twist_topic', 'sam')
             self.dvl_dr_top = rospy.get_param('~dvl_dr_topic', '/sam/dr/dvl_dr')
             self.imu_topic = rospy.get_param('~sbg_imu', '/sam/core/sbg_imu')
             self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
@@ -122,6 +121,6 @@ class DVL2Twist(object):
 if __name__ == "__main__":
     rospy.init_node('dvl_dr')
     try:
-        pi = DVL2Twist()
+        pi = DVL2DR()
     except rospy.ROSInterruptException:
         pass

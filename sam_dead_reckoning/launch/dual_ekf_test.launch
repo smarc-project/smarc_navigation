@@ -42,7 +42,12 @@
   <!-- DVL to Twist msg converter -->
   <node pkg="sam_dead_reckoning" name="dvl_dr" type="dvl_dr.py" output="screen">
     <param name="dvl_topic" value="/$(arg robot_name)/core/dvl" />
-    <param name="dvl_twist_topic" value="dvl_twist"/>
+    <!-- <param name="dvl_twist_topic" value="dvl_twist"/> -->
+    <param name="dvl_dr_topic" value="/$(arg robot_name)/dr/dvl_dr" />
+    <param name="sbg_imu" value="/$(arg robot_name)/core/sbg_imu" />
+    <param name="odom_frame" value="$(arg robot_name)/odom" />
+    <param name="base_frame" value="$(arg robot_name)/base_link" />
+    <param name="dvl_link" value="$(arg robot_name)/dvl_link" />
   </node>
 
 	<node pkg="sam_dead_reckoning" name="sbg_2_ros" type="sbg_to_ros.py" output="screen">
@@ -114,7 +119,7 @@
         <param name="odom0_differential" value="false"/> -->
 
         <!-- DVL -->
-        <param name="odom0" value="/sam/dr/dvl_dr"/>
+        <param name="odom0" value="dvl_dr"/>
         <rosparam param="odom0_config">[true, true, false,
                                         false, false, false,
                                         false, false, false,
@@ -242,7 +247,7 @@
 
 
         <!-- DVL -->
-        <param name="odom1" value="/sam/dr/dvl_dr"/>
+        <param name="odom1" value="dvl_dr"/>
         <rosparam param="odom1_config">[true, true, false,
                                         false, false, false,
                                         false, false, false,
