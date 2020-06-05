@@ -46,7 +46,7 @@ class SamMM(object):
                           [0., np.cos(roll), -np.sin(roll)],
                           [0., np.sin(roll), np.cos(roll)]])
 
-        self.rot_t = rot_z*rot_y*rot_x
+        self.rot_t = np.matmul(rot_z, np.matmul(rot_y, rot_x))
 
     def drCB(self, rpm_msg, imu_msg):
 
