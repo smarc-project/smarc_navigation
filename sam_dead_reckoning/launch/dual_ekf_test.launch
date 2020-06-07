@@ -48,6 +48,7 @@
     <param name="odom_frame" value="$(arg robot_name)/odom" />
     <param name="base_frame" value="$(arg robot_name)/base_link" />
     <param name="dvl_link" value="$(arg robot_name)/dvl_link" />
+    <param name="dr_odom_filtered" value="local/odom/filtered" />
   </node>
 
 	<node pkg="sam_dead_reckoning" name="sbg_2_ros" type="sbg_to_ros.py" output="screen">
