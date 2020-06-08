@@ -9,6 +9,7 @@ import tf
 import message_filters
 from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
+from std_srvs.srv import SetBool, SetBoolRequest, SetBoolRequest
 
 class DVL2DR(object):
 
@@ -19,7 +20,8 @@ class DVL2DR(object):
             self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
             self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
             self.dvl_frame = rospy.get_param('~dvl_link', 'dvl_link')
-
+            self.filt_odom_top = rospy.get_param('~dr_odom_filtered', '/sam/dr/local/odom/filtered')
+            
             self.sub_dvl = message_filters.Subscriber(self.dvl_topic, DVL)
             self.sub_imu = message_filters.Subscriber(self.imu_topic, Imu)  
             self.ts = message_filters.ApproximateTimeSynchronizer([self.sub_dvl, self.sub_imu],
@@ -28,15 +30,22 @@ class DVL2DR(object):
 
             self.pub_odom = rospy.Publisher(self.dvl_dr_top, Odometry, queue_size=10)
             
+            self.odom_sub = rospy.Subscriber(self.filt_odom_top, Odometry, self.odom_cb) 
+            
             self.t_prev = rospy.Time.now()
             self.position_prev = [0.] * 3
             self.first_msg = True 
-            self.roll_init = 0.
-            self.pitch_init = 0.
-            self.yaw_init = 0. 
+            #  self.roll_init = 0.
+            #  self.pitch_init = 0.
+            #  self.yaw_init = 0.
      
             rospy.spin()
 
+        def odom_cb(self, odom_msg):
+            self.filtered_odom = [odom_msg.pose.pose.position.x,
+                                  odom_msg.pose.pose.position.y,
+                                  odom_msg.pose.pose.position.z,
+                                 odom_msg.header.stamp]
 
         def fullRotation(self, roll, pitch, yaw):
             rot_z = np.array([[np.cos(yaw), -np.sin(yaw), 0.0],
@@ -53,24 +62,17 @@ class DVL2DR(object):
 
         def drCB(self, dvl_msg, imu_msg):
 
+            if self.first_msg:
+                self.position_prev = self.filtered_odom[:3]
+                self.t_prev = self.filtered_odom[3]
+                self.first_msg = False
+
             # Velocity at time t
             t_now = rospy.Time.now()
             self.dt = (t_now - self.t_prev)
 
             # TODO: compute yaw from odom, not straight from compass
-            # Current angles 
-            if self.first_msg == True:
-                (self.roll_init, self.pitch_init, self.yaw_init) = tf.transformations.euler_from_quaternion([imu_msg.orientation.x,
-                                                                                                            imu_msg.orientation.y, 
-                                                                                                            imu_msg.orientation.z,
-                                                                                                            imu_msg.orientation.w])
-                self.first_msg = False
-                roll = self.roll_init
-                pitch = self.pitch_init
-                yaw = self.yaw_init 
-            
-            else:
-                (roll, pitch, yaw) = tf.transformations.euler_from_quaternion([imu_msg.orientation.x,
+            (roll, pitch, yaw) = tf.transformations.euler_from_quaternion([imu_msg.orientation.x,
                                                                               imu_msg.orientation.y, 
                                                                               imu_msg.orientation.z,
                                                                               imu_msg.orientation.w])
