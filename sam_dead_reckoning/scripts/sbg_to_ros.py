@@ -28,7 +28,6 @@ class SBG2ROS(object):
                                                                       imu_msg.orientation.w])
  
         
-        #quat_t = tf.transformations.quaternion_from_euler(roll, pitch, yaw+np.pi/2.)
         quat_t = tf.transformations.quaternion_from_euler(roll, pitch, yaw)
         imu_msg.orientation.x = quat_t[0]
         imu_msg.orientation.y = quat_t[1]
