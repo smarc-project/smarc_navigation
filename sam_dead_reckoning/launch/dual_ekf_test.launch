@@ -2,7 +2,7 @@
 
   <arg name="debug" default="0"/>
   <arg name="mode" default="default"/>
-  <arg name="robot_name" default="not_sam"/>
+  <arg name="robot_name" default="sam"/>
 
   <arg name="x" default="0"/>
   <arg name="y" default="0"/>
