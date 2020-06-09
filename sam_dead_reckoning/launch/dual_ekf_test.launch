@@ -30,6 +30,11 @@
     <param name="base_frame" value="$(arg robot_name)/base_link" />
   </node> -->
 
+  <node pkg="sam_dead_reckoning" name="acc_model" type="acc_model.py" output="screen">
+    <param name="thrust_fb" value="/$(arg robot_name)/core/rpm_fb" />
+    <param name="thrust_acc" value="/$(arg robot_name)/dr/motion_acc" />
+  </node>
+
   <!-- Depth from pressure sensor converter -->
   <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
     <param name="odom_frame" value="$(arg robot_name)/odom" />
@@ -166,20 +171,20 @@
         <param name="publish_acceleration" value="false"/>
 
         <!-- Control signal from thrusters motion model -->
-        <param name="use_control" value="false"/>
-        <param name="stamped_control" value="false"/>
+        <param name="use_control" value="true"/>
+        <param name="stamped_control" value="true"/>
         <rosparam param="control_config">[true,  true, false,
                                           false, false, false]</rosparam>
-        <rosparam param="acceleration_limits">[0.5, 0.1, 0.0,
+        <rosparam param="acceleration_limits">[0.1, 0.1, 0.0,
                                                0.0, 0.0, 0.0]</rosparam>
-        <rosparam param="acceleration_gains">[0.10, 0.10, 0.0,
+        <rosparam param="acceleration_gains">[0.1, 0.1, 0.0,
                                               0.0, 0.0, 0.0]</rosparam>
-        <rosparam param="deceleration_limits">[0.2, 0.10, 0.0,
+        <rosparam param="deceleration_limits">[0.1, 0.1, 0.0,
                                                0.0, 0.0, 0.0]</rosparam>
-        <rosparam param="deceleration_gains">[0.2, 0.10, 0.0,
+        <rosparam param="deceleration_gains">[0.1, 0.1, 0.0,
                                               0.0, 0.0, 0.0]</rosparam>
 
-        <remap from="cmd_vel" to="motion_dr"/>
+        <remap from="cmd_vel" to="motion_acc"/>
 
         <!-- Outputs -->
         <remap from="odometry/filtered" to="local/odom/filtered"/>
@@ -293,20 +298,20 @@
         <param name="publish_acceleration" value="false"/>
 
         <!-- Control signal from thrusters motion model -->
-        <param name="use_control" value="false"/>
-        <param name="stamped_control" value="false"/>
+        <param name="use_control" value="true"/>
+        <param name="stamped_control" value="true"/>
         <rosparam param="control_config">[true,  true, false,
                                           false, false, false]</rosparam>
-        <rosparam param="acceleration_limits">[0.5, 0.1, 0.0,
+        <rosparam param="acceleration_limits">[0.1, 0.1, 0.0,
                                                0.0, 0.0, 0.0]</rosparam>
-        <rosparam param="acceleration_gains">[0.10, 0.10, 0.0,
+        <rosparam param="acceleration_gains">[0.1, 0.1, 0.0,
                                               0.0, 0.0, 0.0]</rosparam>
-        <rosparam param="deceleration_limits">[0.2, 0.10, 0.0,
+        <rosparam param="deceleration_limits">[0.1, 0.1, 0.0,
                                                0.0, 0.0, 0.0]</rosparam>
-        <rosparam param="deceleration_gains">[0.2, 0.10, 0.0,
+        <rosparam param="deceleration_gains">[0.1, 0.1, 0.0,
                                               0.0, 0.0, 0.0]</rosparam>
 
-        <remap from="cmd_vel" to="motion_dr"/>
+        <remap from="cmd_vel" to="motion_acc"/>
 
         <!-- Outputs -->
         <remap from="odometry/filtered" to="global/odom/filtered"/>
