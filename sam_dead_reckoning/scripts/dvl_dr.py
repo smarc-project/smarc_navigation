@@ -111,12 +111,12 @@ class DVL2DR(object):
             self.t_prev = t_now 
             self.position_prev = position_t 
 
-            #  br = tf.TransformBroadcaster()
-            #  br.sendTransform(position_t,
-                     #  quat_t,
-                     #  rospy.Time.now(),
-                     #  "sam_test",
-                     #  self.odom_frame)
+            br = tf.TransformBroadcaster()
+            br.sendTransform(position_t,
+                        quat_t,
+                        rospy.Time.now(),
+                        "sam_test",
+                        self.odom_frame)
 
 
 

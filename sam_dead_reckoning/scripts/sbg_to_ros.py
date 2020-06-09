@@ -28,15 +28,24 @@ class SBG2ROS(object):
                                                                       imu_msg.orientation.w])
  
         
-        quat_t = tf.transformations.quaternion_from_euler(roll, pitch, yaw)
+        quat_t = tf.transformations.quaternion_from_euler(roll, pitch, yaw+np.pi/2)
         imu_msg.orientation.x = quat_t[0]
         imu_msg.orientation.y = quat_t[1]
         imu_msg.orientation.z = quat_t[2]
         imu_msg.orientation.w = quat_t[3]
+        imu_msg.orientation_covariance = [0.]*9
+        imu_msg.orientation_covariance[0] = 0.01
+        imu_msg.orientation_covariance[4] = 0.01
+        imu_msg.orientation_covariance[8] = 0.01
         
         imu_msg.angular_velocity.x = sbg_imu.gyro.y
         imu_msg.angular_velocity.y = sbg_imu.gyro.x
         imu_msg.angular_velocity.z = -sbg_imu.gyro.z
+        imu_msg.angular_velocity_covariance = [0.]*9
+        imu_msg.angular_velocity_covariance[0] = 0.01
+        imu_msg.angular_velocity_covariance[4] = 0.01
+        imu_msg.angular_velocity_covariance[8] = 0.01
+
 
         imu_msg.linear_acceleration.x = sbg_imu.accel.y
         imu_msg.linear_acceleration.y = sbg_imu.accel.x
