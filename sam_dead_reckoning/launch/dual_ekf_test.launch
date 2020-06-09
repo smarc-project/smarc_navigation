@@ -2,7 +2,7 @@
 
   <arg name="debug" default="0"/>
   <arg name="mode" default="default"/>
-  <arg name="robot_name" default="not_sam"/>
+  <arg name="robot_name" default="sam"/>
 
   <arg name="x" default="0"/>
   <arg name="y" default="0"/>
@@ -133,14 +133,23 @@
                                         false, false, false]</rosparam>
 
         <param name="odom0_differential" value="false"/>
-        <param name="odom0_relative" value="false"/> 
-
-        <!-- SBG IMU -->
+        <param name="odom0_relative" value="false"/>
+ 
+	<!-- GPS -->
+    	<param name="odom1" value="odometry/gps"/>
+    	<rosparam param="odom1_config">[true, true, false,
+                                   false, false, false,
+                                   false, false, false,
+                                   false, false, false,
+                                   false, false, false]</rosparam>
+    	<param name="odom1_differential" value="false"/>
+        
+	<!-- SBG IMU -->
         <param name="imu0" value="/$(arg robot_name)/core/sbg_imu"/>
         <rosparam param="imu0_config">[false, false, false,
-                                       true, true, true,
+                                       false, false, true,
                                        false, false, false,
-                                       true, true, true,
+                                       false, false, true,
                                        false, false, false]</rosparam>
 
         <param name="imu0_differential" value="false"/>
@@ -281,9 +290,9 @@
         <!-- STIM IMU -->
         <param name="imu1" value="/$(arg robot_name)/core/stim_imu"/>
         <rosparam param="imu1_config">[false, false, false,
-                                       true, true, false,
                                        false, false, false,
-                                       true, true, false,
+                                       false, false, false,
+                                       false, false, false,
                                        false, false, false]</rosparam>
 
         <param name="imu1_differential" value="false"/>
