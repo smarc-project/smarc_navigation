@@ -136,7 +136,7 @@
         <param name="odom0_relative" value="false"/>
  
 	<!-- GPS -->
-    	<param name="odom1" value="odometry/gps"/>
+    	<param name="odom1" value="/gps_odom"/>
     	<rosparam param="odom1_config">[true, true, false,
                                    false, false, false,
                                    false, false, false,
@@ -231,7 +231,7 @@
                                          0.0,  0.0,  0.0]</rosparam>
 
 		<!-- GPS -->
-        <param name="odom0" value="odometry/gps"/>
+        <param name="odom0" value="/gps_odom"/>
 		<rosparam param="odom0_config">[true, true, false,
                                        false, false, false,
                                        false, false, false,
