@@ -38,14 +38,14 @@ class PublishGPSPose(object):
 
         try:
             now = rospy.Time(0)
-            (world_trans, world_rot) = self.listener.lookupTransform("world_utm", "world_local", now)
+            (world_trans, world_rot) = self.listener.lookupTransform("utm", "map", now)
         except (tf.LookupException, tf.ConnectivityException):
-            self._feedback.status = "Could not get transform between %s and %s" % ("world_utm", "world_local")
-            rospy.loginfo("Could not get transform between %s and %s" % ("world_utm", "world_local"))
+            self._feedback.status = "Could not get transform between %s and %s" % ("utm", "map")
+            rospy.loginfo("Could not get transform between %s and %s" % ("utm", "map"))
             self._as.publish_feedback(self._feedback)
             
-        # easting, northing is in world_utm coordinate system,
-        # we need to transform it to world or world_local
+        # easting, northing is in utm coordinate system,
+        # we need to transform it to world or map
         utm_point = utm.fromLatLong(gps_msg.latitude, gps_msg.longitude)
         easting = utm_point.easting
         northing = utm_point.northing
@@ -60,7 +60,7 @@ class PublishGPSPose(object):
         if self.first_gps:
             pose_msg = PoseWithCovarianceStamped()
             pose_msg.header = header
-            pose_msg.header.frame_id = "world"
+            pose_msg.header.frame_id = "map"
             pose_msg.pose.pose.position = Point(*pos.tolist())
             pose_msg.pose.pose.orientation = Quaternion(*rot)
             pose_msg.pose.covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -75,11 +75,11 @@ class PublishGPSPose(object):
 
         odom_msg = Odometry()
         odom_msg.header = Header()
-        odom_msg.header.frame_id = "world"
+        odom_msg.header.frame_id = "map"
         odom_msg.child_frame_id = "sam/gps_link"
         odom_msg.pose.covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        odom_msg.pose.covariance[0] = 0.01
-        odom_msg.pose.covariance[7] = 0.01
+        odom_msg.pose.covariance[0] = 40.0
+        odom_msg.pose.covariance[7] = 40.0 
         odom_msg.pose.covariance[14] = 0.003
         odom_msg.pose.covariance[21] = 0.1 # 10.
         odom_msg.pose.covariance[28] = 0.1 # 10.
@@ -91,7 +91,7 @@ class PublishGPSPose(object):
 
         pose_msg = PoseWithCovarianceStamped()
         pose_msg.header = header
-        pose_msg.header.frame_id = "world"
+        pose_msg.header.frame_id = "map"
         pose_msg.pose.pose.position = Point(*pos.tolist())
         pose_msg.pose.pose.orientation = Quaternion(*rot)
         pose_msg.pose.covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
