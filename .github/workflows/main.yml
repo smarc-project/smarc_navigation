@@ -7,8 +7,8 @@ jobs:
     strategy:
       matrix:
         env:
-          - {ROS_DISTRO: noetic, ROS_REPO: testing}
-          - {ROS_DISTRO: noetic, ROS_REPO: main}
+          - {ROS_DISTRO: noetic, ROS_REPO: testing, UPSTREAM_WORKSPACE: 'smarc_navigation.rosinstall -smarc_navigation'}
+          - {ROS_DISTRO: noetic, ROS_REPO: main, UPSTREAM_WORKSPACE: 'smarc_navigation.rosinstall -smarc_navigation'}
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v1
