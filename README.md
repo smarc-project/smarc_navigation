@@ -1,4 +1,6 @@
 # smarc_navigation
+![CI](https://github.com/smarc-project/smarc_navigation/workflows/CI/badge.svg?branch=noetic-devel) [![license](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
 Visual odometry, localization and mapping components for the SMARC systems
 
 ## auv_ekf_localization
