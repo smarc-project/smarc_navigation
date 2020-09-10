@@ -1,0 +1,2 @@
+- git: {local-name: smarc_navigation, uri: 'https://github.com/smarc-project/smarc_navigation.git', version: noetic-devel}
+- git: {local-name: sbg_ros_driver, uri: 'https://github.com/smarc-project/sbg_ros_driver.git', version: master}
