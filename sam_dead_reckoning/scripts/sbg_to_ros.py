@@ -4,7 +4,6 @@ import rospy
 import numpy as np
 import tf
 from geometry_msgs.msg import TwistWithCovarianceStamped
-import tf
 import message_filters
 from sbg_driver.msg import SbgImuData, SbgEkfQuat, SbgEkfEuler, SbgMag, SbgUtcTime
 from sensor_msgs.msg import Imu
