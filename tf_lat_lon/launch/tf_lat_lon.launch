@@ -7,7 +7,7 @@
 
 <node pkg="tf_lat_lon" type="tf_lat_lon_node" name="tf_lat_lon_node" output="screen">
     <param name="frame" value="$(arg frame)"/>
-    <remap from="output" to="dr/lat_lon"/>
+    <remap from="output" to="lat_lon"/>
 </node>
 
 </launch>
