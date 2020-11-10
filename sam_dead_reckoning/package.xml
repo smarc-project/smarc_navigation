@@ -63,6 +63,7 @@
   <exec_depend>std_msgs</exec_depend>
   <depend>sbg_driver</depend>
   <depend>sensor_msgs</depend>
+  <depend>smarc_msgs</depend>
   <depend>nav_msgs</depend>
 
 
