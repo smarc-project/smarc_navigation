@@ -20,7 +20,7 @@ int main(int argc, char** argv)
     std::string utm_band; // N
 
     pn.param<std::string>("frame", frame, "sam/base_link");
-    pn.param<int>("/utm_zone", utm_zone, 33);
+    pn.param<int>("/utm_zone", utm_zone, 32);
     pn.param<string>("/utm_band", utm_band, "V");
 
     tf2_ros::TransformListener tfListener(tfBuffer);
@@ -30,21 +30,20 @@ int main(int argc, char** argv)
     while (ros::ok()) {
 
         geometry_msgs::TransformStamped transformStamped;
-        transformStamped.transform.translation.x = 0.;
-        transformStamped.transform.translation.y = 0.;
+        transformStamped.transform.translation.x = 679345.81;
+        transformStamped.transform.translation.y = 6397203.30;
         try {
-            transformStamped = tfBuffer.lookupTransform("world", frame, ros::Time(0));
+            transformStamped = tfBuffer.lookupTransform("utm", frame, ros::Time(0));
         }
         catch (tf2::TransformException &ex) {
-            ROS_WARN("%s",ex.what());
-            //continue;
+            ROS_WARN("Could not get lat/lon: %s", ex.what());
+            r.sleep();
+            continue;
         }
 
         double easting = transformStamped.transform.translation.x;
         double northing = transformStamped.transform.translation.y;
 
-        std::cout << "utm_zone: " << utm_zone << ", utm_band: " << utm_band[0] << std::endl;
-        
         geodesy::UTMPoint utm_point(easting, northing, utm_zone, utm_band[0]);
         geographic_msgs::GeoPoint msg = geodesy::toMsg(utm_point);
         pub.publish(msg);

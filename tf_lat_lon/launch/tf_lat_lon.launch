@@ -2,11 +2,12 @@
 
 <arg name="frame" default="sam/base_link"/>
 
-<param name="utm_zone" type="int" value="33"/>
-<param name="utm_band" type="string" value="V"/>
+<!-- <param name="utm_zone" type="int" value="32"/> -->
+<!-- <param name="utm_band" type="string" value="V"/> -->
 
 <node pkg="tf_lat_lon" type="tf_lat_lon_node" name="tf_lat_lon_node" output="screen">
     <param name="frame" value="$(arg frame)"/>
+    <remap from="output" to="dr/lat_lon"/>
 </node>
 
 </launch>
