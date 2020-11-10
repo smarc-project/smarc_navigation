@@ -19,6 +19,10 @@
   <group ns="$(arg robot_name)">
 
         <group ns="dr">
+
+    <include file="$(find tf_lat_lon)/launch/tf_lat_lon.launch">
+        <arg name="frame" value="$(arg robot_name)/base_link"/>
+    </include>
     
     <!-- If EKF set to not bc this transform, do it here -->
     <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg robot_name)/odom 100" unless="$(arg map_odom_tf_ekf)"/>
