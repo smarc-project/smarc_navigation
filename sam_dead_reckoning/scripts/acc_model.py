@@ -2,7 +2,8 @@
 
 import rospy
 import numpy as np
-from sam_msgs.msg import ThrusterRPMs
+#  from sam_msgs.msg import ThrusterRPMs
+from sam_msgs.msg import DualThrusterRPM
 from geometry_msgs.msg import TwistStamped
 
 class SamACC(object):
@@ -25,8 +26,8 @@ class SamACC(object):
 
     def thrustCB(self, rpm_msg):
 
-        rpm_0 = rpm_msg.thruster_1_rpm
-        rpm_1 = rpm_msg.thruster_2_rpm
+        rpm_0 = rpm_msg.thruster_front
+        rpm_1 = rpm_msg.thruster_back
 
         twist_msg = TwistStamped()
         twist_msg.header.stamp = rospy.Time.now()

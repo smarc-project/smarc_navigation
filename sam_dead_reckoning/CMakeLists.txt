@@ -20,6 +20,7 @@ endif()
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   nav_msgs
+  sam_msgs
   sensor_msgs
   tf2
   tf2_geometry_msgs
