@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 #  from sam_msgs.msg import ThrusterRPMs
-from smarc_msgs.msg import DualThrusterRPM
+from smarc_msgs.msg import DualThrusterFeedback
 from geometry_msgs.msg import TwistStamped
 
 class SamACC(object):
@@ -16,7 +16,7 @@ class SamACC(object):
         self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
         self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
 
-        self.subs_thrust = rospy.Subscriber(self.rpm_fb_topic, DualThrusterRPM, self.thrustCB)
+        self.subs_thrust = rospy.Subscriber(self.rpm_fb_topic, DualThrusterFeedback, self.thrustCB)
 
         self.control_pub = rospy.Publisher(self.dr_thrust_topic, TwistStamped, queue_size=10)
 
@@ -26,8 +26,8 @@ class SamACC(object):
 
     def thrustCB(self, rpm_msg):
 
-        rpm_0 = rpm_msg.thruster_front
-        rpm_1 = rpm_msg.thruster_back
+        rpm_0 = rpm_msg.thruster_front.rpm.rpm
+        rpm_1 = rpm_msg.thruster_back.rpm.rpm
 
         twist_msg = TwistStamped()
         twist_msg.header.stamp = rospy.Time.now()

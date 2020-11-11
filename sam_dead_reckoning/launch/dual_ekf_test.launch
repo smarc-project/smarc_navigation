@@ -35,7 +35,7 @@
   </node> -->
 
   <node pkg="sam_dead_reckoning" name="acc_model" type="acc_model.py" output="screen">
-    <param name="thrust_fb" value="/$(arg robot_name)/core/rpm_fb" />
+    <param name="thrust_fb" value="/$(arg robot_name)/core/thrusters_fb" />
     <param name="thrust_acc" value="/$(arg robot_name)/dr/motion_acc" />
   </node>
 
