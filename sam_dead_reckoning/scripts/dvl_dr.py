@@ -34,7 +34,7 @@ class DVL2DR(object):
 
         self.t_prev = rospy.Time.now()
         self.position_prev = [0.] * 3
-        self.first_msg = True
+        self.odom_init = False
         #  self.roll_init = 0.
         #  self.pitch_init = 0.
         #  self.yaw_init = 0.
@@ -46,6 +46,9 @@ class DVL2DR(object):
                               odom_msg.pose.pose.position.y,
                               odom_msg.pose.pose.position.z,
                              odom_msg.header.stamp]
+        self.odom_init = True
+        self.odom_sub.unregister()
+
 
     def fullRotation(self, roll, pitch, yaw):
         rot_z = np.array([[np.cos(yaw), -np.sin(yaw), 0.0],
@@ -61,11 +64,11 @@ class DVL2DR(object):
         self.rot_t = np.matmul(rot_z, np.matmul(rot_y, rot_x))
 
     def drCB(self, dvl_msg, imu_msg):
-
-        if self.first_msg:
+        # Get this message only once to init the DR based on latest odom filtered
+        if self.odom_init:
             self.position_prev = self.filtered_odom[:3]
             self.t_prev = self.filtered_odom[3]
-            self.first_msg = False
+            self.odom_init = False
 
         # Velocity at time t
         t_now = rospy.Time.now()
