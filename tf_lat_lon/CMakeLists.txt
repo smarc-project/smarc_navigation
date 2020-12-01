@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf2_geometry_msgs
   tf2_ros
-  #smarc_msgs
+  smarc_msgs
   geographic_msgs
 )
 
