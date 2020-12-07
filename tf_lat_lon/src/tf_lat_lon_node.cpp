@@ -21,7 +21,7 @@ class TFUTMConversion {
 protected:
 
     tf2_ros::Buffer tfBuffer;
-    //tf2_ros::TransformListener tfListener;
+    tf2_ros::TransformListener tfListener;
     tf2_ros::StaticTransformBroadcaster staticBroadcaster;
     //tf2_ros::TransformBroadcaster tfBroadcaster;
 
@@ -48,13 +48,21 @@ public:
         geometry_msgs::Quaternion res;
 
         // we could do this with TF but let's do it with static transform instead
-        tf2::Quaternion translation_quat;
-        translation_quat.setRPY(M_PI, 0., 0.);
+        /*
+        tf2::Quaternion translation_quat(sqrt(2.)/2., sqrt(2.)/2., 0, 0);
+        //tf2::Quaternion translation_quat;
+        //translation_quat.setRPY(M_PI, 0., 0.);
         tf2::Quaternion request_quat;
         tf2::fromMsg(req, request_quat);
         tf2::Quaternion response_quat = translation_quat*request_quat;
         response_quat.normalize();
         tf2::convert(response_quat, res);
+        */
+
+        res.x = req.y;
+        res.y = req.x;
+        res.z = -req.z;
+        res.w = req.w;
         return res;
     }
 
@@ -73,6 +81,7 @@ public:
             transformStamped.transform.translation.x = odom.pose.pose.position.x;
             transformStamped.transform.translation.y = odom.pose.pose.position.y;
             transformStamped.transform.translation.z = odom.pose.pose.position.z;
+            transformStamped.transform.rotation.w = 1.;
             transformStamped.header.frame_id = "utm";
             transformStamped.child_frame_id = "map";
             transformStamped.header.stamp = ros::Time::now();
@@ -87,7 +96,7 @@ public:
     }
 
     TFUTMConversion(const std::string& frame, int utm_zone, const std::string& utm_band)
-        : frame(frame), utm_zone(utm_zone), utm_band(utm_band)
+        : tfListener(tfBuffer), frame(frame), utm_zone(utm_zone), utm_band(utm_band)
     {
 
     }
