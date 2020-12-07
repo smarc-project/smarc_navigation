@@ -99,6 +99,12 @@ private:
 
     ros::Publisher lat_lon_pub;
     ros::Timer lat_lon_timer;
+    
+    ros::ServiceServer lat_lon_to_utm_odom_service;
+    ros::ServiceServer lat_lon_to_utm_service;
+    ros::ServiceServer utm_to_lat_lon_service;
+    ros::ServiceServer enu_to_ned_rot_service;
+    ros::ServiceServer ned_to_enu_rot_service;
 
 public:
 
@@ -145,11 +151,11 @@ public:
         lat_lon_pub = nh.advertise<geographic_msgs::GeoPoint>("tf_lat_lon", 1000);
         lat_lon_timer = nh.createTimer(ros::Duration(0.1), &TFLatLonServer::timer_callback, this);
 
-        ros::ServiceServer lat_lon_to_utm_odom_service = nh.advertiseService("lat_lon_to_utm_odom", &TFLatLonServer::translate_odometry, this);
-        ros::ServiceServer lat_lon_to_utm_service = nh.advertiseService("lat_lon_to_utm", &TFLatLonServer::translate_lat_lon, this);
-        ros::ServiceServer utm_to_lat_lon_service = nh.advertiseService("utm_to_lat_lon", &TFLatLonServer::translate_utm, this);
-        ros::ServiceServer enu_to_ned_rot_service = nh.advertiseService("enu_to_ned_rot", &TFLatLonServer::translate_rotation, this);
-        ros::ServiceServer ned_to_enu_rot_service = nh.advertiseService("ned_to_enu_rot", &TFLatLonServer::translate_rotation, this);
+        lat_lon_to_utm_odom_service = nh.advertiseService("lat_lon_to_utm_odom", &TFLatLonServer::translate_odometry, this);
+        lat_lon_to_utm_service = nh.advertiseService("lat_lon_to_utm", &TFLatLonServer::translate_lat_lon, this);
+        utm_to_lat_lon_service = nh.advertiseService("utm_to_lat_lon", &TFLatLonServer::translate_utm, this);
+        enu_to_ned_rot_service = nh.advertiseService("enu_to_ned_rot", &TFLatLonServer::translate_rotation, this);
+        ned_to_enu_rot_service = nh.advertiseService("ned_to_enu_rot", &TFLatLonServer::translate_rotation, this);
     }
 
     void timer_callback(const ros::TimerEvent& e)
