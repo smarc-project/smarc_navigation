@@ -6,6 +6,8 @@
 //#include <tf2/LinearMath/Quaternion.h>
 //#include <smarc_msgs/LatLonStamped.h>
 #include <geographic_msgs/GeoPoint.h>
+#include <sensor_msgs/NavSatFix.h>
+
 #include <smarc_msgs/UTMToLatLon.h>
 #include <smarc_msgs/LatLonToUTM.h>
 #include <smarc_msgs/NEDENURotation.h>
@@ -47,22 +49,26 @@ public:
     {
         geometry_msgs::Quaternion res;
 
-        // we could do this with TF but let's do it with static transform instead
+        tf2::Quaternion req_quat;
+        tf2::convert(req, req_quat);
+        tf2::Matrix3x3 req_mat(req_quat);
+
+        tf2::Matrix3x3 ned_to_enu_mat(0., 1., 0., 1., 0., 0., 0., 0., -1.);
+        tf2::Matrix3x3 vehicle_switch_z_mat(1., 0., 0., 0., -1., 0., 0., 0., -1.);
+        tf2::Matrix3x3 transformed_mat = ned_to_enu_mat*req_mat*vehicle_switch_z_mat;
+
+        tf2::Quaternion transformed_quat;
+        transformed_mat.getRotation(transformed_quat);
+        tf2::convert(transformed_quat, res);
+
         /*
-        tf2::Quaternion translation_quat(sqrt(2.)/2., sqrt(2.)/2., 0, 0);
-        //tf2::Quaternion translation_quat;
-        //translation_quat.setRPY(M_PI, 0., 0.);
-        tf2::Quaternion request_quat;
-        tf2::fromMsg(req, request_quat);
-        tf2::Quaternion response_quat = translation_quat*request_quat;
-        response_quat.normalize();
-        tf2::convert(response_quat, res);
+        double roll, pitch, yaw;
+        req_mat.getRPY(roll, pitch, yaw);
+        std::cout << "Original Roll: " << 180./M_PI*roll << " pitch: " << 180./M_PI*pitch << " yaw: " << 180./M_PI*yaw << std::endl;
+        transformed_mat.getRPY(roll, pitch, yaw);
+        std::cout << "Transformed Roll: " << 180./M_PI*roll << " pitch: " << 180./M_PI*pitch << " yaw: " << 180./M_PI*yaw << std::endl;
         */
 
-        res.x = req.y;
-        res.y = req.x;
-        res.z = -req.z;
-        res.w = req.w;
         return res;
     }
 
@@ -80,7 +86,7 @@ public:
             ROS_INFO("Could not get map transform, publishing first one...");
             transformStamped.transform.translation.x = odom.pose.pose.position.x;
             transformStamped.transform.translation.y = odom.pose.pose.position.y;
-            transformStamped.transform.translation.z = odom.pose.pose.position.z;
+            transformStamped.transform.translation.z = 0.;
             transformStamped.transform.rotation.w = 1.;
             transformStamped.header.frame_id = "utm";
             transformStamped.child_frame_id = "map";
@@ -107,7 +113,9 @@ class TFLatLonServer : public TFUTMConversion {
 private:
 
     ros::Publisher lat_lon_pub;
+    ros::Publisher vis_gps_pub;
     ros::Timer lat_lon_timer;
+    bool published_vis_gps;
     
     ros::ServiceServer lat_lon_to_utm_odom_service;
     ros::ServiceServer lat_lon_to_utm_service;
@@ -121,6 +129,17 @@ public:
                             smarc_msgs::LatLonToUTMOdometry::Response& res)
     {
         res.odom = convert_lat_lon_odom(req.lat_lon_odom);
+        if (!published_vis_gps) {
+            sensor_msgs::NavSatFix gps;
+            gps.header.stamp = ros::Time::now();
+            gps.header.frame_id = "map";
+            gps.latitude = req.lat_lon_odom.lat_lon_pose.position.latitude;
+            gps.longitude = req.lat_lon_odom.lat_lon_pose.position.longitude;
+            gps.altitude = 0.;
+            gps.status.status = sensor_msgs::NavSatStatus::STATUS_FIX;
+            vis_gps_pub.publish(gps);
+            published_vis_gps = true;
+        }
         return true;
     }
 
@@ -147,7 +166,7 @@ public:
         return true;
     }
 
-    TFLatLonServer(ros::NodeHandle& nh) : TFUTMConversion("", 0, "")
+    TFLatLonServer(ros::NodeHandle& nh) : TFUTMConversion("", 0, ""), published_vis_gps(false)
     {
         ros::NodeHandle pn("~");
         pn.param<std::string>("frame", frame, "sam/base_link");
@@ -158,6 +177,7 @@ public:
 
         //tfListener = tf2_ros::TransformListener(tfBuffer);
         lat_lon_pub = nh.advertise<geographic_msgs::GeoPoint>("tf_lat_lon", 1000);
+        vis_gps_pub = nh.advertise<sensor_msgs::NavSatFix>("vis_gps", 10, true); // latching publisher
         lat_lon_timer = nh.createTimer(ros::Duration(0.1), &TFLatLonServer::timer_callback, this);
 
         lat_lon_to_utm_odom_service = nh.advertiseService("lat_lon_to_utm_odom", &TFLatLonServer::translate_odometry, this);

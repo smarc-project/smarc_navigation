@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   smarc_msgs
   geographic_msgs
+  sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
