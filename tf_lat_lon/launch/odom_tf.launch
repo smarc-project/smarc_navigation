@@ -1,0 +1,21 @@
+<launch>
+
+<arg name="robot_name" default="sam"/>
+
+<!--
+<param name="utm_zone" type="int" value="32"/>
+<param name="utm_band" type="string" value="V"/>
+-->
+
+<node pkg="tf2_ros" type="static_transform_publisher" name="map_odom_broadcaster" args="0 0 0 0 0 0 1 map $(arg robot_name)/odom"/>
+
+<node pkg="tf_lat_lon" type="odom_to_tf_node" name="odom_to_tf_node" output="screen">
+    <param name="robot_name" value="$(arg robot_name)"/>
+</node>
+
+<include file="$(find tf_lat_lon)/launch/tf_lat_lon.launch">
+    <arg name="frame" value="$(arg robot_name)/base_link"/>
+    <arg name="lat_lon_topic" value="tf_lat_lon"/>
+</include>
+
+</launch>
