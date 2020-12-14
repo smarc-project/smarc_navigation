@@ -1,6 +1,7 @@
 <launch>
 
 <arg name="robot_name" default="sam"/>
+<arg name="tf_topic" default="tf_lat_lon"/>
 
 <!--
 <param name="utm_zone" type="int" value="32"/>
@@ -15,7 +16,7 @@
 
 <include file="$(find tf_lat_lon)/launch/tf_lat_lon.launch">
     <arg name="frame" value="$(arg robot_name)/base_link"/>
-    <arg name="lat_lon_topic" value="tf_lat_lon"/>
+    <arg name="lat_lon_topic" value="$(arg tf_topic)"/>
 </include>
 
 </launch>
