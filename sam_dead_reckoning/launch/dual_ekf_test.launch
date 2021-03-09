@@ -4,6 +4,7 @@
   <arg name="mode" default="default"/>
   <arg name="robot_name" default="sam"/>
 
+  
   <arg name="x" default="0"/>
   <arg name="y" default="0"/>
   <arg name="z" default="0"/>
@@ -25,7 +26,10 @@
     </include>
     
     <!-- If EKF set to not bc this transform, do it here -->
+    <!--Publish a static coordinate transform to tf using offsets passed as arguments x/y/z(0/0/0 in meters) and yaw/pitch/roll(0/0/0 in radians)-->
+    <!--100 ms is the period, which specifies how often to send the transform-->
     <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg robot_name)/odom 100" unless="$(arg map_odom_tf_ekf)"/>
+
 <!--   <node pkg="sam_dead_reckoning" name="motion_model" type="motion_model.py" output="screen">
     <param name="thrust_dr" value="/$(arg robot_name)/dr/motion_dr" />
     <param name="thrust_fb" value="/$(arg robot_name)/core/rpm_fb" />
@@ -43,7 +47,7 @@
   <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
     <param name="odom_frame" value="$(arg robot_name)/odom" />
     <param name="pressure_topic" value="/$(arg robot_name)/core/depth20_pressure" />
-    <param name="depth_topic" value="pressure_depth"/>
+    <param name="depth_topic" value="pressure_depth"/>                               <!---->
     <param name="pressure_frame" value="$(arg robot_name)/pressure_link" />
     <param name="base_frame" value="$(arg robot_name)/base_link" />
   </node>
@@ -69,28 +73,40 @@
 		<param name="sbg_imu_out" value="/$(arg robot_name)/core/sbg_imu"/>
 	</node>
 
+
+
+  <!--The rosparam tag enables the use of rosparam YAML files(params/dual_ekf_sam.yaml in this case) for dumping parameters 
+  from the ROS parameter server which the Nodes uses at runtime to store and retrieve parameters-->
 	<rosparam command="load" file="$(find sam_dead_reckoning)/params/dual_ekf_sam.yaml" />
 
+  <!--Navsat_Transform node takes in the pose(usually the output of EKF node), heading(from imu) and GPS data(from NavSatFix)
+        and produces an odometry message in coordinates that are consistent with  robot’s world frame.-->
 	<node pkg="robot_localization" type="navsat_transform_node" name="navsat_transform_node" clear_params="true">
-		<remap from="imu/data" to="/$(arg robot_name)/core/sbg_imu" />
-		<remap from="gps/fix" to="/$(arg robot_name)/core/gps" />
-		<remap from="odometry/filtered" to="global/odom/filtered" />
+  
+    <!-- remap from= "/different_topic topic" to="/needed_topic" -->
+    <!--Now, when this node subscribes to topic /different_topic, the remapping makes it actually subscribe to topic /needed_topic.
+     So, anyone publishing to /needed_topic ends up getting their message to this new navsat_transform_node as well!-->
+     
+  	<remap from="imu/data" to="/$(arg robot_name)/core/sbg_imu" />              <!--message with orientation data-->
+   	<remap from="gps/fix" to="/$(arg robot_name)/core/gps" />                   <!--message containing your robot’s GPS coordinates-->
+    <remap from="odometry/filtered" to="global/odom/filtered" />                <!--message of your robot’s current position-->
 	</node>
 
 
 	<!-- EKF for fusing continuous data from DVL, depth, motion model and IMU -->
+  <!-- name : ekf_loc_local from the dual_ekf_test.yaml file-->
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_local" output="screen" clear_params="true">
-        <param name="frequency" value="100"/>
-        <param name="sensor_timeout" value="0.1"/>
-        <param name="two_d_mode" value="false"/>
+        <param name="frequency" value="100"/>                                   <!--At 100Hz the filter produces the state estimate-->
+        <param name="sensor_timeout" value="0.1"/>                              <!--Sensor will timeout if a new output is not generated in 0.1 sec-->
+        <param name="two_d_mode" value="false"/>                                <!--2-D mode is false as this is 6-D(x,y,z,yaw,pitch,roll)-->
+      
+        <param name="map_frame" value="map"/>                                   <!--map is the "absolute" coordinate system, it does not change over time-->  
+        <param name="odom_frame" value="$(arg robot_name)/odom"/>               <!--in odom frame, origin is considered when the robot was powered on-->
+        <param name="base_link_frame" value="$(arg robot_name)/base_link"/>     <!--Coordinate frame of the robot-->
+        <param name="world_frame" value="$(arg robot_name)/odom"/>              <!--world_frame parameter set to odom_frame value-->
 
-        <param name="map_frame" value="map"/>
-        <param name="odom_frame" value="$(arg robot_name)/odom"/>
-        <param name="base_link_frame" value="$(arg robot_name)/base_link"/>
-        <param name="world_frame" value="$(arg robot_name)/odom"/>
-
-        <param name="transform_time_offset" value="0.0"/>
-        <param name="transform_timeout" value="0.0"/>
+        <param name="transform_time_offset" value="0.0"/>                       <!--tranforms have not been future-dated. No time offset is added to the timestamp of map->odom or odom->base_link transformations-->
+        <param name="transform_timeout" value="0.0"/>                           <!--The parameter specifies the time to wait if a transformation is not available. 0 means, we get the latest available transform-->
 
         <!--
             x,     y,      z,
@@ -100,22 +116,22 @@
             ax,    ay,     az
             These values are wrt the sensor frame.
          -->
-
-        <rosparam param="initial_state">[$(arg x), $(arg y), $(arg z),
+        <!--This is will start the filter with the given state-->
+        <rosparam param="initial_state">[$(arg x), $(arg y), $(arg z),           
                                          $(arg roll), $(arg pitch), $(arg yaw),
                                          0.0,  0.0,  0.0,
                                          0.0,  0.0,  0.0,
                                          0.0,  0.0,  0.0]</rosparam>
 
-        <!-- Depth sensor -->
-        <param name="pose0" value="pressure_depth"/>
-        <rosparam param="pose0_config">[false, false, true,
+ <!-- Depth sensor -->
+        <param name="pose0" value="pressure_depth"/>                             <!--topic name for Depth sensor : pressure_depth-->
+        <rosparam param="pose0_config">[false, false, true,                      <!--only the z variable of the pose message is fused into the final state estimate-->
                                         false, false, false,
                                         false, false, false,
                                         false, false, false,
                                         false, false, false]</rosparam>
 
-        <param name="pose0_differential" value="false"/>
+        <param name="pose0_differential" value="false"/>                         <!--Since only one source of pose information is used, this setting can be set as false-->
         <param name="pose0_relative" value="false"/>
 
 
@@ -128,9 +144,9 @@
                                            false, false, false]</rosparam>
         <param name="odom0_differential" value="false"/> -->
 
-        <!-- DVL -->
-        <param name="odom0" value="dvl_dr"/>
-        <rosparam param="odom0_config">[true, true, false,
+  <!-- DVL -->
+        <param name="odom0" value="dvl_dr"/>                                     <!--topic name for DVL sensor : dvl_dr-->
+        <rosparam param="odom0_config">[true, true, false,                       <!--variable x and y of the odometry message from the DVL sensor are fused in the final state estimate-->
                                         false, false, false,
                                         false, false, false,
                                         false, false, false,
@@ -141,8 +157,8 @@
  
 	<!-- GPS -->
     	<!-- <param name="odom1" value="/gps_odom"/> -->
-    	<param name="odom1" value="odometry/gps"/>
-    	<rosparam param="odom1_config">[true, true, false,
+    	<param name="odom1" value="odometry/gps"/>                                  <!--topic name for GPS sensor : odometry/gps-->
+    	<rosparam param="odom1_config">[true, true, false,                          <!--variable x and y of the odometry message from the GPS sensor are fused in the final state estimate-->
                                    false, false, false,
                                    false, false, false,
                                    false, false, false,
@@ -150,24 +166,24 @@
     	<param name="odom1_differential" value="false"/>
         
 	<!-- SBG IMU -->
-        <param name="imu0" value="/$(arg robot_name)/core/sbg_imu"/>
-        <rosparam param="imu0_config">[false, false, false,
+        <param name="imu0" value="/$(arg robot_name)/core/sbg_imu"/>              <!--topic name for SBG IMU sensor : sam/core/sbg_imu-->
+        <rosparam param="imu0_config">[false, false, false,                       <!--variable yaw and yaw_velocity are fused to final state estimate-->
                                        false, false, true,
                                        false, false, false,
                                        false, false, true,
                                        false, false, false]</rosparam>
 
         <param name="imu0_differential" value="false"/>
-        <param name="imu0_relative" value="false"/>
-        <param name="imu0_remove_gravitational_acceleration" value="true"/>
+        <param name="imu0_relative" value="false"/>                             
+        <param name="imu0_remove_gravitational_acceleration" value="true"/>       <!--this parameter determines the acceleration in Z due to gravity that will be removed from the IMU’s linear acceleration data-->
         <param name="imu0_nodelay" value="false"/>
-        <param name="imu0_queue_size" value="10"/>
-        <param name="gravitational_acceleration" value="9.80665"/>
+        <param name="imu0_queue_size" value="10"/>                                <!--used to adjust the callback queue size for the imu, by allowing the filter to incorporate all the measurements that arrived in between update cycles-->
+        <param name="gravitational_acceleration" value="9.80665"/>                <!--set to default value-->
 
 
-        <!-- STIM IMU -->
-        <param name="imu1" value="/$(arg robot_name)/core/stim_imu"/>
-        <rosparam param="imu1_config">[false, false, false,
+  <!-- STIM IMU -->
+        <param name="imu1" value="/$(arg robot_name)/core/stim_imu"/>             <!--topic name for STIM IMU sensor : sam/core/stim_imu-->
+        <rosparam param="imu1_config">[false, false, false,                       <!--variables roll, pitch, roll_velocity, pitch_velocity of the imu message from the sensor are fused-->
                                        true, true, false,
                                        false, false, false,
                                        true, true, false,
@@ -181,24 +197,27 @@
         <param name="gravitational_acceleration" value="9.80665"/>
 
         <!-- Node params -->
-        <param name="publish_tf" value="true"/>
-        <param name="publish_acceleration" value="false"/>
+        <param name="publish_tf" value="true"/>                                   <!--The state estimation node will publish the transform from the odom frame to the base link frame-->
+        <param name="publish_acceleration" value="false"/>                         
 
         <!-- Control signal from thrusters motion model -->
-        <param name="use_control" value="true"/>
-        <param name="stamped_control" value="true"/>
-        <rosparam param="control_config">[true,  true, false,
+        <param name="use_control" value="true"/>                                  <!--The state estimated node listens to the cmd_vel topic for a  Twist message-->
+        <param name="stamped_control" value="true"/>                              <!--looks for a Twist message with reference coordinate frame and timestamp-->
+
+        <rosparam param="control_config">[true,  true, false,                     <!--X and Y  variables in the cmd_vel message are used in state prediction-->
                                           false, false, false]</rosparam>
-        <rosparam param="acceleration_limits">[0.1, 0.1, 0.0,
+        <rosparam param="acceleration_limits">[0.1, 0.1, 0.0,                     <!--How rapidly robot can accelerate for X and Y-->
                                                0.0, 0.0, 0.0]</rosparam>
-        <rosparam param="acceleration_gains">[0.1, 0.1, 0.0,
+        <rosparam param="acceleration_gains">[0.1, 0.1, 0.0,                      <!--the permitted change the robot can have to reach its acc limits-->
                                               0.0, 0.0, 0.0]</rosparam>
-        <rosparam param="deceleration_limits">[0.1, 0.1, 0.0,
-                                               0.0, 0.0, 0.0]</rosparam>
+        <rosparam param="deceleration_limits">[0.1, 0.1, 0.0,                     <!--How rapidly robot can deccelerate for X and Y-->
+                                               0.0, 0.0, 0.0]</rosparam>          
         <rosparam param="deceleration_gains">[0.1, 0.1, 0.0,
                                               0.0, 0.0, 0.0]</rosparam>
 
-        <remap from="cmd_vel" to="motion_acc"/>
+        <remap from="cmd_vel" to="motion_acc"/>                                   <!--remap from= "/cmd_vel topic" to="/motion_acc" -->
+                                                                                  <!--Now, when this ekf_localization_node subscribes to topic /cmd_vel, the remapping makes it actually subscribe to topic /motion_acc.
+                                                                                    So, anyone publishing to /motion_acc ends up getting their message to this new ekf_localization_node as well!-->
 
         <!-- Outputs -->
         <remap from="odometry/filtered" to="local/odom/filtered"/>
@@ -207,6 +226,7 @@
 
 
 	<!-- EKF for fusing GPS and continuous estimate -->
+   <!-- name : ekf_loc_global from the dual_ekf_test.yaml file-->
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_loc_global" output="screen" clear_params="true">
         <param name="frequency" value="100"/>
         <param name="sensor_timeout" value="0.1"/>
@@ -215,7 +235,7 @@
         <param name="map_frame" value="map"/>
         <param name="odom_frame" value="$(arg robot_name)/odom"/>
         <param name="base_link_frame" value="$(arg robot_name)/base_link"/>
-        <param name="world_frame" value="map"/>
+        <param name="world_frame" value="map"/>                                   <!-- The world frame is set to map frame value in this case-->
 
         <param name="transform_time_offset" value="0.0"/>
         <param name="transform_timeout" value="0.0"/>
@@ -309,7 +329,7 @@
         <param name="gravitational_acceleration" value="9.80665"/>
 
         <!-- Node params -->
-        <param name="publish_tf" value="$(arg map_odom_tf_ekf)"/>
+        <param name="publish_tf" value="$(arg map_odom_tf_ekf)"/>                 <!--The state estimation node will publish the tranform from map to odom frame-->        
         <param name="publish_acceleration" value="false"/>
 
         <!-- Control signal from thrusters motion model -->

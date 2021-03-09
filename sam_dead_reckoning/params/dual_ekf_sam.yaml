@@ -1,6 +1,6 @@
-
+#odom frame
 ekf_loc_local:
-
+  #Used to model uncertainity in the prediction step of the filtering
   process_noise_covariance: [1e-3, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                              0,    1e-2, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                              0,    0,    1e-2, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
@@ -16,7 +16,7 @@ ekf_loc_local:
                              0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0.3,  0,    0,
                              0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0.3,  0,
                              0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0.3]
-
+  #Error in the current state estimate
   initial_estimate_covariance: [1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
                                 0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
                                 0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
@@ -32,7 +32,7 @@ ekf_loc_local:
                                 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     1.0,  0,    0,
                                 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    1.0,  0,
                                 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    1.0]
-
+#map frame
 ekf_loc_global:
   
   process_noise_covariance: [1.0,  0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
