@@ -1,6 +1,8 @@
 #odom frame
 ekf_loc_local:
   #Used to model uncertainity in the prediction step of the filtering
+
+  #                           x    y     z     r     p     y     v_x    v_y    v_z   v_r   v_p   v_y   a_x   a_y   a_z
   process_noise_covariance: [1e-3, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                              0,    1e-2, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                              0,    0,    1e-2, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
@@ -17,6 +19,8 @@ ekf_loc_local:
                              0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0.3,  0,
                              0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0.3]
   #Error in the current state estimate
+
+     #                           x    y     z     r     p     y     v_x    v_y    v_z   v_r   v_p   v_y   a_x   a_y   a_z
   initial_estimate_covariance: [1e-3, 0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
                                 0,    1e-3, 0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
                                 0,    0,    1e-3, 0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
@@ -34,7 +38,7 @@ ekf_loc_local:
                                 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    1.0]
 #map frame
 ekf_loc_global:
-  
+  #                           x    y     z     r     p     y     v_x    v_y    v_z   v_r   v_p   v_y   a_x   a_y   a_z
   process_noise_covariance: [1.0,  0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                              0,    1.0,  0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                              0,    0,    1e-3, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
@@ -51,6 +55,7 @@ ekf_loc_global:
                              0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0.3,  0,
                              0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0.3]
 
+     #                          x     y     z     r     p     y     v_x   v_y   v_z   v_r    v_p    v_y    a_x   a_y   a_z
   initial_estimate_covariance: [0.1,  0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
                                 0,    0.1,  0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
                                 0,    0,    1e-9, 0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
