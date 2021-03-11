@@ -172,6 +172,7 @@ include_directories(
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
 
+
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
 # install(TARGETS ${PROJECT_NAME}
@@ -215,4 +216,14 @@ add_dependencies(tf_listener ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORT
 
 target_link_libraries(odom_listener ${catkin_LIBRARIES})
 target_link_libraries(tf_listener ${catkin_LIBRARIES})
+
+install(TARGETS tf_listener odom_listener
+   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(FILES
+   launch/tf_listener.launch
+   launch/odom_listener.launch
+   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+ )
 
