@@ -1,0 +1,19 @@
+<launch>
+
+    <arg name="robot_name" default="sam"/>
+
+    <group ns="$(arg robot_name)">
+        <group ns="dr">
+
+    	<node name="tf_listener" pkg="tf_convenience_topics" type="tf_listener" output="screen" >
+	    	<param name="world_frame" value="/map"/>	    	
+	    	<param name="base_frame" value="/$(arg robot_name)/base_link"/>
+	        <param name="topic_from_dvl" value="$(arg robot_name)/core/dvl"/>
+            	<param name="loop_freq" value="50" />
+    	</node>
+
+    	</group>
+   </group>
+
+</launch>
+

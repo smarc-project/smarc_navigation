@@ -2,3 +2,4 @@
 - git: {local-name: smarc_msgs, uri: 'https://github.com/smarc-project/smarc_msgs.git', version: noetic-devel}
 - git: {local-name: sbg_ros_driver, uri: 'https://github.com/smarc-project/sbg_ros_driver.git', version: master}
 - git: {local-name: geographic_info, uri: 'https://github.com/ros-geographic-info/geographic_info.git', version: master}
+
