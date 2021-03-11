@@ -6,12 +6,12 @@
 //#include <tf2_msgs/TFMessage.h>
 //#include <geometry_msgs/Quaternion.h>
 #include <tf/tf.h>
-#include <cola2_msgs/DVL.h>
+#include <smarc_msgs/DVL.h>
 
 std_msgs::Float64 current_alt;
 
 //Callback to read altitude from DVL
-void DVLCallback(const cola2_msgs::DVL& dvl_msg)
+void DVLCallback(const smarc_msgs::DVL& dvl_msg)
 {
     current_alt.data = dvl_msg.altitude;
     ROS_INFO_THROTTLE(1.0, "[ tf_listener]  Altitude from DVL: %f", dvl_msg.altitude);

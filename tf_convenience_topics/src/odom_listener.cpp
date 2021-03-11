@@ -4,7 +4,7 @@
 #include <nav_msgs/Odometry.h>
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
-#include <cola2_msgs/DVL.h>
+#include <smarc_msgs/DVL.h>
 
 //Variable initialization
 std_msgs::Float64 current_roll,current_pitch,current_yaw,current_depth, current_x,current_y, current_u, current_v, current_w, current_p,current_q, current_r, current_alt;
@@ -12,7 +12,7 @@ double r,p,y;
 tf::Quaternion tfq;
 
 //Callback to read altitude from DVL
-void DVLCallback(const cola2_msgs::DVL& dvl_msg)
+void DVLCallback(const smarc_msgs::DVL& dvl_msg)
 {
     current_alt.data = dvl_msg.altitude;
    // ROS_INFO_THROTTLE(1.0, "[ odom_listener]  Altitude from DVL: %f", dvl_msg.altitude);
