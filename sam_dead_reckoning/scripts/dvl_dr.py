@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 import tf
-from cola2_msgs.msg import DVL
+from smarc_msgs.msg import DVL
 from geometry_msgs.msg import TwistWithCovarianceStamped
 import tf
 import message_filters
