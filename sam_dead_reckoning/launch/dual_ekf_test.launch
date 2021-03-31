@@ -125,7 +125,8 @@
 
  <!-- Depth sensor -->
         <param name="pose0" value="pressure_depth"/>                             <!--topic name for Depth sensor : pressure_depth-->
-        <rosparam param="pose0_config">[false, false, true,                      <!--only the z variable of the pose message is fused into the final state estimate-->
+        <!--only the z variable of the pose message is fused into the final state estimate-->
+        <rosparam param="pose0_config">[false, false, true,
                                         false, false, false,
                                         false, false, false,
                                         false, false, false,
@@ -146,7 +147,8 @@
 
   <!-- DVL -->
         <param name="odom0" value="dvl_dr"/>                                     <!--topic name for DVL sensor : dvl_dr-->
-        <rosparam param="odom0_config">[true, true, false,                       <!--variable x and y of the odometry message from the DVL sensor are fused in the final state estimate-->
+        <!--variable x and y of the odometry message from the DVL sensor are fused in the final state estimate-->
+        <rosparam param="odom0_config">[true, true, false,
                                         false, false, false,
                                         false, false, false,
                                         false, false, false,
@@ -158,7 +160,8 @@
 	<!-- GPS -->
     	<!-- <param name="odom1" value="/gps_odom"/> -->
     	<param name="odom1" value="odometry/gps"/>                                  <!--topic name for GPS sensor : odometry/gps-->
-    	<rosparam param="odom1_config">[true, true, false,                          <!--variable x and y of the odometry message from the GPS sensor are fused in the final state estimate-->
+      <!--variable x and y of the odometry message from the GPS sensor are fused in the final state estimate-->
+    	<rosparam param="odom1_config">[true, true, false,
                                    false, false, false,
                                    false, false, false,
                                    false, false, false,
@@ -167,7 +170,8 @@
         
 	<!-- SBG IMU -->
         <param name="imu0" value="/$(arg robot_name)/core/sbg_imu"/>              <!--topic name for SBG IMU sensor : sam/core/sbg_imu-->
-        <rosparam param="imu0_config">[false, false, false,                       <!--variable yaw and yaw_velocity are fused to final state estimate-->
+        <!--variable yaw and yaw_velocity are fused to final state estimate-->
+        <rosparam param="imu0_config">[false, false, false,
                                        false, false, true,
                                        false, false, false,
                                        false, false, true,
@@ -183,7 +187,8 @@
 
   <!-- STIM IMU -->
         <param name="imu1" value="/$(arg robot_name)/core/stim_imu"/>             <!--topic name for STIM IMU sensor : sam/core/stim_imu-->
-        <rosparam param="imu1_config">[false, false, false,                       <!--variables roll, pitch, roll_velocity, pitch_velocity of the imu message from the sensor are fused-->
+        <!--variables roll, pitch, roll_velocity, pitch_velocity of the imu message from the sensor are fused-->
+        <rosparam param="imu1_config">[false, false, false,                       
                                        true, true, false,
                                        false, false, false,
                                        true, true, false,
@@ -204,13 +209,17 @@
         <param name="use_control" value="true"/>                                  <!--The state estimated node listens to the cmd_vel topic for a  Twist message-->
         <param name="stamped_control" value="true"/>                              <!--looks for a Twist message with reference coordinate frame and timestamp-->
 
-        <rosparam param="control_config">[true,  true, false,                     <!--X and Y  variables in the cmd_vel message are used in state prediction-->
+        <!--X and Y  variables in the cmd_vel message are used in state prediction-->
+        <rosparam param="control_config">[true,  true, false,
                                           false, false, false]</rosparam>
-        <rosparam param="acceleration_limits">[0.1, 0.1, 0.0,                     <!--How rapidly robot can accelerate for X and Y-->
+        <!--How rapidly robot can accelerate for X and Y-->
+        <rosparam param="acceleration_limits">[0.1, 0.1, 0.0,
                                                0.0, 0.0, 0.0]</rosparam>
-        <rosparam param="acceleration_gains">[0.1, 0.1, 0.0,                      <!--the permitted change the robot can have to reach its acc limits-->
+        <!--the permitted change the robot can have to reach its acc limits-->
+        <rosparam param="acceleration_gains">[0.1, 0.1, 0.0,
                                               0.0, 0.0, 0.0]</rosparam>
-        <rosparam param="deceleration_limits">[0.1, 0.1, 0.0,                     <!--How rapidly robot can deccelerate for X and Y-->
+        <!--How rapidly robot can deccelerate for X and Y-->
+        <rosparam param="deceleration_limits">[0.1, 0.1, 0.0,
                                                0.0, 0.0, 0.0]</rosparam>          
         <rosparam param="deceleration_gains">[0.1, 0.1, 0.0,
                                               0.0, 0.0, 0.0]</rosparam>
