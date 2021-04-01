@@ -12,9 +12,6 @@
   <arg name="pitch" default="0.0"/>
   <arg name="yaw" default="0.0"/>
 
-  <arg name="gps_port" value="/dev/ttyUSB2"/>
-  <arg name="gps_baud" value="9600"/>
-  <arg name="with_gps" default="true"/>
   <arg name="map_odom_tf_ekf" default="false"/>
 
   <group ns="$(arg robot_name)">
@@ -39,14 +36,15 @@
   </node> -->
 
   <node pkg="sam_dead_reckoning" name="acc_model" type="acc_model.py" output="screen">
-    <param name="thrust_fb" value="/$(arg robot_name)/core/thrusters_fb" />
+    <param name="thrust1_fb" value="/$(arg robot_name)/core/thruster1_fb" />
+    <param name="thrust2_fb" value="/$(arg robot_name)/core/thruster2_fb" />
     <param name="thrust_acc" value="/$(arg robot_name)/dr/motion_acc" />
   </node>
 
   <!-- Depth from pressure sensor converter -->
   <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
     <param name="odom_frame" value="$(arg robot_name)/odom" />
-    <param name="pressure_topic" value="/$(arg robot_name)/core/depth20_pressure" />
+    <param name="pressure_topic" value="/$(arg robot_name)/core/pressure" />
     <param name="depth_topic" value="pressure_depth"/>                               <!---->
     <param name="pressure_frame" value="$(arg robot_name)/pressure_link" />
     <param name="base_frame" value="$(arg robot_name)/base_link" />
@@ -186,7 +184,7 @@
 
 
   <!-- STIM IMU -->
-        <param name="imu1" value="/$(arg robot_name)/core/stim_imu"/>             <!--topic name for STIM IMU sensor : sam/core/stim_imu-->
+        <param name="imu1" value="/$(arg robot_name)/core/imu"/>             <!--topic name for STIM IMU sensor : sam/core/stim_imu-->
         <!--variables roll, pitch, roll_velocity, pitch_velocity of the imu message from the sensor are fused-->
         <rosparam param="imu1_config">[false, false, false,                       
                                        true, true, false,
