@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 import tf
-from cola2_msgs.msg import DVL
+from smarc_msgs.msg import DVL
 from geometry_msgs.msg import TwistWithCovarianceStamped
 import tf
 import message_filters
@@ -15,7 +15,7 @@ class DVL2DR(object):
 
     def __init__(self):
         self.dvl_topic = rospy.get_param('~dvl_topic', '/sam/core/dvl')
-        self.dvl_dr_top = rospy.get_param('~dvl_dr_topic', '/sam/dr/dvl_dr')
+        self.dvl_dr_top = rospy.get_param('~dvl_dr_topic', '/sam/dr/dvl_dr')                         #topic used in the launch file for the DVL sensor
         self.imu_topic = rospy.get_param('~sbg_imu', '/sam/core/sbg_imu')
         self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
         self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
