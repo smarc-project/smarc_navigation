@@ -48,34 +48,35 @@ int main(int argc, char** argv){
   std::string node_name = "odom_listener";
   ros::init(argc, argv, node_name);
 
-  ros::NodeHandle node("~");
+  ros::NodeHandle node;
 
   std::string odom_topic_;
   std::string dvl_topic_;
   double freq;
 
-  node.param<std::string>("odom_topic", odom_topic_, "/sam/dr/local/odom/filtered");
-  node.param<std::string>("dvl_topic", dvl_topic_, "/sam/core/dvl");
-  node.param<double>("loop_freq", freq, 10);
+  ros::NodeHandle node_priv("~");
+  node_priv.param<std::string>("odom_topic", odom_topic_, "/sam/dr/local/odom/filtered");
+  node_priv.param<std::string>("dvl_topic", dvl_topic_, "/sam/core/dvl");
+  node_priv.param<double>("loop_freq", freq, 10);
 
   //initiate subscribers
   ros::Subscriber dvl_sub = node.subscribe(dvl_topic_, 1, DVLCallback);
   ros::Subscriber odom_sub = node.subscribe(odom_topic_, 1, OdomCallback);
 
   //initiate publishers
-  ros::Publisher feedback_pitch = node.advertise<std_msgs::Float64>("pitch_feedback", freq);
-  ros::Publisher feedback_roll = node.advertise<std_msgs::Float64>("roll_feedback", freq);
-  ros::Publisher feedback_yaw = node.advertise<std_msgs::Float64>("yaw_feedback", freq);
-  ros::Publisher feedback_depth = node.advertise<std_msgs::Float64>("depth_feedback", freq);
-  ros::Publisher feedback_x = node.advertise<std_msgs::Float64>("x_feedback", freq);
-  ros::Publisher feedback_y = node.advertise<std_msgs::Float64>("y_feedback", freq);
-  ros::Publisher feedback_u = node.advertise<std_msgs::Float64>("u_feedback", freq);
-  ros::Publisher feedback_v = node.advertise<std_msgs::Float64>("v_feedback", freq);
-  ros::Publisher feedback_w = node.advertise<std_msgs::Float64>("w_feedback", freq);
-  ros::Publisher feedback_p = node.advertise<std_msgs::Float64>("p_feedback", freq);
-  ros::Publisher feedback_q = node.advertise<std_msgs::Float64>("q_feedback", freq);
-  ros::Publisher feedback_r = node.advertise<std_msgs::Float64>("r_feedback", freq);
-  ros::Publisher feedback_alt = node.advertise<std_msgs::Float64>("alt_feedback", freq);
+  ros::Publisher feedback_pitch = node.advertise<std_msgs::Float64>("pitch", freq);
+  ros::Publisher feedback_roll = node.advertise<std_msgs::Float64>("roll", freq);
+  ros::Publisher feedback_yaw = node.advertise<std_msgs::Float64>("yaw", freq);
+  ros::Publisher feedback_depth = node.advertise<std_msgs::Float64>("depth", freq);
+  ros::Publisher feedback_x = node.advertise<std_msgs::Float64>("x", freq);
+  ros::Publisher feedback_y = node.advertise<std_msgs::Float64>("y", freq);
+  ros::Publisher feedback_u = node.advertise<std_msgs::Float64>("u", freq);
+  ros::Publisher feedback_v = node.advertise<std_msgs::Float64>("v", freq);
+  ros::Publisher feedback_w = node.advertise<std_msgs::Float64>("w", freq);
+  ros::Publisher feedback_p = node.advertise<std_msgs::Float64>("p", freq);
+  ros::Publisher feedback_q = node.advertise<std_msgs::Float64>("q", freq);
+  ros::Publisher feedback_r = node.advertise<std_msgs::Float64>("r", freq);
+  ros::Publisher feedback_alt = node.advertise<std_msgs::Float64>("alt", freq);
 
   ros::Rate rate(10.0);
   while (node.ok()){
