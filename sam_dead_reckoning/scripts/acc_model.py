@@ -24,8 +24,8 @@ class SamACC(object):
         self.timer = rospy.Timer(rospy.Duration(0.1), self.timerCB)
 
         self.coeff = 0.0005
-        self.rpm1 = 0.
-        self.rpm2 = 0.
+        self.rpm_0 = 0.
+        self.rpm_1 = 0.
         
         rospy.spin()
 
