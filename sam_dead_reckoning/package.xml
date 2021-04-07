@@ -65,7 +65,8 @@
   <depend>sensor_msgs</depend>
   <depend>smarc_msgs</depend>
   <depend>nav_msgs</depend>
-  <depend>tf_convenience_topics</depend>
+
+  <exec_depend>tf_convenience_topics</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
