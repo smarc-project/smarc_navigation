@@ -44,7 +44,7 @@
   <!-- Depth from pressure sensor converter -->
   <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
     <param name="odom_frame" value="$(arg robot_name)/odom" />
-    <param name="pressure_topic" value="/$(arg robot_name)/core/pressure" />
+    <param name="pressure_topic" value="/$(arg robot_name)/core/depth20_pressure" />
     <param name="depth_topic" value="pressure_depth"/>                               <!---->
     <param name="pressure_frame" value="$(arg robot_name)/pressure_link" />
     <param name="base_frame" value="$(arg robot_name)/base_link" />
@@ -184,7 +184,7 @@
 
 
   <!-- STIM IMU -->
-        <param name="imu1" value="/$(arg robot_name)/core/imu"/>             <!--topic name for STIM IMU sensor : sam/core/stim_imu-->
+        <param name="imu1" value="/$(arg robot_name)/core/stim_imu"/>             <!--topic name for STIM IMU sensor : sam/core/stim_imu-->
         <!--variables roll, pitch, roll_velocity, pitch_velocity of the imu message from the sensor are fused-->
         <rosparam param="imu1_config">[false, false, false,                       
                                        true, true, false,
