@@ -12,9 +12,6 @@
   <arg name="pitch" default="0.0"/>
   <arg name="yaw" default="0.0"/>
 
-  <arg name="gps_port" value="/dev/ttyUSB2"/>
-  <arg name="gps_baud" value="9600"/>
-  <arg name="with_gps" default="true"/>
   <arg name="map_odom_tf_ekf" default="false"/>
 
   <group ns="$(arg robot_name)">
@@ -39,7 +36,8 @@
   </node> -->
 
   <node pkg="sam_dead_reckoning" name="acc_model" type="acc_model.py" output="screen">
-    <param name="thrust_fb" value="/$(arg robot_name)/core/thrusters_fb" />
+    <param name="thrust1_fb" value="/$(arg robot_name)/core/thruster1_fb" />
+    <param name="thrust2_fb" value="/$(arg robot_name)/core/thruster2_fb" />
     <param name="thrust_acc" value="/$(arg robot_name)/dr/motion_acc" />
   </node>
 
