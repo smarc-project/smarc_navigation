@@ -61,12 +61,14 @@
   <build_depend>std_msgs</build_depend>
   <build_export_depend>std_msgs</build_export_depend>
   <exec_depend>std_msgs</exec_depend>
-  <depend>sbg_driver</depend>
+  <!-- <depend>sbg_driver</depend> -->
   <depend>sensor_msgs</depend>
   <depend>smarc_msgs</depend>
   <depend>nav_msgs</depend>
 
+  <exec_depend>tf</exec_depend>
   <exec_depend>tf_convenience_topics</exec_depend>
+  <exec_depend>robot_localization</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
