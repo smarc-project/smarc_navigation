@@ -30,7 +30,7 @@ void OdomCallback(const nav_msgs::Odometry& odom_msg)
     current_pitch.data= p;
     current_roll.data= r;
     current_yaw.data= y;
-    current_depth.data= odom_msg.pose.pose.position.z;
+    current_depth.data= -odom_msg.pose.pose.position.z;
     current_x.data= odom_msg.pose.pose.position.x;
     current_y.data= odom_msg.pose.pose.position.y;
 
