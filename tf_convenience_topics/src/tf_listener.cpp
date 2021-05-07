@@ -53,7 +53,7 @@ int main(int argc, char** argv){
   ros::Publisher feedback_p = node.advertise<std_msgs::Float64>("p", freq);
   ros::Publisher feedback_q = node.advertise<std_msgs::Float64>("q", freq);
   ros::Publisher feedback_r = node.advertise<std_msgs::Float64>("r", freq);
-  ros::Publisher feedback_alt = node.advertise<std_msgs::Float64>("alt", freq);
+  ros::Publisher feedback_alt = node.advertise<std_msgs::Float64>("altitude", freq);
 
 //Variable initialization
   tf::TransformListener listener;
