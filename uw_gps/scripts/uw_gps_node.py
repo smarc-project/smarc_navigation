@@ -79,76 +79,78 @@ class UWGps():
         # after a full log session is completed
         f = open(filename, "w")
 
-        try:
-            while True:
-                pos_global = self.get_global_position(base_url)
-                if not pos_global:
-                    log.warning("Got no global position")
-                    continue
+        while not rospy.is_shutdown():
 
-                lat_global = pos_global["lat"]
-                lon_global = pos_global["lon"]
+            pos_global = self.get_global_position(base_url)
+            if not pos_global:
+                log.warning("Got no global position")
+                continue
 
-                pos_master = self.get_master_position(base_url)
-                if not pos_master:
-                    log.warning("Got no master position")
-                    continue
+            lat_global = pos_global["lat"]
+            lon_global = pos_global["lon"]
 
-                lat_master = pos_master["lat"]
-                lon_master = pos_master["lon"]
+            pos_master = self.get_master_position(base_url)
+            if not pos_master:
+                log.warning("Got no master position")
+                continue
 
-                acoustic = self.get_acoustic_position(base_url)
-                if not acoustic:
-                    log.warning("Got no acoustic position")
-                    continue
+            lat_master = pos_master["lat"]
+            lon_master = pos_master["lon"]
 
-                depth = acoustic["z"]
-                altitude = -depth
+            acoustic = self.get_acoustic_position(base_url)
+            if not acoustic:
+                log.warning("Got no acoustic position")
+                continue
 
-                log.info("Global: Lat: {} Lon: {} Alt: {}".format(lat_global, lon_global, altitude))
-                gpx_segment_global.points.append(gpxpy.gpx.GPXTrackPoint(lat_global, lon_global, elevation=-altitude, time=datetime.datetime.utcnow()))
+            print(acoustic)
+            depth = acoustic["z"]
+            altitude = -depth
 
-                log.info("Master: Lat: {} Lon: {}".format(lat_master, lon_master))
-                gpx_segment_master.points.append(gpxpy.gpx.GPXTrackPoint(lat_master, lon_master, time=datetime.datetime.utcnow()))
+            log.info("Global: Lat: {} Lon: {} Alt: {}".format(lat_global, lon_global, altitude))
+            gpx_segment_global.points.append(gpxpy.gpx.GPXTrackPoint(lat_global, lon_global, elevation=-altitude, time=datetime.datetime.utcnow()))
 
-                gps_msg = NavSatFix()
-                gps_msg.header.frame_id = 'world'
-                gps_msg.header.stamp = rospy.Time.now()
-                gps_msg.latitude = lat_global
-                gps_msg.longitude = lon_global
-                gps_msg.altitude = altitude 
-                gps_global_pub.publish(gps_msg)
+            log.info("Master: Lat: {} Lon: {}".format(lat_master, lon_master))
+            gpx_segment_master.points.append(gpxpy.gpx.GPXTrackPoint(lat_master, lon_master, time=datetime.datetime.utcnow()))
 
-                gps_msg.header.frame_id = 'uw_master'
-                gps_msg.header.stamp = rospy.Time.now()
-                gps_msg.latitude = lat_master 
-                gps_msg.longitude = lon_master 
-                gps_msg.altitude = 0.0 
-                gps_master_pub.publish(gps_msg)
+            #gps_msg = NavSatFix()
+            #gps_msg.header.frame_id = 'world'
+            #gps_msg.header.stamp = rospy.Time.now()
+            #gps_msg.latitude = lat_global
+            #gps_msg.longitude = lon_global
+            #gps_msg.altitude = altitude 
+            #gps_global_pub.publish(gps_msg)
 
+            #gps_msg.header.frame_id = 'uw_master'
+            #gps_msg.header.stamp = rospy.Time.now()
+            #gps_msg.latitude = lat_master 
+            #gps_msg.longitude = lon_master 
+            #gps_msg.altitude = 0.0 
+            #gps_master_pub.publish(gps_msg)
+
+            if acoustic["position_valid"]:
                 pose_msg = PoseStamped()
                 pose_msg.header.frame_id = 'map'
                 pose_msg.header.stamp = rospy.Time.now()
-                pose_msg.pose.position.x = lat_global
-                pose_msg.pose.position.y = lon_global
-                pose_msg.pose.position.z = -depth 
-
+                pose_msg.pose.position.x = acoustic["y"]
+                pose_msg.pose.position.y = acoustic["x"]
+                pose_msg.pose.position.z = - acoustic["z"]
                 pose_pub.publish(pose_msg)
 
-                #  (utm_x, utm_y, utm_zone, utm_letter) = utm.from_latlon(lat_global, lon_global)
-                #  odom_msg = Odometry()
-                #  odom_msg.header.frame_id = 'world'
-                #  odom_msg.child_frame_id = 'base_link'
-                #  odom_msg.pose.pose.position.x = lat_global
-                #  odom_msg.pose.pose.position.y = lon_global
-                #  odom_msg.pose.pose.position.z = depth
+            else:
+                log.warning("Invalid acoustic position")
 
-                #  odom_pub.publish(odom_msg)
+            #  (utm_x, utm_y, utm_zone, utm_letter) = utm.from_latlon(lat_global, lon_global)
+            #  odom_msg = Odometry()
+            #  odom_msg.header.frame_id = 'world'
+            #  odom_msg.child_frame_id = 'base_link'
+            #  odom_msg.pose.pose.position.x = lat_global
+            #  odom_msg.pose.pose.position.y = lon_global
+            #  odom_msg.pose.pose.position.z = depth
 
-                time.sleep(1)
+            #  odom_pub.publish(odom_msg)
 
-        except KeyboardInterrupt:
-            pass
+            time.sleep(1)
+
     
         print("Saving data to file: {}".format(filename))
         f.write(gpx.to_xml())
