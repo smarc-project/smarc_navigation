@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>tf_convenience_topics</name>
-  <version>0.0.2</version>
+  <version>0.0.3</version>
   <description>Package to provide state feedback by looking at the tf tree</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->

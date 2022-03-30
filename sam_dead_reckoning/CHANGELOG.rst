@@ -2,8 +2,8 @@
 Changelog for package sam_dead_reckoning
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.3 (2022-03-30)
+------------------
 * Merge pull request `#2 <https://github.com/smarc-project/smarc_navigation/issues/2>`_ from smarc-project/noetic-devel
   Update to latest version of smarc_navigation with DR integrated to SIM
 * Merge pull request `#61 <https://github.com/smarc-project/smarc_navigation/issues/61>`_ from smarc-project/dr_sim

@@ -2,8 +2,8 @@
 Changelog for package tf_lat_lon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.3 (2022-03-30)
+------------------
 * Merge pull request `#51 <https://github.com/smarc-project/smarc_navigation/issues/51>`_ from smarc-project/install_rules
   Added install rules
 * Added install rules

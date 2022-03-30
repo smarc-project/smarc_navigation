@@ -2,8 +2,8 @@
 Changelog for package tf_convenience_topics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.3 (2022-03-30)
+------------------
 * Merge pull request `#63 <https://github.com/smarc-project/smarc_navigation/issues/63>`_ from svbhat/noetic-devel
   Update /sam/dr/altitude topic
 * Merge pull request `#2 <https://github.com/smarc-project/smarc_navigation/issues/2>`_ from smarc-project/noetic-devel
