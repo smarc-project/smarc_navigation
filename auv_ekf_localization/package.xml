@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>auv_ekf_localization</name>
-  <version>0.0.0</version>
+  <version>0.0.2</version>
   <description>The auv_ekf_localization package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
