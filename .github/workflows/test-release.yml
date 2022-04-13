@@ -1,0 +1,22 @@
+name: release-CI
+
+on: [push, pull_request]
+
+jobs:
+  test-release-job:
+      strategy:
+        matrix:
+          include:
+            - distro: melodic
+              ubuntu: bionic
+            - distro: noetic
+              ubuntu: focal
+      runs-on: ubuntu-latest
+      name: Test building a ROS debian release
+      steps:
+      - uses: actions/checkout@v2
+      - name: Run the release build
+        uses: smarc-project/test-ros-release-action@v2.0.1
+        with:
+          ubuntu: ${{ matrix.ubuntu }}
+          distro: ${{ matrix.distro }}
