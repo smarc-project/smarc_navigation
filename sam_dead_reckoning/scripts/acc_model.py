@@ -23,6 +23,7 @@ class SamACC(object):
         self.control_pub = rospy.Publisher(self.dr_thrust_topic, TwistStamped, queue_size=10)
         self.timer = rospy.Timer(rospy.Duration(0.1), self.timerCB)
 
+        # From pool tests, about .5 m/s for 1000RPM
         self.coeff = 0.0005
         self.rpm_0 = 0.
         self.rpm_1 = 0.
@@ -39,7 +40,8 @@ class SamACC(object):
         twist_msg = TwistStamped()
         twist_msg.header.stamp = rospy.Time.now()
         twist_msg.header.frame_id = self.base_frame
-        twist_msg.twist.linear.x = (self.rpm_0 + self.rpm_1) * self.coeff
+        # From pool tests, about .5 m/s for 1000RPM
+        twist_msg.twist.linear.x = .5 * (self.rpm_0 + self.rpm_1) * self.coeff
         twist_msg.twist.linear.y = 0.0
         twist_msg.twist.linear.z = 0.0
         self.control_pub.publish(twist_msg)
