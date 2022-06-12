@@ -39,7 +39,7 @@ class SamACC(object):
         twist_msg = TwistStamped()
         twist_msg.header.stamp = rospy.Time.now()
         twist_msg.header.frame_id = self.base_frame
-        twist_msg.twist.linear.x = (self.rpm_0 + self.rpm_1) * self.coeff
+        twist_msg.twist.linear.x = (self.rpm_0 + self.rpm_1) /2 * self.coeff
         twist_msg.twist.linear.y = 0.0
         twist_msg.twist.linear.z = 0.0
         self.control_pub.publish(twist_msg)

@@ -176,7 +176,7 @@ target_link_libraries(dr_node
 
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
-catkin_install_python(PROGRAMS scripts/acc_model.py scripts/press_to_depth.py scripts/dvl_twist.py
+catkin_install_python(PROGRAMS scripts/acc_model.py scripts/press_to_depth.py scripts/dvl_twist.py scripts/dvl_dr.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
