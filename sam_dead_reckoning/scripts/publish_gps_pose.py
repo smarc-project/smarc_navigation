@@ -4,7 +4,7 @@ import rospy
 from rospy import ROSException
 from std_msgs.msg import Header, Bool
 from std_srvs.srv import SetBool
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, Point, Quaternion
+from geometry_msgs.msg import PointStamped, PoseStamped, PoseWithCovarianceStamped, Point, Quaternion, TransformStamped
 from sensor_msgs.msg import NavSatFix, NavSatStatus
 from sam_msgs.msg import GetGPSFixAction, GetGPSFixFeedback, GetGPSFixResult
 from sam_msgs.msg import PercentStamped 
@@ -12,70 +12,116 @@ from nav_msgs.msg import Odometry
 import actionlib
 import tf_conversions
 import tf
-from tf.transformations import quaternion_from_euler, quaternion_multiply
+from tf.transformations import euler_from_quaternion, quaternion_from_euler, quaternion_multiply
 from geodesy import utm
 import math
 import numpy as np
+import tf2_ros
+from sbg_driver.msg import SbgEkfEuler
+import message_filters
 
 class PublishGPSPose(object):
 
     def __init__(self, name):
 
         self.initial_pose_pub = rospy.Publisher('/initialpose', PoseWithCovarianceStamped, queue_size=10)
-        self.odom_pub = rospy.Publisher('gps_odom', Odometry)
-	self.pose_pub = rospy.Publisher('gps_pose', PoseWithCovarianceStamped, queue_size=10)
+        self.odom_pub = rospy.Publisher('gps_odom', Odometry, queue_size=10)
+        self.gps_prt_pub = rospy.Publisher('gps_odom_prt', Odometry, queue_size=10)
+        self.gps_stb_pub = rospy.Publisher('gps_odom_stb', Odometry, queue_size=10)
+        self.pose_pub = rospy.Publisher('gps_pose', PoseWithCovarianceStamped, queue_size=10)
 
-        self.listener = tf.TransformListener()
+        self.sbg_sub = rospy.Subscriber("/sam/sbg/ekf_euler", SbgEkfEuler, self.sbg_cb)
+
+
+        self.listener = tf.TransformListener()        
+        self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
 
         self.first_gps = True
+        self.sbg_init = False
+        
+        self.gps_prt_sub = message_filters.Subscriber("/sam/core/gps/prt", NavSatFix)
+        self.gps_stb_sub = message_filters.Subscriber("/sam/core/gps/stb", NavSatFix)
+        self.ts = message_filters.ApproximateTimeSynchronizer([self.gps_prt_sub, self.gps_stb_sub],
+                                                          20, slop=20.0, allow_headerless=False)
+        self.ts.registerCallback(self.gps_callback)
 
-	rospy.Subscriber("/sam/core/gps", NavSatFix, self.gps_callback)
+        # rospy.Subscriber("/sam/core/gps/prt", NavSatFix, self.gps_callback)
 
-    def gps_callback(self, gps_msg):
+        rospy.loginfo("GPS to odom ready")
 
-        if gps_msg.status.status == -1:
+    def fullRotation(self, roll, pitch, yaw):
+        rot_z = np.array([[np.cos(yaw), -np.sin(yaw), 0.0],
+                          [np.sin(yaw), np.cos(yaw), 0.0],
+                          [0., 0., 1]])
+        rot_y = np.array([[np.cos(pitch), 0.0, np.sin(pitch)],
+                          [0., 1., 0.],
+                          [-np.sin(pitch), np.cos(pitch), 0.0]])
+        rot_x = np.array([[1., 0., 0.],
+                          [0., np.cos(roll), -np.sin(roll)],
+                          [0., np.sin(roll), np.cos(roll)]])
+
+        self.rot_t = np.matmul(rot_z, np.matmul(rot_y, rot_x))
+
+    def sbg_cb(self, sbg_msg):
+        self.sbg_init = True
+        self.init_euler = sbg_msg.angle
+
+        self.sbg_sub.unregister()
+
+    def gps_callback(self, prt_msg, stb_msg):
+
+        if prt_msg.status.status == -1:
             return
 
-        try:
-            now = rospy.Time(0)
-            (world_trans, world_rot) = self.listener.lookupTransform("utm", "map", now)
-        except (tf.LookupException, tf.ConnectivityException):
-            self._feedback.status = "Could not get transform between %s and %s" % ("utm", "map")
-            rospy.loginfo("Could not get transform between %s and %s" % ("utm", "map"))
-            self._as.publish_feedback(self._feedback)
-            
-        # easting, northing is in utm coordinate system,
-        # we need to transform it to world or map
-        utm_point = utm.fromLatLong(gps_msg.latitude, gps_msg.longitude)
-        easting = utm_point.easting
-        northing = utm_point.northing
-        utm_zone = utm_point.zone
+        # lat long to UTM
+        utm_prt = utm.fromLatLong(prt_msg.latitude, prt_msg.longitude)
+        utm_stb = utm.fromLatLong(stb_msg.latitude, stb_msg.longitude)
+        # prt - stb
+        diff = np.array([utm_prt.northing, utm_prt.easting]) - np.array([utm_stb.northing, utm_stb.easting]) 
+        # mid point
+        utm_mid = diff/2. + np.array([utm_stb.northing, utm_stb.easting]) 
+        heading = np.arctan2(diff[1], diff[0]) - np.pi/2.0
 
-        pos = np.array([easting-world_trans[0], northing-world_trans[1], 1.])
+        try:
+            # goal_point_local = self.listener.transformPoint("map", goal_point)
+            (world_trans, world_rot) = self.listener.lookupTransform("utm", "map", rospy.Time(0))
+
+        except (tf.LookupException, tf.ConnectivityException):
+            rospy.loginfo("Could not get transform between %s and %s" % ("utm", "map"))
+            
+            if self.sbg_init:
+                rospy.loginfo("so publishing first one...")
+                # print(euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w]))
+                transformStamped = TransformStamped()
+                # print(self.init_euler.z)
+                # quat = quaternion_from_euler(0.,0., 0.0096910380197574898)
+                transformStamped.transform.translation.x = utm_mid[0]
+                transformStamped.transform.translation.y = utm_mid[1]
+                transformStamped.transform.translation.z = 0.
+                transformStamped.transform.rotation.x = 1.               
+                transformStamped.transform.rotation.y = 0.
+                transformStamped.transform.rotation.z = 0.
+                transformStamped.transform.rotation.w = 0.
+                transformStamped.header.frame_id = "utm"
+                transformStamped.child_frame_id = "map"
+                transformStamped.header.stamp = rospy.Time.now()
+                self.static_tf_bc.sendTransform(transformStamped)
+                self.sbg_init = False
+
+            return
+            
+        # pos = np.array([world_trans[0]-easting, world_trans[1]-northing, 0.])
+        # self.fullRotation(0., 0.,self.init_euler.z) # from the initial heading of the SBG
+        # pos_map = np.matmul(self.rot_t, pos)
+        # pos_map[2] = pos
+        # pos_map = pos
+
         rot = [0., 0., 0., 1.]
 
-        header = Header()
-        header.stamp = gps_msg.header.stamp
-
-        if self.first_gps:
-            pose_msg = PoseWithCovarianceStamped()
-            pose_msg.header = header
-            pose_msg.header.frame_id = "map"
-            pose_msg.pose.pose.position = Point(*pos.tolist())
-            pose_msg.pose.pose.orientation = Quaternion(*rot)
-            pose_msg.pose.covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            pose_msg.pose.covariance[0] = 5.
-            pose_msg.pose.covariance[7] = 5.
-            pose_msg.pose.covariance[14] = .1
-            pose_msg.pose.covariance[21] = .01
-            pose_msg.pose.covariance[28] = .01
-            pose_msg.pose.covariance[35] = .5
-            self.initial_pose_pub.publish(pose_msg)
-            self.first_gps = False
-
+        quat = quaternion_from_euler(0.,0., heading)
         odom_msg = Odometry()
         odom_msg.header = Header()
-        odom_msg.header.frame_id = "map"
+        odom_msg.header.frame_id = "utm"
         odom_msg.child_frame_id = "sam/gps_link"
         odom_msg.pose.covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         odom_msg.pose.covariance[0] = 40.0
@@ -85,23 +131,54 @@ class PublishGPSPose(object):
         odom_msg.pose.covariance[28] = 0.1 # 10.
         odom_msg.pose.covariance[35] = .5
         #self.odom_msg.pose.pose.orientation.w = 1.
-        odom_msg.pose.pose.position = Point(*pos.tolist())
+        # odom_msg.pose.pose.position = Point(*pos_map.tolist())
+        odom_msg.pose.pose.position.x = utm_mid[0]
+        odom_msg.pose.pose.position.y = utm_mid[1]
+        odom_msg.pose.pose.position.z = 0.
+        # odom_msg.pose.pose.position = goal_point_local.point
         odom_msg.pose.pose.orientation = Quaternion(*rot)
         self.odom_pub.publish(odom_msg)
 
-        pose_msg = PoseWithCovarianceStamped()
-        pose_msg.header = header
-        pose_msg.header.frame_id = "map"
-        pose_msg.pose.pose.position = Point(*pos.tolist())
-        pose_msg.pose.pose.orientation = Quaternion(*rot)
-        pose_msg.pose.covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        pose_msg.pose.covariance[0] = 100.
-        pose_msg.pose.covariance[7] = 100.
-        pose_msg.pose.covariance[14] = .003
-        pose_msg.pose.covariance[21] = .1
-        pose_msg.pose.covariance[28] = .1
-        pose_msg.pose.covariance[35] = .5
-        self.pose_pub.publish(pose_msg)
+        odom_msg = Odometry()
+        odom_msg.header = Header()
+        odom_msg.header.frame_id = "utm"
+        odom_msg.child_frame_id = "sam/gps_link"
+        odom_msg.pose.covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        odom_msg.pose.covariance[0] = 40.0
+        odom_msg.pose.covariance[7] = 40.0 
+        odom_msg.pose.covariance[14] = 0.003
+        odom_msg.pose.covariance[21] = 0.1 # 10.
+        odom_msg.pose.covariance[28] = 0.1 # 10.
+        odom_msg.pose.covariance[35] = .5
+        #self.odom_msg.pose.pose.orientation.w = 1.
+        # odom_msg.pose.pose.position = Point(*pos_map.tolist())
+        odom_msg.pose.pose.position.x = utm_prt.northing
+        odom_msg.pose.pose.position.y = utm_prt.easting
+        odom_msg.pose.pose.position.z = 0.
+        # odom_msg.pose.pose.position = goal_point_local.point
+        odom_msg.pose.pose.orientation = Quaternion(*rot)
+        self.gps_prt_pub.publish(odom_msg)
+
+        odom_msg = Odometry()
+        odom_msg.header = Header()
+        odom_msg.header.frame_id = "utm"
+        odom_msg.child_frame_id = "sam/gps_link"
+        odom_msg.pose.covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        odom_msg.pose.covariance[0] = 40.0
+        odom_msg.pose.covariance[7] = 40.0 
+        odom_msg.pose.covariance[14] = 0.003
+        odom_msg.pose.covariance[21] = 0.1 # 10.
+        odom_msg.pose.covariance[28] = 0.1 # 10.
+        odom_msg.pose.covariance[35] = .5
+        #self.odom_msg.pose.pose.orientation.w = 1.
+        # odom_msg.pose.pose.position = Point(*pos_map.tolist())
+        odom_msg.pose.pose.position.x = utm_stb.northing
+        odom_msg.pose.pose.position.y = utm_stb.easting
+        odom_msg.pose.pose.position.z = 0.
+        # odom_msg.pose.pose.position = goal_point_local.point
+        odom_msg.pose.pose.orientation = Quaternion(*rot)
+        self.gps_stb_pub.publish(odom_msg)
+
 
 if __name__ == "__main__":
 
