@@ -17,7 +17,7 @@ from tf.transformations import identity_matrix, quaternion_from_euler, euler_fro
 
 # For sim mbes action client
 from auv_particle import SamParticle, matrix_from_tf
-
+from resampling import residual_resample
 
 class auv_pf(object):
 
@@ -95,6 +95,15 @@ class auv_pf(object):
                                         init_cov=[0.]*6, meas_std=meas_std,
                                         process_cov=motion_cov)
         
+        # Aux topic to simulate diving
+        dive_top = rospy.get_param("~aux_dive", '/dive')
+        rospy.Subscriber(dive_top, Bool, self.dive_cb, queue_size=100)
+        self.diving = False
+
+        # GPS odom topic, in UTM frame
+        gps_top = rospy.get_param("~gps_odom_topic", '/gps')
+        rospy.Subscriber(gps_top, Odometry, self.gps_odom_cb, queue_size=100)
+        
         # Establish subscription to odometry message (intentionally last)
         odom_top = rospy.get_param("~odometry_topic", 'odom')
         rospy.Subscriber(odom_top, Odometry, self.odom_callback, queue_size=100)
@@ -103,6 +112,69 @@ class auv_pf(object):
         rospy.loginfo("Particle filter class successfully created")
 
         rospy.spin()
+
+    def dive_cb(self, dive_msg):
+        self.diving = dive_msg.data
+
+    def gps_odom_cb(self, gps_odom):
+        # To simulate diving as absence of GPS in floatsam        
+        if not self.diving:
+            # Meas update
+            weights = self.update(gps_odom, self.odom_latest)
+
+            # Particle resampling
+            self.resample(weights)
+    
+    def update(self, gps_odom, odom):
+        
+        weights = []
+        for i in range(0, self.pc):
+           
+            # Current uncertainty of odom estimate and GPS meas
+            # self.particles[i].exp_meas_cov = odom.pose.covariance
+            # self.particles[i].meas_cov = gps_odom.pose.covariance
+            
+            # Compute particle weight
+            self.particles[i].compute_weight(gps_odom)
+            weights.append(self.particles[i].w)
+
+        weights_array = np.asarray(weights)
+        # Add small non-zero value to avoid hitting zero
+        weights_array += 1.e-200
+
+        return weights_array
+
+    def resample(self, weights):
+        # Normalize weights
+        #  print (weights)
+        weights /= weights.sum()
+
+        # N_eff = self.pc
+        # if weights.sum() == 0.:
+        #     rospy.loginfo("All weights zero!")
+        # else:
+        #     N_eff = 1/np.sum(np.square(weights))
+
+        # Resampling?
+        # if N_eff < self.pc/2. :
+        indices = residual_resample(weights)
+        keep = list(set(indices))
+        lost = [i for i in range(self.pc) if i not in keep]
+        dupes = indices[:].tolist()
+        for i in keep:
+            dupes.remove(i)
+
+        self.reassign_poses(lost, dupes)
+        # Add noise to particles
+        for i in range(self.pc):
+            self.particles[i].add_noise(self.res_noise_cov)
+
+
+    def reassign_poses(self, lost, dupes):
+        for i in range(len(lost)):
+            # Faster to do separately than using deepcopy()
+            self.particles[lost[i]].p_pose = self.particles[dupes[i]].p_pose
+    
 
     def odom_callback(self, odom_msg):
         self.time = odom_msg.header.stamp.to_sec()

@@ -78,10 +78,10 @@ class PublishGPSPose(object):
             rospy.loginfo("so publishing first one...")
             transformStamped = TransformStamped()
             # TODO: use utm_sam (SAM's GPS) for final tests
-            transformStamped.transform.translation.x = utm_mid[0]
-            # transformStamped.transform.translation.x = utm_sam.northing
-            transformStamped.transform.translation.y = utm_mid[1]
-            # transformStamped.transform.translation.y = utm_sam.easting
+            # transformStamped.transform.translation.x = utm_mid[0]
+            transformStamped.transform.translation.x = utm_sam.northing
+            # transformStamped.transform.translation.y = utm_mid[1]
+            transformStamped.transform.translation.y = utm_sam.easting
             transformStamped.transform.translation.z = 0.
             transformStamped.transform.rotation.x = 1.               
             transformStamped.transform.rotation.y = 0.

@@ -9,7 +9,7 @@ import numpy as np
 # from scipy.spatial.transform import Rotation as rot
 # from scipy.ndimage import gaussian_filter1d
 
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import Pose, PoseStamped, PointStamped
 from geometry_msgs.msg import Quaternion, Transform
 
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
@@ -17,6 +17,8 @@ from tf.transformations import translation_matrix, translation_from_matrix
 from tf.transformations import quaternion_matrix, quaternion_from_matrix
 from tf.transformations import rotation_matrix, rotation_from_matrix
 
+from scipy.stats import multivariate_normal
+import tf
 
 from sensor_msgs.msg import PointCloud2, PointField
 from std_msgs.msg import Header
@@ -32,12 +34,15 @@ class SamParticle(object):
         self.p_num = p_num
         self.index = index
 
+        self.listener = tf.TransformListener()
+
         # self.weight = 1.
         self.p_pose = [0.]*6
         self.m2o_tf_mat = m2o_matrix
         self.init_cov = init_cov
         self.process_cov = np.asarray(process_cov)
-
+        self.meas_cov = np.diag([meas_std**2]*2)
+        self.w = 0.0
         self.add_noise(init_cov)
 
     def add_noise(self, noise):
@@ -78,11 +83,11 @@ class SamParticle(object):
     def get_p_mbes_pose(self):
         # Find particle's mbes_frame pose in the map frame 
         t_particle = translation_matrix(self.p_pose[0:3])
-        r_particle = self.fullRotation(self.p_pose[3],self.p_pose[4],self.p_pose[5])
-        q_particle = quaternion_matrix(r_particle.as_quat())
+        q = quaternion_from_euler(self.p_pose[3],self.p_pose[4],self.p_pose[5])
+        q_particle = quaternion_matrix(q)
         mat = np.dot(t_particle, q_particle)
         
-        trans_mat = self.m2o_tf_mat.dot(mat.dot(self.mbes_tf_mat))
+        trans_mat = self.m2o_tf_mat.dot(mat)
         self.p = trans_mat[0:3, 3]
         self.R = trans_mat[0:3, 0:3]
         
@@ -101,6 +106,30 @@ class SamParticle(object):
                           [0., np.sin(roll), np.cos(roll)]])
 
         return np.matmul(rot_z, np.matmul(rot_y, rot_x))
+
+
+    def compute_weight(self, gps_fix):
+        # Current particle pose in the map frame
+        p_part, r_mbes = self.get_p_mbes_pose()
+        
+        goal_point = PointStamped()
+        goal_point.header.frame_id = "utm"
+        goal_point.header.stamp = rospy.Time(0)
+        goal_point.point.x = gps_fix.pose.pose.position.x
+        goal_point.point.y = gps_fix.pose.pose.position.y
+        goal_point.point.z = 0.
+
+        try:
+            gps_map = self.listener.transformPoint("map", goal_point)
+
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            rospy.logwarn("Transform to base frame not available yet")
+        pass
+
+        # TODO: combine uncertainties of odom and GPS estimates
+        self.w = multivariate_normal.pdf([gps_map.point.x, gps_map.point.y], mean=p_part[0:2],
+                                     cov=self.meas_cov)                                
+
 
 
 def matrix_from_tf(transform):
