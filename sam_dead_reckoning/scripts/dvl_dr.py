@@ -4,7 +4,7 @@ import rospy
 import numpy as np
 import tf
 from smarc_msgs.msg import DVL
-from geometry_msgs.msg import TwistWithCovarianceStamped, TransformStamped, Quaternion
+from geometry_msgs.msg import TwistWithCovarianceStamped, TransformStamped, Quaternion, Vector3
 import tf
 import tf2_ros
 from tf.transformations import euler_from_quaternion, quaternion_from_euler, quaternion_multiply
@@ -51,6 +51,7 @@ class DVL2DR(object):
         self.rot_t = [0.] * 3
         self.t_stim_prev = 0.
         self.init_stim = False
+        self.vel_rot = [0.] * 3
 
         # Useful when working with rosbags
         self.t_start = 0.   
@@ -60,16 +61,20 @@ class DVL2DR(object):
         self.pos_t = [0.] * 3
         self.t_dvl_prev = 0.
         self.dvl_on = False
+        self.dvl_latest = DVL()
+        self.dvl_latest.velocity.x = 0.
+        self.dvl_latest.velocity.y = 0.
+        self.dvl_latest.velocity.z = 0.
 
         # Motion model 
         self.mm_on = False
 
         self.t_step = 0.02
-        rospy.Timer(rospy.Duration(self.t_step), self.dr_cb)
+        rospy.Timer(rospy.Duration(self.t_step), self.dr_timer)
 
         rospy.spin()
 
-    def dr_cb(self, event):
+    def dr_timer(self, event):
         
         try:
             # goal_point_local = self.listener.transformPoint("map", goal_point)
@@ -94,33 +99,42 @@ class DVL2DR(object):
             return
 
         pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
+        rot_vel_t = self.vel_rot
+        lin_vel_t = [0.] * 3
 
-        # Integrate linear velocities from DVL
+        # DVL data coming in
         if self.dvl_on:
 
-            # If data keeps coming in
-            # if self.t_now - self.dvl_latest.header.stamp.to_sec() < self.dvl_period:
-            rot_mat_t = self.fullRotation(pose_t[3],pose_t[4],pose_t[5])
-            step_t = np.matmul(rot_mat_t, np.array([self.dvl_latest.velocity.x,
-                                                    self.dvl_latest.velocity.y,
-                                                    0.])*self.t_step)
+            # Integrate linear velocities from DVL
+            # If last DVL msg isn't too old
+            if self.t_now - self.t_dvl_prev < self.dvl_period:
+                rot_mat_t = self.fullRotation(pose_t[3],pose_t[4],pose_t[5])
+                lin_vel_t = np.array([self.dvl_latest.velocity.x,
+                                    self.dvl_latest.velocity.y,
+                                    0.])
+                step_t = np.matmul(rot_mat_t, lin_vel_t * self.t_step)
 
-            # Current pose
-            self.pos_t = self.pos_t + step_t        
-            pose_t[0:3] = self.pos_t
-            # else:
-            #     rospy.logdebug("Missing DVL data, motion model kicking in")
+                # Current pose
+                self.pos_t = self.pos_t + step_t        
+                pose_t[0:3] = self.pos_t
+            
+            # Otherwise, integrate motion model estimate
+            else:
+                rospy.logdebug("Missing DVL data, motion model kicking in")
 
-        # Integrate linear velocities from motion model
-        if self.mm_on:
-            # rot_mat_t = self.fullRotation(pose_t[3],pose_t[4],pose_t[5])
-            # step_t = np.matmul(rot_mat_t, np.array([self.dvl_latest.velocity.x,
-            #                                         self.dvl_latest.velocity.y,
-            #                                         0.])*self.t_step)
+                # Integrate linear velocities from motion model
+                # TODO: subscribe to rpm topics
+                if self.mm_on:
+                    # rot_mat_t = self.fullRotation(pose_t[3],pose_t[4],pose_t[5])
+                    # lin_vel_t = np.array([self.dvl_latest.velocity.x,
+                    #                 self.dvl_latest.velocity.y,
+                    #                 0.])
+                    # step_t = np.matmul(rot_mat_t, lin_vel_t * self.t_step)
 
-            # Current pose
-            self.pos_t = self.pos_t + step_t        
-            pose_t[0:3] = self.pos_t
+                    # Current pose
+                    self.pos_t = self.pos_t + step_t        
+                    pose_t[0:3] = self.pos_t
+
 
         # Publish and broadcast aux frame for testing
         quat_t = tf.transformations.quaternion_from_euler(pose_t[3],pose_t[4],pose_t[5])
@@ -131,6 +145,12 @@ class DVL2DR(object):
         odom_msg.pose.pose.position.x = pose_t[0]
         odom_msg.pose.pose.position.y = pose_t[1]
         odom_msg.pose.pose.position.z = 0.
+        odom_msg.twist.twist.linear.x = lin_vel_t[0]
+        odom_msg.twist.twist.linear.y = lin_vel_t[1]
+        odom_msg.twist.twist.linear.z = lin_vel_t[2]
+        odom_msg.twist.twist.angular.x = rot_vel_t[0]
+        odom_msg.twist.twist.angular.y = rot_vel_t[1]
+        odom_msg.twist.twist.angular.z = rot_vel_t[2]
         odom_msg.pose.covariance = [0.] * 36
         odom_msg.pose.pose.orientation = Quaternion(*quat_t)
         self.pub_odom.publish(odom_msg)
@@ -169,18 +189,21 @@ class DVL2DR(object):
 
     def stim_cb(self, imu_msg):
         if self.init_stim:
+            self.rot_stim = np.array([imu_msg.orientation.x,
+                                    imu_msg.orientation.y,
+                                    imu_msg.orientation.z,
+                                    imu_msg.orientation.w])
+            
             # Integrate angular velocities
-            vel_rot = np.array([imu_msg.angular_velocity.x,
+            self.vel_rot = np.array([imu_msg.angular_velocity.x,
                                 imu_msg.angular_velocity.y,
                                 imu_msg.angular_velocity.z])
 
             dt = imu_msg.header.stamp.to_sec() - self.t_stim_prev
-            rot_t = np.array(self.rot_t) + vel_rot * dt
+            self.rot_t = np.array(self.rot_t) + self.vel_rot * dt
 
-            rot_t[0] = (rot_t[0] + np.pi) % (2 * np.pi) - np.pi
-            rot_t[1] = (rot_t[1] + np.pi) % (2 * np.pi) - np.pi
-            rot_t[2] = (rot_t[2] + np.pi) % (2 * np.pi) - np.pi
-            self.rot_t = rot_t
+            for rot in self.rot_t:
+                rot = (rot + np.pi) % (2 * np.pi) - np.pi
 
             self.t_stim_prev = imu_msg.header.stamp.to_sec()
 
@@ -189,8 +212,21 @@ class DVL2DR(object):
             self.t_stim_prev = imu_msg.header.stamp.to_sec()
             self.init_stim = True
 
+    # TODO: potential synch issue here with stim and dvl on variables
     def dvl_cb(self, dvl_msg):
-        self.dvl_latest = dvl_msg
+        if self.init_stim:
+
+            # Project velocities into odom frame to correct for pitching of floatsam
+            euler = euler_from_quaternion(self.rot_stim)
+            mat_t = self.fullRotation(euler[0],euler[1],euler[2])
+
+            aux  = np.matmul(mat_t, np.array([dvl_msg.velocity.x,
+                                            dvl_msg.velocity.y,
+                                            dvl_msg.velocity.z]))
+            dvl_msg.velocity.x = aux[0]
+            dvl_msg.velocity.y = aux[1]
+            dvl_msg.velocity.z = aux[2]
+            self.dvl_latest = dvl_msg
         
         if self.dvl_on:
             dt = dvl_msg.header.stamp.to_sec() - self.t_dvl_prev

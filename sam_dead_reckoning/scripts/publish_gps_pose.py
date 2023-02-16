@@ -28,6 +28,7 @@ class PublishGPSPose(object):
         self.odom_pub = rospy.Publisher('gps_odom', Odometry, queue_size=10)
         self.gps_prt_pub = rospy.Publisher('gps_odom_prt', Odometry, queue_size=10)
         self.gps_stb_pub = rospy.Publisher('gps_odom_stb', Odometry, queue_size=10)
+        self.gps_sam_pub = rospy.Publisher('gps_odom_sam', Odometry, queue_size=10)
         self.pose_pub = rospy.Publisher('gps_pose', PoseWithCovarianceStamped, queue_size=10)
 
         # self.sbg_sub = rospy.Subscriber("/sam/sbg/ekf_euler", SbgEkfEuler, self.sbg_cb)
@@ -40,7 +41,8 @@ class PublishGPSPose(object):
         
         self.gps_prt_sub = message_filters.Subscriber("/sam/core/gps/prt", NavSatFix)
         self.gps_stb_sub = message_filters.Subscriber("/sam/core/gps/stb", NavSatFix)
-        self.ts = message_filters.ApproximateTimeSynchronizer([self.gps_prt_sub, self.gps_stb_sub],
+        self.gps_sam_sub = message_filters.Subscriber("/sam/core/gps", NavSatFix)
+        self.ts = message_filters.ApproximateTimeSynchronizer([self.gps_prt_sub, self.gps_stb_sub, self.gps_sam_sub],
                                                           20, slop=20.0, allow_headerless=False)
         self.ts.registerCallback(self.gps_callback)
 
@@ -52,7 +54,7 @@ class PublishGPSPose(object):
 
     #     self.sbg_sub.unregister()
 
-    def gps_callback(self, prt_msg, stb_msg):
+    def gps_callback(self, prt_msg, stb_msg, sam_msg):
 
         if prt_msg.status.status == -1:
             return
@@ -60,6 +62,7 @@ class PublishGPSPose(object):
         # lat long to UTM
         utm_prt = utm.fromLatLong(prt_msg.latitude, prt_msg.longitude)
         utm_stb = utm.fromLatLong(stb_msg.latitude, stb_msg.longitude)
+        utm_sam = utm.fromLatLong(sam_msg.latitude, sam_msg.longitude)
         # prt - stb
         diff = np.array([utm_prt.northing, utm_prt.easting]) - np.array([utm_stb.northing, utm_stb.easting]) 
         # mid point
@@ -73,12 +76,12 @@ class PublishGPSPose(object):
         except (tf.LookupException, tf.ConnectivityException):
             rospy.loginfo("Could not get transform between %s and %s" % ("utm", "map"))            
             rospy.loginfo("so publishing first one...")
-            # print(euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w]))
             transformStamped = TransformStamped()
-            # print(self.init_euler.z)
-            # quat = quaternion_from_euler(0.,0., 0.0096910380197574898)
+            # TODO: use utm_sam (SAM's GPS) for final tests
             transformStamped.transform.translation.x = utm_mid[0]
+            # transformStamped.transform.translation.x = utm_sam.northing
             transformStamped.transform.translation.y = utm_mid[1]
+            # transformStamped.transform.translation.y = utm_sam.easting
             transformStamped.transform.translation.z = 0.
             transformStamped.transform.rotation.x = 1.               
             transformStamped.transform.rotation.y = 0.
@@ -141,6 +144,21 @@ class PublishGPSPose(object):
         # odom_msg.pose.pose.position = goal_point_local.point
         odom_msg.pose.pose.orientation = Quaternion(*rot)
         self.gps_stb_pub.publish(odom_msg)
+
+
+        odom_msg = Odometry()
+        odom_msg.header = Header()
+        odom_msg.header.frame_id = "utm"
+        odom_msg.child_frame_id = "sam/gps_link"
+        odom_msg.pose.covariance = [0.] * 36
+        #self.odom_msg.pose.pose.orientation.w = 1.
+        # odom_msg.pose.pose.position = Point(*pos_map.tolist())
+        odom_msg.pose.pose.position.x = utm_sam.northing
+        odom_msg.pose.pose.position.y = utm_sam.easting
+        odom_msg.pose.pose.position.z = 0.
+        # odom_msg.pose.pose.position = goal_point_local.point
+        odom_msg.pose.pose.orientation = Quaternion(*rot)
+        self.gps_sam_pub.publish(odom_msg)
 
 
 if __name__ == "__main__":
