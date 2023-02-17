@@ -117,21 +117,21 @@ class auv_pf(object):
         self.diving = dive_msg.data
 
     def gps_odom_cb(self, gps_odom):
-        # To simulate diving as absence of GPS in floatsam        
-        if not self.diving:
-            # Meas update
-            weights = self.update(gps_odom, self.odom_latest)
+        if self.old_time and self.time > self.old_time:
+            # To simulate diving as absence of GPS in floatsam        
+            if not self.diving:
+                # Meas update
+                weights = self.update(gps_odom, self.odom_latest)
 
-            # Particle resampling
-            self.resample(weights)
+                # Particle resampling
+                self.resample(weights)
     
     def update(self, gps_odom, odom):
         
         weights = []
         for i in range(0, self.pc):
            
-            # Current uncertainty of odom estimate and GPS meas
-            # self.particles[i].exp_meas_cov = odom.pose.covariance
+            # Current uncertainty of GPS meas
             # self.particles[i].meas_cov = gps_odom.pose.covariance
             
             # Compute particle weight
@@ -208,7 +208,7 @@ class auv_pf(object):
         roll  = ave_pose[3]
         pitch = ave_pose[4]
 
-        # Wrap up yaw between -pi and pi        
+        # TODO: fix wrapping up yaw
         poses_array[:,5] = [(yaw + np.pi) % (2 * np.pi) - np.pi 
                              for yaw in  poses_array[:,5]]
         yaw = np.mean(poses_array[:,5])

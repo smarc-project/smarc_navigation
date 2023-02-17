@@ -23,15 +23,12 @@ class DVL2DR(object):
         self.sbg_topic = rospy.get_param('~sbg_euler', '/sam/core/imu')
         self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
         self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
+        self.map_frame = rospy.get_param('~map_frame', 'map')
         self.dvl_frame = rospy.get_param('~dvl_link', 'dvl_link')
         self.filt_odom_top = rospy.get_param('~dr_odom_filtered', '/sam/dr/local/odom/filtered')
         self.dvl_period = rospy.get_param('~dvl_period', 0.2)
-
-        # self.sub_dvl = message_filters.Subscriber(self.dvl_topic, DVL)
-        # self.sub_imu = message_filters.Subscriber(self.imu_topic, Imu)
-        # self.ts = message_filters.ApproximateTimeSynchronizer([self.sub_dvl, self.sub_imu],
-        #                                                   20, slop=20.0, allow_headerless=False)
-        # self.ts.registerCallback(self.drCB)
+        self.dr_period = rospy.get_param('~dr_period', 0.02)
+        # self.dr_pub_period = rospy.get_param('~dr_pub_period', 0.1)
 
         self.listener = tf.TransformListener()
         self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
@@ -56,6 +53,7 @@ class DVL2DR(object):
         # Useful when working with rosbags
         self.t_start = 0.   
         self.t_now = 0. 
+        self.t_pub = 0. 
 
         # DVL integration
         self.pos_t = [0.] * 3
@@ -69,8 +67,7 @@ class DVL2DR(object):
         # Motion model 
         self.mm_on = False
 
-        self.t_step = 0.02
-        rospy.Timer(rospy.Duration(self.t_step), self.dr_timer)
+        rospy.Timer(rospy.Duration(self.dr_period), self.dr_timer)
 
         rospy.spin()
 
@@ -78,11 +75,11 @@ class DVL2DR(object):
         
         try:
             # goal_point_local = self.listener.transformPoint("map", goal_point)
-            (world_trans, world_rot) = self.listener.lookupTransform("map", self.odom_frame, rospy.Time(0))
+            (world_trans, world_rot) = self.listener.lookupTransform(self.map_frame, self.odom_frame, rospy.Time(0))
 
         except (tf.LookupException, tf.ConnectivityException):
             if self.init_heading:
-                rospy.loginfo("Could not get transform between %s and %s" % ("map", self.odom_frame))            
+                rospy.loginfo("Could not get transform between %s and %s" % (self.map_frame, self.odom_frame))            
                 rospy.loginfo("so publishing first one...")
                 # euler = euler_from_quaternion([imu_msg.orientation.x,imu_msg.orientation.y,imu_msg.orientation.z,imu_msg.orientation.w])
                 # print(euler)
@@ -92,14 +89,14 @@ class DVL2DR(object):
                 self.transformStamped.transform.translation.y = 0.
                 self.transformStamped.transform.translation.z = 0.
                 self.transformStamped.transform.rotation = Quaternion(*quat)
-                self.transformStamped.header.frame_id = "map"
+                self.transformStamped.header.frame_id = self.map_frame
                 self.transformStamped.child_frame_id = self.odom_frame
                 self.transformStamped.header.stamp = rospy.Time.now()
                 self.static_tf_bc.sendTransform(self.transformStamped)
             return
 
         pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
-        rot_vel_t = self.vel_rot
+        rot_vel_t = self.vel_rot    # TODO: rn this keeps the last vels even if the IMU dies
         lin_vel_t = [0.] * 3
 
         # DVL data coming in
@@ -112,7 +109,7 @@ class DVL2DR(object):
                 lin_vel_t = np.array([self.dvl_latest.velocity.x,
                                     self.dvl_latest.velocity.y,
                                     0.])
-                step_t = np.matmul(rot_mat_t, lin_vel_t * self.t_step)
+                step_t = np.matmul(rot_mat_t, lin_vel_t * self.dr_period)
 
                 # Current pose
                 self.pos_t = self.pos_t + step_t        
@@ -129,13 +126,14 @@ class DVL2DR(object):
                     # lin_vel_t = np.array([self.dvl_latest.velocity.x,
                     #                 self.dvl_latest.velocity.y,
                     #                 0.])
-                    # step_t = np.matmul(rot_mat_t, lin_vel_t * self.t_step)
+                    # step_t = np.matmul(rot_mat_t, lin_vel_t * self.dr_period)
 
                     # Current pose
                     self.pos_t = self.pos_t + step_t        
                     pose_t[0:3] = self.pos_t
 
 
+        # if self.t_now - self.t_pub > self.dr_pub_period:
         # Publish and broadcast aux frame for testing
         quat_t = tf.transformations.quaternion_from_euler(pose_t[3],pose_t[4],pose_t[5])
         odom_msg = Odometry()
@@ -163,6 +161,8 @@ class DVL2DR(object):
 
         self.transformStamped.header.stamp = rospy.Time.now()
         self.static_tf_bc.sendTransform(self.transformStamped)
+
+        # self.t_pub = self.t_now
 
         self.t_now += 0.02
 
@@ -239,11 +239,12 @@ class DVL2DR(object):
             rospy.loginfo("DVL data coming in")
             self.t_dvl_prev = dvl_msg.header.stamp.to_sec()
             self.t_now = dvl_msg.header.stamp.to_sec()
+            self.t_pub = dvl_msg.header.stamp.to_sec()
             self.dvl_on = True
 
 
 if __name__ == "__main__":
-    rospy.init_node('dvl_dr')
+    rospy.init_node('dr_node')
     try:
         pi = DVL2DR()
     except rospy.ROSInterruptException:
