@@ -4,26 +4,12 @@
 import math
 import rospy
 import numpy as np
-# from scipy.stats import multivariate_normal
-# from scipy.ndimage.filters import gaussian_filter
-# from scipy.spatial.transform import Rotation as rot
-# from scipy.ndimage import gaussian_filter1d
-
-from geometry_msgs.msg import Pose, PoseStamped, PointStamped
-from geometry_msgs.msg import Quaternion, Transform
 
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 from tf.transformations import translation_matrix, translation_from_matrix
 from tf.transformations import quaternion_matrix, quaternion_from_matrix
-from tf.transformations import rotation_matrix, rotation_from_matrix
 
 from scipy.stats import multivariate_normal
-import tf
-
-from sensor_msgs.msg import PointCloud2, PointField
-from std_msgs.msg import Header
-from sensor_msgs import point_cloud2
-import sensor_msgs.point_cloud2 as pc2
 
 
 class SamParticle(object):
@@ -33,8 +19,6 @@ class SamParticle(object):
 
         self.p_num = p_num
         self.index = index
-
-        self.listener = tf.TransformListener()
 
         # self.weight = 1.
         self.p_pose = [0.]*6
@@ -112,22 +96,8 @@ class SamParticle(object):
         # Current particle pose in the map frame
         p_part, r_mbes = self.get_p_mbes_pose()
         
-        goal_point = PointStamped()
-        goal_point.header.frame_id = "utm"
-        goal_point.header.stamp = rospy.Time(0)
-        goal_point.point.x = gps_fix.pose.pose.position.x
-        goal_point.point.y = gps_fix.pose.pose.position.y
-        goal_point.point.z = 0.
-
-        try:
-            gps_map = self.listener.transformPoint("map", goal_point)
-
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logwarn("Transform to base frame not available yet")
-        pass
-
         # TODO: combine uncertainties of odom and GPS estimates
-        self.w = multivariate_normal.pdf([gps_map.point.x, gps_map.point.y], mean=p_part[0:2],
+        self.w = multivariate_normal.pdf([gps_fix.point.x, gps_fix.point.y], mean=p_part[0:2],
                                      cov=self.meas_cov)                                
 
 

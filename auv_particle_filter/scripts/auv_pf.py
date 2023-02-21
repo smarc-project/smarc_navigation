@@ -7,7 +7,7 @@ import numpy as np
 import tf2_ros
 import tf
 
-from geometry_msgs.msg import Pose, PoseArray, PoseWithCovarianceStamped
+from geometry_msgs.msg import Pose, PoseArray, PoseWithCovarianceStamped, PointStamped
 from geometry_msgs.msg import Quaternion
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
@@ -26,12 +26,13 @@ class auv_pf(object):
         # Read necessary parameters
         self.pc = rospy.get_param('~particle_count', 10) # Particle Count
         self.map_frame = rospy.get_param('~map_frame', 'map') # map frame_id
-        # self.base_frame = rospy.get_param('~base_link', 'sam_test') # mbes frame_id
+        self.utm_frame = rospy.get_param('~utm_frame', 'utm') # mbes frame_id
         self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
 
         # Initialize tf listener
         tfBuffer = tf2_ros.Buffer()
         tf2_ros.TransformListener(tfBuffer)
+        self.listener = tf.TransformListener()
         
         # Read covariance values
         meas_std = float(rospy.get_param('~measurement_std', 0.01))
@@ -141,9 +142,24 @@ class auv_pf(object):
             # Current uncertainty of GPS meas
             # self.particles[i].meas_cov = gps_odom.pose.covariance
             
-            # Compute particle weight
-            self.particles[i].compute_weight(gps_odom)
-            weights.append(self.particles[i].w)
+            goal_point = PointStamped()
+            goal_point.header.frame_id = self.utm_frame
+            goal_point.header.stamp = rospy.Time(0)
+            goal_point.point.x = gps_odom.pose.pose.position.x
+            goal_point.point.y = gps_odom.pose.pose.position.y
+            goal_point.point.z = 0.
+
+            try:
+                gps_map = self.listener.transformPoint(self.map_frame, goal_point)
+                
+                # Compute particle weight
+                self.particles[i].compute_weight(gps_map)
+                weights.append(self.particles[i].w)
+
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                rospy.logwarn("PF: Transform to utm-->map not available yet")
+            pass
+            
 
         weights_array = np.asarray(weights)
         # Add small non-zero value to avoid hitting zero
