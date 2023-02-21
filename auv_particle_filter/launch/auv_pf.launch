@@ -5,7 +5,7 @@
   <!-- Frames -->
   <arg name="map_frame" default="map"/>
   <arg name="odom_frame"  default="$(arg namespace)/odom"/>
-  <arg name="base_frame"  default="sam_test"/>
+  <arg name="base_frame"  default="$(arg namespace)/base_link"/>
 
   <!-- PF args -->
   <arg name="particle_count"  default="50"/>
@@ -28,7 +28,7 @@
       <param name="map_frame"                               value="$(arg map_frame)" />
       <param name="odom_frame"                              value="$(arg odom_frame)" />
       <param name="utm_frame"                              value="utm" />
-      <param name="base_link"                               value="$(arg namespace)/base_link" />
+      <param name="base_frame"                               value="$(arg base_frame)" />
       <param name="odom_corrected_topic"                      value="/$(arg namespace)/dr/odom_corrected"/>
       <param name="particle_poses_topic"                    value="/$(arg namespace)/particle_poses"/>
     </node>

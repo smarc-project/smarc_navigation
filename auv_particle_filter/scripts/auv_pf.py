@@ -24,9 +24,10 @@ class auv_pf(object):
 
     def __init__(self):
         # Read necessary parameters
-        self.pc = rospy.get_param('~particle_count', 10) # Particle Count
-        self.map_frame = rospy.get_param('~map_frame', 'map') # map frame_id
-        self.utm_frame = rospy.get_param('~utm_frame', 'utm') # mbes frame_id
+        self.pc = rospy.get_param('~particle_count', 10) 
+        self.map_frame = rospy.get_param('~map_frame', 'map') 
+        self.base_frame = rospy.get_param('~base_frame', 'base_link') 
+        self.utm_frame = rospy.get_param('~utm_frame', 'utm') 
         self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
 
         # Initialize tf listener
@@ -66,7 +67,7 @@ class auv_pf(object):
         # Initialize loc odom publisher
         self.loc_pose = Odometry()
         self.loc_pose.header.frame_id = self.odom_frame
-        self.loc_pose.child_frame_id = "sam/base_link"
+        self.loc_pose.child_frame_id = self.base_frame
         loc_top = rospy.get_param("~odom_corrected_topic", '/average_pose')
         self.loc_pub = rospy.Publisher(loc_top, Odometry, queue_size=100)
 
@@ -81,7 +82,7 @@ class auv_pf(object):
             rospy.loginfo("Got map to odom")
 
         except:
-            rospy.loginfo("ERROR: Could not lookup transform from base_link to mbes_link")
+            rospy.loginfo("ERROR: Could not lookup transform")
 
         # Initialize list of particles
         self.particles = np.empty(self.pc, dtype=object)
@@ -129,12 +130,12 @@ class auv_pf(object):
             # To simulate diving as absence of GPS in floatsam        
             if not self.diving:
                 # Meas update
-                weights = self.update(gps_odom, self.odom_latest)
+                weights = self.update(gps_odom)
 
                 # Particle resampling
                 self.resample(weights)
     
-    def update(self, gps_odom, odom):
+    def update(self, gps_odom):
         
         weights = []
         for i in range(0, self.pc):
@@ -149,9 +150,11 @@ class auv_pf(object):
             goal_point.point.y = gps_odom.pose.pose.position.y
             goal_point.point.z = 0.
 
+
             try:
                 gps_map = self.listener.transformPoint(self.map_frame, goal_point)
-                
+                # TODO: transform GPS fixes from gps_link to base_link
+
                 # Compute particle weight
                 self.particles[i].compute_weight(gps_map)
                 weights.append(self.particles[i].w)
@@ -261,7 +264,7 @@ class auv_pf(object):
         self.loc_tf.sendTransform([ave_pose[0], ave_pose[1], 0.],
                                     quat_t,
                                     rospy.Time.now(),
-                                    "sam/base_link",
+                                    self.base_frame,
                                     self.odom_frame)
 
     # TODO: publish markers instead of poses

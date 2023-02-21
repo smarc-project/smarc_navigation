@@ -24,8 +24,7 @@ class DVL2DR(object):
         self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
         self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
         self.map_frame = rospy.get_param('~map_frame', 'map')
-        self.dvl_frame = rospy.get_param('~dvl_link', 'dvl_link')
-        self.filt_odom_top = rospy.get_param('~dr_odom_filtered', '/sam/dr/local/odom/filtered')
+        self.dvl_frame = rospy.get_param('~dvl_frame', 'dvl_link')
         self.dvl_period = rospy.get_param('~dvl_period', 0.2)
         self.dr_period = rospy.get_param('~dr_period', 0.02)
         # self.dr_pub_period = rospy.get_param('~dr_pub_period', 0.1)
@@ -160,13 +159,7 @@ class DVL2DR(object):
                     "sam_test",
                     self.odom_frame)
 
-        self.transformStamped.header.stamp = rospy.Time.now()
-        # self.static_tf_bc.sendTransform(self.transformStamped)
-
-        # self.t_pub = self.t_now
-
         self.t_now += 0.02
-
 
 
     def euler_cb(self, euler_msg):
