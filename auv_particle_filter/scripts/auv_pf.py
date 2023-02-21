@@ -5,6 +5,7 @@ import rospy
 import sys
 import numpy as np
 import tf2_ros
+import tf
 
 from geometry_msgs.msg import Pose, PoseArray, PoseWithCovarianceStamped
 from geometry_msgs.msg import Quaternion
@@ -54,19 +55,21 @@ class auv_pf(object):
 
         # Global variables
         self.pred_odom = None
-        self.poses = PoseArray()
-        self.poses.header.frame_id = self.odom_frame
-        self.avg_pose = PoseWithCovarianceStamped()
-        self.avg_pose.header.frame_id = self.odom_frame
 
         # Initialize particle poses publisher
+        self.poses = PoseArray()
+        self.poses.header.frame_id = self.odom_frame
         pose_array_top = rospy.get_param("~particle_poses_topic", '/particle_poses')
         self.pf_pub = rospy.Publisher(pose_array_top, PoseArray, queue_size=10)
 
-        # Initialize average of poses publisher
-        avg_pose_top = rospy.get_param("~average_pose_topic", '/average_pose')
-        self.avg_pub = rospy.Publisher(avg_pose_top, PoseWithCovarianceStamped, queue_size=10)
+        # Initialize loc odom publisher
+        self.loc_pose = Odometry()
+        self.loc_pose.header.frame_id = self.odom_frame
+        self.loc_pose.child_frame_id = "sam/base_link"
+        loc_top = rospy.get_param("~odom_corrected_topic", '/average_pose')
+        self.loc_pub = rospy.Publisher(loc_top, Odometry, queue_size=100)
 
+        self.loc_tf = tf.TransformBroadcaster()      
 
         # Transforms from auv_2_ros
         try:
@@ -108,10 +111,14 @@ class auv_pf(object):
         odom_top = rospy.get_param("~odometry_topic", 'odom')
         rospy.Subscriber(odom_top, Odometry, self.odom_callback, queue_size=100)
         
+        # PF pub and broadcaster loop
+        rospy.Timer(rospy.Duration(0.1), self.loc_loop)
+
         # PF filter created. Start auv_2_ros survey playing
         rospy.loginfo("Particle filter class successfully created")
 
         rospy.spin()
+
 
     def dive_cb(self, dive_msg):
         self.diving = dive_msg.data
@@ -183,8 +190,7 @@ class auv_pf(object):
         if self.old_time and self.time > self.old_time:
             # Motion prediction
             self.predict(odom_msg)    
-            
-        self.update_rviz()
+    
         # self.publish_stats(odom_msg)
 
         self.old_time = self.time
@@ -198,13 +204,13 @@ class auv_pf(object):
         self.dr_particle.motion_pred(odom_t, dt)
 
     
-    def average_pose(self, pose_list):
+    def update_loc_pose(self, pose_list):
 
         poses_array = np.array(pose_list)
         ave_pose = poses_array.mean(axis = 0)
-        self.avg_pose.pose.pose.position.x = ave_pose[0]
-        self.avg_pose.pose.pose.position.y = ave_pose[1]
-        self.avg_pose.pose.pose.position.z = ave_pose[2]
+        self.loc_pose.pose.pose.position.x = ave_pose[0]
+        self.loc_pose.pose.pose.position.y = ave_pose[1]
+        self.loc_pose.pose.pose.position.z = ave_pose[2]
         roll  = ave_pose[3]
         pitch = ave_pose[4]
 
@@ -213,10 +219,9 @@ class auv_pf(object):
                              for yaw in  poses_array[:,5]]
         yaw = np.mean(poses_array[:,5])
         
-        self.avg_pose.pose.pose.orientation = Quaternion(*quaternion_from_euler(roll,
-                                                                                pitch,
-                                                                                yaw))
-        self.avg_pose.header.stamp = rospy.Time.now()
+        quat_t = quaternion_from_euler(roll, pitch, yaw)
+        self.loc_pose.pose.pose.orientation = Quaternion(*quat_t)
+        self.loc_pose.header.stamp = rospy.Time.now()
         
         # Calculate covariance
         self.cov = np.zeros((3, 3))
@@ -230,16 +235,22 @@ class auv_pf(object):
         self.cov[1,0] = self.cov[0,1]
         # print(self.cov)
 
-        self.avg_pose.pose.covariance = [0.]*36
+        self.loc_pose.pose.covariance = [0.]*36
         for i in range(3):
             for j in range(3):
-                self.avg_pose.pose.covariance[i*3 + j] = self.cov[i,j]
+                self.loc_pose.pose.covariance[i*3 + j] = self.cov[i,j]
         
-        self.avg_pub.publish(self.avg_pose)
+        self.loc_pub.publish(self.loc_pose)
+
+        self.loc_tf.sendTransform([ave_pose[0], ave_pose[1], 0.],
+                                    quat_t,
+                                    rospy.Time.now(),
+                                    "sam/base_link",
+                                    self.odom_frame)
 
     # TODO: publish markers instead of poses
     #       Optimize this function
-    def update_rviz(self):
+    def loc_loop(self, event):
         self.poses.poses = []
         pose_list = []
         for i in range(self.pc):
@@ -257,7 +268,7 @@ class auv_pf(object):
         
         # Publish particles with time odometry was received
         self.poses.header.stamp = rospy.Time.now()
-        self.average_pose(pose_list)
+        self.update_loc_pose(pose_list)
 
         # Publish particles as arrows
         self.pf_pub.publish(self.poses)
