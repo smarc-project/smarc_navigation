@@ -35,7 +35,7 @@ class DVL2DR(object):
         self.br = tf.TransformBroadcaster()
         self.transformStamped = TransformStamped()
 
-        self.pub_odom = rospy.Publisher(self.dvl_dr_top, Odometry, queue_size=10)
+        self.pub_odom = rospy.Publisher(self.dvl_dr_top, Odometry, queue_size=100)
         self.euler_sub = rospy.Subscriber(self.sbg_topic, SbgEkfEuler, self.euler_cb)
         self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
         self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb)
@@ -81,8 +81,9 @@ class DVL2DR(object):
             if self.init_heading:
                 rospy.loginfo("Could not get transform between %s and %s" % (self.map_frame, self.odom_frame))            
                 rospy.loginfo("so publishing first one...")
-                # euler = euler_from_quaternion([imu_msg.orientation.x,imu_msg.orientation.y,imu_msg.orientation.z,imu_msg.orientation.w])
-                # print(euler)
+
+                # SBG points to north while map's x axis points east (ENU) so 
+                # the map --> odom tf needs an extra +90 deg turn in z 
                 quat = quaternion_from_euler(0.,0., self.init_z + np.pi/2.)
 
                 self.transformStamped.transform.translation.x = 0.
@@ -160,7 +161,7 @@ class DVL2DR(object):
                     self.odom_frame)
 
         self.transformStamped.header.stamp = rospy.Time.now()
-        self.static_tf_bc.sendTransform(self.transformStamped)
+        # self.static_tf_bc.sendTransform(self.transformStamped)
 
         # self.t_pub = self.t_now
 
