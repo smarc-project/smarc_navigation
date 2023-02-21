@@ -74,16 +74,11 @@ class PublishGPSPose(object):
             rospy.loginfo("Could not get transform between %s and %s" % (self.utm_frame, self.map_frame))            
             rospy.loginfo("so publishing first one...")
             transformStamped = TransformStamped()
-            # TODO: use utm_sam (SAM's GPS) for final tests
-            # transformStamped.transform.translation.x = utm_mid[0]
+            quat = tf.transformations.quaternion_from_euler(np.pi, -np.pi/2., 0., axes='rxzy')
             transformStamped.transform.translation.x = utm_sam.northing
-            # transformStamped.transform.translation.y = utm_mid[1]
             transformStamped.transform.translation.y = utm_sam.easting
             transformStamped.transform.translation.z = 0.
-            transformStamped.transform.rotation.x = 1.               
-            transformStamped.transform.rotation.y = 0.
-            transformStamped.transform.rotation.z = 0.
-            transformStamped.transform.rotation.w = 0.
+            transformStamped.transform.rotation = Quaternion(*quat)               
             transformStamped.header.frame_id = self.utm_frame
             transformStamped.child_frame_id = self.map_frame
             transformStamped.header.stamp = rospy.Time.now()

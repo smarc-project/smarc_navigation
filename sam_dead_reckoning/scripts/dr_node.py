@@ -83,7 +83,7 @@ class DVL2DR(object):
                 rospy.loginfo("so publishing first one...")
                 # euler = euler_from_quaternion([imu_msg.orientation.x,imu_msg.orientation.y,imu_msg.orientation.z,imu_msg.orientation.w])
                 # print(euler)
-                quat = quaternion_from_euler(0.,0., self.init_z)
+                quat = quaternion_from_euler(0.,0., self.init_z + np.pi/2.)
 
                 self.transformStamped.transform.translation.x = 0.
                 self.transformStamped.transform.translation.y = 0.
