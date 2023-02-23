@@ -17,7 +17,7 @@ from rospy_tutorials.msg import Floats
 from tf.transformations import identity_matrix, quaternion_from_euler, euler_from_quaternion, rotation_matrix
 
 # For sim mbes action client
-from auv_particle import SamParticle, matrix_from_tf
+from auv_particle import Particle, matrix_from_tf
 from resampling import residual_resample
 
 class auv_pf(object):
@@ -87,18 +87,13 @@ class auv_pf(object):
         # Initialize list of particles
         self.particles = np.empty(self.pc, dtype=object)
         for i in range(self.pc):
-            self.particles[i] = SamParticle(self.pc, i, self.m2o_mat, 
+            self.particles[i] = Particle(self.pc, i, self.m2o_mat, 
                                             init_cov=init_cov, meas_std=meas_std,
                                             process_cov=motion_cov)
 
         # Start timing now
         self.time = rospy.Time.now().to_sec()
         self.old_time = rospy.Time.now().to_sec()
-
-        # Create particle to compute DR
-        self.dr_particle = SamParticle(self.pc, self.pc+1, self.m2o_mat, 
-                                        init_cov=[0.]*6, meas_std=meas_std,
-                                        process_cov=motion_cov)
         
         # Aux topic to simulate diving
         dive_top = rospy.get_param("~aux_dive", '/dive')
@@ -218,10 +213,6 @@ class auv_pf(object):
         dt = self.time - self.old_time
         for i in range(0, self.pc):
             self.particles[i].motion_pred(odom_t, dt)
-
-        # Predict DR
-        self.dr_particle.motion_pred(odom_t, dt)
-
     
     def update_loc_pose(self, pose_list):
 

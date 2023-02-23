@@ -4,7 +4,7 @@ import rospy
 import numpy as np
 import tf
 from smarc_msgs.msg import DVL
-from geometry_msgs.msg import TwistWithCovarianceStamped, TransformStamped, Quaternion, Vector3
+from geometry_msgs.msg import TwistWithCovarianceStamped, TransformStamped, Quaternion, PoseWithCovarianceStamped
 import tf
 import tf2_ros
 from tf.transformations import euler_from_quaternion, quaternion_from_euler, quaternion_multiply
@@ -14,7 +14,7 @@ from nav_msgs.msg import Odometry
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolRequest
 from sbg_driver.msg import SbgEkfEuler
 
-class DVL2DR(object):
+class VehicleDR(object):
 
     def __init__(self):
         self.dvl_topic = rospy.get_param('~dvl_topic', '/sam/core/dvl')
@@ -27,6 +27,8 @@ class DVL2DR(object):
         self.dvl_frame = rospy.get_param('~dvl_frame', 'dvl_link')
         self.dvl_period = rospy.get_param('~dvl_period', 0.2)
         self.dr_period = rospy.get_param('~dr_period', 0.02)
+        self.depth_top = rospy.get_param('~depth_topic', '/depth')
+        self.press_frame = rospy.get_param('~pressure_frame', 'pressure_link')
         # self.dr_pub_period = rospy.get_param('~dr_pub_period', 0.1)
 
         self.listener = tf.TransformListener()
@@ -38,6 +40,7 @@ class DVL2DR(object):
         self.euler_sub = rospy.Subscriber(self.sbg_topic, SbgEkfEuler, self.euler_cb)
         self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
         self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb)
+        self.depth_sub = rospy.Subscriber(self.depth_top, PoseWithCovarianceStamped, self.depth_cb)
 
         self.t_prev = rospy.Time.now()
         self.pose_prev = [0.] * 6
@@ -63,6 +66,21 @@ class DVL2DR(object):
         self.dvl_latest.velocity.y = 0.
         self.dvl_latest.velocity.z = 0.
 
+        # Depth measurements: init to zero
+        self.b2p_trans = [0.] * 3
+        self.depth_meas = False # If no press sensor available, assume surface vehicle
+        self.base_depth = 0. # abs depth of base frame
+
+        try:
+            (self.b2p_trans, b2p_rot) = self.listener.lookupTransform(self.base_frame, 
+                                                                self.press_frame,
+                                                                rospy.Time(0))
+            self.depth_meas = True
+
+        except (tf.LookupException, tf.ConnectivityException):
+            rospy.loginfo("Could not get transform between %s and %s" % (self.base_frame, self.press_frame))            
+            rospy.loginfo("Assuming surface vehicle")
+
         # Motion model 
         self.mm_on = False
 
@@ -72,6 +90,7 @@ class DVL2DR(object):
 
     def dr_timer(self, event):
         
+        # TODO: move this out of dr_timer?
         try:
             # goal_point_local = self.listener.transformPoint("map", goal_point)
             (world_trans, world_rot) = self.listener.lookupTransform(self.map_frame, self.odom_frame, rospy.Time(0))
@@ -112,9 +131,8 @@ class DVL2DR(object):
                 step_t = np.matmul(rot_mat_t, lin_vel_t * self.dr_period)
 
                 # Current pose
-                self.pos_t = self.pos_t + step_t        
-                pose_t[0:3] = self.pos_t
-            
+                self.pos_t[0:2] = self.pos_t[0:2] + step_t[0:2]        
+                            
             # Otherwise, integrate motion model estimate
             else:
                 rospy.logdebug("Missing DVL data, motion model kicking in")
@@ -122,6 +140,8 @@ class DVL2DR(object):
                 # Integrate linear velocities from motion model
                 # TODO: subscribe to rpm topics
                 if self.mm_on:
+                    rospy.logdebug("TODO: Motion model")
+
                     # rot_mat_t = self.fullRotation(pose_t[3],pose_t[4],pose_t[5])
                     # lin_vel_t = np.array([self.dvl_latest.velocity.x,
                     #                 self.dvl_latest.velocity.y,
@@ -129,8 +149,14 @@ class DVL2DR(object):
                     # step_t = np.matmul(rot_mat_t, lin_vel_t * self.dr_period)
 
                     # Current pose
-                    self.pos_t = self.pos_t + step_t        
-                    pose_t[0:3] = self.pos_t
+                    # self.pos_t = self.pos_t + step_t        
+                    # pose_t[0:3] = self.pos_t
+
+        # Measure depth directly
+        self.pos_t[2] = self.base_depth
+
+        # Update local variable 
+        pose_t[0:3] = self.pos_t
 
 
         # if self.t_now - self.t_pub > self.dr_pub_period:
@@ -142,7 +168,7 @@ class DVL2DR(object):
         odom_msg.child_frame_id = "sam_test"
         odom_msg.pose.pose.position.x = pose_t[0]
         odom_msg.pose.pose.position.y = pose_t[1]
-        odom_msg.pose.pose.position.z = 0.
+        odom_msg.pose.pose.position.z = pose_t[2]
         odom_msg.twist.twist.linear.x = lin_vel_t[0]
         odom_msg.twist.twist.linear.y = lin_vel_t[1]
         odom_msg.twist.twist.linear.z = lin_vel_t[2]
@@ -153,13 +179,19 @@ class DVL2DR(object):
         odom_msg.pose.pose.orientation = Quaternion(*quat_t)
         self.pub_odom.publish(odom_msg)
 
-        self.br.sendTransform([pose_t[0], pose_t[1], 0.],
+        self.br.sendTransform([pose_t[0], pose_t[1], pose_t[2]],
                     quat_t,
                     rospy.Time.now(),
                     "sam_test",
                     self.odom_frame)
 
-        self.t_now += 0.02
+        self.t_now += self.dr_period
+
+    def depth_cb(self, depth_msg):
+
+        # TODO: test with SAM data
+        if self.depth_meas:
+            self.base_depth = depth_msg.pose.pose.position.z + self.b2p_trans[0] * np.sin(self.rot_t[1])
 
 
     def euler_cb(self, euler_msg):
@@ -180,6 +212,7 @@ class DVL2DR(object):
                           [0., np.sin(roll), np.cos(roll)]])
 
         return np.matmul(rot_z, np.matmul(rot_y, rot_x))
+
 
     def stim_cb(self, imu_msg):
         if self.init_stim:
@@ -205,6 +238,7 @@ class DVL2DR(object):
             rospy.loginfo("Stim data coming in")
             self.t_stim_prev = imu_msg.header.stamp.to_sec()
             self.init_stim = True
+
 
     # TODO: potential synch issue here with stim and dvl on variables
     def dvl_cb(self, dvl_msg):
@@ -240,6 +274,6 @@ class DVL2DR(object):
 if __name__ == "__main__":
     rospy.init_node('dr_node')
     try:
-        pi = DVL2DR()
+        VehicleDR()
     except rospy.ROSInterruptException:
         pass

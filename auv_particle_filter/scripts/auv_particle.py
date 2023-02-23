@@ -12,7 +12,7 @@ from tf.transformations import quaternion_matrix, quaternion_from_matrix
 from scipy.stats import multivariate_normal
 
 
-class SamParticle(object):
+class Particle(object):
     def __init__(self, p_num, index, m2o_matrix,
                  init_cov=[0.,0.,0.,0.,0.,0.], meas_std=0.01,
                  process_cov=[0.,0.,0.,0.,0.,0.]):
@@ -61,10 +61,10 @@ class SamParticle(object):
 
         self.p_pose[0] += step_t[0]
         self.p_pose[1] += step_t[1]
-        # Seems to be a problem when integrating depth from Ping vessel, so we just read it
+        # Depth can be read directly
         self.p_pose[2] = odom_t.pose.pose.position.z
 
-    def get_p_mbes_pose(self):
+    def get_p_pose(self):
         # Find particle's mbes_frame pose in the map frame 
         t_particle = translation_matrix(self.p_pose[0:3])
         q = quaternion_from_euler(self.p_pose[3],self.p_pose[4],self.p_pose[5])
@@ -94,7 +94,7 @@ class SamParticle(object):
 
     def compute_weight(self, gps_fix):
         # Current particle pose in the map frame
-        p_part, r_mbes = self.get_p_mbes_pose()
+        p_part, r_mbes = self.get_p_pose()
         
         # TODO: combine uncertainties of odom and GPS estimates
         self.w = multivariate_normal.pdf([gps_fix.point.x, gps_fix.point.y], mean=p_part[0:2],
