@@ -79,10 +79,10 @@ class auv_pf(object):
             m2o_tf = tfBuffer.lookup_transform(self.map_frame, self.odom_frame,
                                                rospy.Time(0), rospy.Duration(35))
             self.m2o_mat = matrix_from_tf(m2o_tf)
-            rospy.loginfo("Got map to odom")
+            rospy.loginfo("PF: got transform %s to %s" % (self.map_frame, self.odom_frame))
 
         except:
-            rospy.loginfo("ERROR: Could not lookup transform")
+            rospy.logerr("PF: Could not lookup transform %s to %s" % (self.map_frame, self.odom_frame))
 
         # Initialize list of particles
         self.particles = np.empty(self.pc, dtype=object)
@@ -105,7 +105,7 @@ class auv_pf(object):
         rospy.Subscriber(gps_top, Odometry, self.gps_odom_cb, queue_size=100)
         
         # Establish subscription to odometry message (intentionally last)
-        odom_top = rospy.get_param("~odometry_topic", 'odom')
+        odom_top = rospy.get_param("~odom_topic", 'odom')
         rospy.Subscriber(odom_top, Odometry, self.odom_callback, queue_size=100)
         
         # PF pub and broadcaster loop

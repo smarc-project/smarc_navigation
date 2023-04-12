@@ -18,7 +18,7 @@ class VehicleDR(object):
 
     def __init__(self):
         self.dvl_topic = rospy.get_param('~dvl_topic', '/sam/core/dvl')
-        self.dvl_dr_top = rospy.get_param('~dvl_dr_topic', '/sam/dr/dvl_dr')                         #topic used in the launch file for the DVL sensor
+        self.odom_top = rospy.get_param('~odom_topic', '/sam/dr/dvl_dr')                         #topic used in the launch file for the DVL sensor
         self.stim_topic = rospy.get_param('~imu', '/sam/core/imu')
         self.sbg_topic = rospy.get_param('~sbg_topic', '/sam/core/imu')
         self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
@@ -70,22 +70,12 @@ class VehicleDR(object):
         self.depth_meas = False # If no press sensor available, assume surface vehicle
         self.base_depth = 0. # abs depth of base frame
 
-        try:
-            (self.b2p_trans, b2p_rot) = self.listener.lookupTransform(self.base_frame, 
-                                                                self.press_frame,
-                                                                rospy.Time(0))
-            self.depth_meas = True
-
-        except (tf.LookupException, tf.ConnectivityException):
-            rospy.loginfo("Could not get transform between %s and %s" % (self.base_frame, self.press_frame))            
-            rospy.loginfo("Assuming surface vehicle")
-
         # Motion model 
         self.mm_on = False
         self.mm_linear_vel = [0.] * 3
 
         # Connect
-        self.pub_odom = rospy.Publisher(self.dvl_dr_top, Odometry, queue_size=100)
+        self.pub_odom = rospy.Publisher(self.odom_top, Odometry, queue_size=100)
         self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb)
         self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
         self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb)
@@ -104,7 +94,6 @@ class VehicleDR(object):
 
 
     def gps_cb(self, gps_msg):
-        # TODO: move this out of dr_timer?
         try:
             # goal_point_local = self.listener.transformPoint("map", goal_point)
             (world_trans, world_rot) = self.listener.lookupTransform(self.map_frame, self.odom_frame, rospy.Time(0))
@@ -122,13 +111,12 @@ class VehicleDR(object):
                 gps_map = self.listener.transformPoint(self.map_frame, goal_point)
 
                 if self.init_heading:
-                    rospy.loginfo("Could not get transform between %s and %s" % (self.map_frame, self.odom_frame))            
-                    rospy.loginfo("so publishing first one...")
+                    rospy.loginfo("DR node: broadcasting transform %s to %s" % (self.map_frame, self.odom_frame))            
                     # SBG points to north while map's x axis points east (ENU) so 
                     # the map --> odom tf needs an extra +90 deg turn in z 
 
                     euler = euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
-                    quat = quaternion_from_euler(0.,0., euler[2]-0.3) # -0.3 for feb_24
+                    quat = quaternion_from_euler(0.,0., euler[2]) # -0.3 for feb_24 with floatsam
                     
                     self.transformStamped.transform.translation.x = gps_map.point.x
                     self.transformStamped.transform.translation.y = gps_map.point.y
@@ -140,11 +128,23 @@ class VehicleDR(object):
                     self.static_tf_bc.sendTransform(self.transformStamped)
                     self.init_m2o = True
                     self.gps_sub.unregister()
-                return
 
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                rospy.logwarn("PF: Transform to utm-->map not available yet")
+                rospy.logwarn("DR: Transform to utm-->map not available yet")
             pass
+
+        # Is there a depth sensor? If so, AUV.
+        try:
+            # TODO: test this on SAM. If needed, add wait()
+            (self.b2p_trans, b2p_rot) = self.listener.lookupTransform(self.base_frame, 
+                                                                self.press_frame,
+                                                                rospy.Time(0))
+            self.depth_meas = True
+            rospy.loginfo("DR node: got transform %s to %s" % (self.base_frame, self.press_frame))            
+
+        except (tf.LookupException, tf.ConnectivityException):
+            rospy.logwarn("DR node: could not get transform %s to %s" % (self.base_frame, self.press_frame))            
+            rospy.logwarn("Assuming surface vehicle")
 
 
 
@@ -172,7 +172,7 @@ class VehicleDR(object):
                     lin_vel_t = np.array([self.mm_linear_vel[0],
                                         self.mm_linear_vel[1],
                                         self.mm_linear_vel[2]])
-                    rospy.logdebug("Missing DVL data, motion model kicking in %s", lin_vel_t)
+                    rospy.logwarn("Missing DVL data, motion model kicking in %s", lin_vel_t)
 
                 # Integrate linear vels
                 rot_mat_t = self.fullRotation(pose_t[3],pose_t[4],pose_t[5])

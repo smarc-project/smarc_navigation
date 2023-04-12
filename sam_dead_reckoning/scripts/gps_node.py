@@ -1,23 +1,13 @@
 #!/usr/bin/python
 
 import rospy
-from rospy import ROSException
-from std_msgs.msg import Header, Bool
-from std_srvs.srv import SetBool
-from geometry_msgs.msg import PointStamped, PoseStamped, PoseWithCovarianceStamped, Point, Quaternion, TransformStamped
-from sensor_msgs.msg import NavSatFix, NavSatStatus
-from sam_msgs.msg import GetGPSFixAction, GetGPSFixFeedback, GetGPSFixResult
-from sam_msgs.msg import PercentStamped 
+from geometry_msgs.msg import Quaternion, TransformStamped
+from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Odometry
-import actionlib
-import tf_conversions
 import tf
-from tf.transformations import euler_from_quaternion, quaternion_from_euler, quaternion_multiply
 from geodesy import utm
-import math
 import numpy as np
 import tf2_ros
-from sbg_driver.msg import SbgEkfEuler
 import message_filters
 
 class PublishGPSPose(object):
@@ -28,22 +18,22 @@ class PublishGPSPose(object):
         self.map_frame = rospy.get_param('~map_frame', 'map')
         self.utm_frame = rospy.get_param('~utm_frame', 'utm')
         self.gps_frame = rospy.get_param('~gps_frame', 'sam/gps_link')
-        self.gps_odom_top = rospy.get_param('~gps_odom', 'gps_odom_sam')
+        self.gps_odom_top = rospy.get_param('~gps_odom_topic', 'gps_odom_sam')
 
+        # GPS odom in UTM frame
+        self.gps_sam_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.sam_gps)
+        self.gps_sam_pub = rospy.Publisher(self.gps_odom_top, Odometry, queue_size=10)
+        
+        # Broadcast UTM to map frame
+        self.listener = tf.TransformListener()        
+        self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
+        
+        # Auxiliar ones for floatsam
         self.odom_pub = rospy.Publisher('gps_odom', Odometry, queue_size=10)
         self.gps_prt_pub = rospy.Publisher('gps_odom_prt', Odometry, queue_size=10)
         self.gps_stb_pub = rospy.Publisher('gps_odom_stb', Odometry, queue_size=10)
-        self.gps_sam_pub = rospy.Publisher(self.gps_odom_top, Odometry, queue_size=10)
-
-        self.listener = tf.TransformListener()        
-        self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
-
-        self.first_gps = True
-        self.sbg_init = False
-        
         self.gps_prt_sub = message_filters.Subscriber("/sam/core/gps/prt", NavSatFix)
         self.gps_stb_sub = message_filters.Subscriber("/sam/core/gps/stb", NavSatFix)
-        self.gps_sam_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.sam_gps)
         self.ts = message_filters.ApproximateTimeSynchronizer([self.gps_prt_sub, self.gps_stb_sub],
                                                           20, slop=20.0, allow_headerless=False)
         self.ts.registerCallback(self.gps_callback)
@@ -56,14 +46,12 @@ class PublishGPSPose(object):
             utm_sam = utm.fromLatLong(sam_gps.latitude, sam_gps.longitude)
             
             try:
-                # goal_point_local = self.listener.transformPoint("map", goal_point)
                 (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
                                                                         self.map_frame,
                                                                         rospy.Time(0))
 
             except (tf.LookupException, tf.ConnectivityException):
-                rospy.loginfo("Could not get transform between %s and %s" % (self.utm_frame, self.map_frame))            
-                rospy.loginfo("so publishing first one...")
+                rospy.loginfo("GPS node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
                 transformStamped = TransformStamped()
                 quat = tf.transformations.quaternion_from_euler(np.pi, -np.pi/2., 0., axes='rxzy')
                 transformStamped.transform.translation.x = utm_sam.northing
