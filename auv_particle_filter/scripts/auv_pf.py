@@ -145,7 +145,6 @@ class auv_pf(object):
             goal_point.point.y = gps_odom.pose.pose.position.y
             goal_point.point.z = 0.
 
-
             try:
                 gps_map = self.listener.transformPoint(self.map_frame, goal_point)
                 # TODO: transform GPS fixes from gps_link to base_link

@@ -3,8 +3,8 @@
 import rospy
 import numpy as np
 import tf
-from smarc_msgs.msg import DVL
-from geometry_msgs.msg import TwistWithCovarianceStamped, TransformStamped, Quaternion, PoseWithCovarianceStamped
+from smarc_msgs.msg import DVL, ThrusterFeedback
+from geometry_msgs.msg import PointStamped, TransformStamped, Quaternion, PoseWithCovarianceStamped
 import tf
 import tf2_ros
 from tf.transformations import euler_from_quaternion, quaternion_from_euler, quaternion_multiply
@@ -20,15 +20,19 @@ class VehicleDR(object):
         self.dvl_topic = rospy.get_param('~dvl_topic', '/sam/core/dvl')
         self.dvl_dr_top = rospy.get_param('~dvl_dr_topic', '/sam/dr/dvl_dr')                         #topic used in the launch file for the DVL sensor
         self.stim_topic = rospy.get_param('~imu', '/sam/core/imu')
-        self.sbg_topic = rospy.get_param('~sbg_euler', '/sam/core/imu')
+        self.sbg_topic = rospy.get_param('~sbg_topic', '/sam/core/imu')
         self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
         self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
         self.map_frame = rospy.get_param('~map_frame', 'map')
+        self.utm_frame = rospy.get_param('~utm_frame', 'utm')
         self.dvl_frame = rospy.get_param('~dvl_frame', 'dvl_link')
         self.dvl_period = rospy.get_param('~dvl_period', 0.2)
         self.dr_period = rospy.get_param('~dr_period', 0.02)
         self.depth_top = rospy.get_param('~depth_topic', '/depth')
         self.press_frame = rospy.get_param('~pressure_frame', 'pressure_link')
+        self.rpm1_topic = rospy.get_param('~thrust1_fb', '/sam/core/rpm_fb1')
+        self.rpm2_topic = rospy.get_param('~thrust2_fb', '/sam/core/rpm_fb2')
+        self.gps_topic = rospy.get_param('~gps_odom_topic', '/sam/core/gps')
         # self.dr_pub_period = rospy.get_param('~dr_pub_period', 0.1)
 
         self.listener = tf.TransformListener()
@@ -36,15 +40,10 @@ class VehicleDR(object):
         self.br = tf.TransformBroadcaster()
         self.transformStamped = TransformStamped()
 
-        self.pub_odom = rospy.Publisher(self.dvl_dr_top, Odometry, queue_size=100)
-        self.euler_sub = rospy.Subscriber(self.sbg_topic, SbgEkfEuler, self.euler_cb)
-        self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
-        self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb)
-        self.depth_sub = rospy.Subscriber(self.depth_top, PoseWithCovarianceStamped, self.depth_cb)
-
         self.t_prev = rospy.Time.now()
         self.pose_prev = [0.] * 6
         self.init_heading = False
+        self.init_m2o = False
         
         # Stim integration
         self.rot_t = [0.] * 3
@@ -83,109 +82,145 @@ class VehicleDR(object):
 
         # Motion model 
         self.mm_on = False
+        self.mm_linear_vel = [0.] * 3
+
+        # Connect
+        self.pub_odom = rospy.Publisher(self.dvl_dr_top, Odometry, queue_size=100)
+        self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb)
+        self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
+        self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb)
+        self.depth_sub = rospy.Subscriber(self.depth_top, PoseWithCovarianceStamped, self.depth_cb)
+        self.gps_sub = rospy.Subscriber(self.gps_topic, Odometry, self.gps_cb)
+
+        self.thrust1_sub = message_filters.Subscriber(self.rpm1_topic, ThrusterFeedback)
+        self.thrust2_sub = message_filters.Subscriber(self.rpm2_topic, ThrusterFeedback)
+        self.ts = message_filters.ApproximateTimeSynchronizer([self.thrust1_sub, self.thrust2_sub],
+                                                          20, slop=20.0, allow_headerless=False)
+        self.ts.registerCallback(self.thrust_cb)
 
         rospy.Timer(rospy.Duration(self.dr_period), self.dr_timer)
 
         rospy.spin()
 
-    def dr_timer(self, event):
-        
+
+    def gps_cb(self, gps_msg):
         # TODO: move this out of dr_timer?
         try:
             # goal_point_local = self.listener.transformPoint("map", goal_point)
             (world_trans, world_rot) = self.listener.lookupTransform(self.map_frame, self.odom_frame, rospy.Time(0))
 
         except (tf.LookupException, tf.ConnectivityException):
-            if self.init_heading:
-                rospy.loginfo("Could not get transform between %s and %s" % (self.map_frame, self.odom_frame))            
-                rospy.loginfo("so publishing first one...")
 
-                # SBG points to north while map's x axis points east (ENU) so 
-                # the map --> odom tf needs an extra +90 deg turn in z 
-                quat = quaternion_from_euler(0.,0., self.init_z + np.pi/2.)
+            goal_point = PointStamped()
+            goal_point.header.frame_id = self.utm_frame
+            goal_point.header.stamp = rospy.Time(0)
+            goal_point.point.x = gps_msg.pose.pose.position.x
+            goal_point.point.y = gps_msg.pose.pose.position.y
+            goal_point.point.z = 0.
 
-                self.transformStamped.transform.translation.x = 0.
-                self.transformStamped.transform.translation.y = 0.
-                self.transformStamped.transform.translation.z = 0.
-                self.transformStamped.transform.rotation = Quaternion(*quat)
-                self.transformStamped.header.frame_id = self.map_frame
-                self.transformStamped.child_frame_id = self.odom_frame
-                self.transformStamped.header.stamp = rospy.Time.now()
-                self.static_tf_bc.sendTransform(self.transformStamped)
-            return
+            try:
+                gps_map = self.listener.transformPoint(self.map_frame, goal_point)
 
-        pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
-        rot_vel_t = self.vel_rot    # TODO: rn this keeps the last vels even if the IMU dies
-        lin_vel_t = [0.] * 3
+                if self.init_heading:
+                    rospy.loginfo("Could not get transform between %s and %s" % (self.map_frame, self.odom_frame))            
+                    rospy.loginfo("so publishing first one...")
+                    # SBG points to north while map's x axis points east (ENU) so 
+                    # the map --> odom tf needs an extra +90 deg turn in z 
 
-        # DVL data coming in
-        if self.dvl_on:
+                    euler = euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
+                    quat = quaternion_from_euler(0.,0., euler[2]-0.3) # -0.3 for feb_24
+                    
+                    self.transformStamped.transform.translation.x = gps_map.point.x
+                    self.transformStamped.transform.translation.y = gps_map.point.y
+                    self.transformStamped.transform.translation.z = 0.
+                    self.transformStamped.transform.rotation = Quaternion(*quat)
+                    self.transformStamped.header.frame_id = self.map_frame
+                    self.transformStamped.child_frame_id = self.odom_frame
+                    self.transformStamped.header.stamp = rospy.Time.now()
+                    self.static_tf_bc.sendTransform(self.transformStamped)
+                    self.init_m2o = True
+                    self.gps_sub.unregister()
+                return
 
-            # Integrate linear velocities from DVL
-            # If last DVL msg isn't too old
-            if self.t_now - self.t_dvl_prev < self.dvl_period:
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                rospy.logwarn("PF: Transform to utm-->map not available yet")
+            pass
+
+
+
+    def dr_timer(self, event):
+        
+        if self.init_m2o:
+
+            pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
+            rot_vel_t = self.vel_rot    # TODO: rn this keeps the last vels even if the IMU dies
+            lin_vel_t = [0.] * 3
+
+            # DVL data coming in
+            if self.dvl_on:
+
+                # Integrate linear velocities from DVL
+                # If last DVL msg isn't too old
+                if self.t_now - self.t_dvl_prev < self.dvl_period:
+                    lin_vel_t = np.array([self.dvl_latest.velocity.x,
+                                        self.dvl_latest.velocity.y,
+                                        self.dvl_latest.velocity.z])    
+                                
+                # Otherwise, integrate motion model estimate
+                else:
+
+                    lin_vel_t = np.array([self.mm_linear_vel[0],
+                                        self.mm_linear_vel[1],
+                                        self.mm_linear_vel[2]])
+                    rospy.logdebug("Missing DVL data, motion model kicking in %s", lin_vel_t)
+
+                # Integrate linear vels
                 rot_mat_t = self.fullRotation(pose_t[3],pose_t[4],pose_t[5])
-                lin_vel_t = np.array([self.dvl_latest.velocity.x,
-                                    self.dvl_latest.velocity.y,
-                                    0.])
                 step_t = np.matmul(rot_mat_t, lin_vel_t * self.dr_period)
-
-                # Current pose
                 self.pos_t[0:2] = self.pos_t[0:2] + step_t[0:2]        
-                            
-            # Otherwise, integrate motion model estimate
-            else:
-                rospy.logdebug("Missing DVL data, motion model kicking in")
 
-                # Integrate linear velocities from motion model
-                # TODO: subscribe to rpm topics
-                if self.mm_on:
-                    rospy.logdebug("TODO: Motion model")
+            # Measure depth directly
+            self.pos_t[2] = self.base_depth
 
-                    # rot_mat_t = self.fullRotation(pose_t[3],pose_t[4],pose_t[5])
-                    # lin_vel_t = np.array([self.dvl_latest.velocity.x,
-                    #                 self.dvl_latest.velocity.y,
-                    #                 0.])
-                    # step_t = np.matmul(rot_mat_t, lin_vel_t * self.dr_period)
-
-                    # Current pose
-                    # self.pos_t = self.pos_t + step_t        
-                    # pose_t[0:3] = self.pos_t
-
-        # Measure depth directly
-        self.pos_t[2] = self.base_depth
-
-        # Update local variable 
-        pose_t[0:3] = self.pos_t
+            # Update local variable 
+            pose_t[0:3] = self.pos_t
 
 
-        # if self.t_now - self.t_pub > self.dr_pub_period:
-        # Publish and broadcast aux frame for testing
-        quat_t = tf.transformations.quaternion_from_euler(pose_t[3],pose_t[4],pose_t[5])
-        odom_msg = Odometry()
-        odom_msg.header.frame_id = self.odom_frame
-        odom_msg.header.stamp = rospy.Time.now()
-        odom_msg.child_frame_id = "sam_test"
-        odom_msg.pose.pose.position.x = pose_t[0]
-        odom_msg.pose.pose.position.y = pose_t[1]
-        odom_msg.pose.pose.position.z = pose_t[2]
-        odom_msg.twist.twist.linear.x = lin_vel_t[0]
-        odom_msg.twist.twist.linear.y = lin_vel_t[1]
-        odom_msg.twist.twist.linear.z = lin_vel_t[2]
-        odom_msg.twist.twist.angular.x = rot_vel_t[0]
-        odom_msg.twist.twist.angular.y = rot_vel_t[1]
-        odom_msg.twist.twist.angular.z = rot_vel_t[2]
-        odom_msg.pose.covariance = [0.] * 36
-        odom_msg.pose.pose.orientation = Quaternion(*quat_t)
-        self.pub_odom.publish(odom_msg)
+            # if self.t_now - self.t_pub > self.dr_pub_period:
+            # Publish and broadcast aux frame for testing
+            quat_t = tf.transformations.quaternion_from_euler(pose_t[3],pose_t[4],pose_t[5])
+            odom_msg = Odometry()
+            odom_msg.header.frame_id = self.odom_frame
+            odom_msg.header.stamp = rospy.Time.now()
+            odom_msg.child_frame_id = "sam_test"
+            odom_msg.pose.pose.position.x = pose_t[0]
+            odom_msg.pose.pose.position.y = pose_t[1]
+            odom_msg.pose.pose.position.z = pose_t[2]
+            odom_msg.twist.twist.linear.x = lin_vel_t[0]
+            odom_msg.twist.twist.linear.y = lin_vel_t[1]
+            odom_msg.twist.twist.linear.z = lin_vel_t[2]
+            odom_msg.twist.twist.angular.x = rot_vel_t[0]
+            odom_msg.twist.twist.angular.y = rot_vel_t[1]
+            odom_msg.twist.twist.angular.z = rot_vel_t[2]
+            odom_msg.pose.covariance = [0.] * 36
+            odom_msg.pose.pose.orientation = Quaternion(*quat_t)
+            self.pub_odom.publish(odom_msg)
 
-        self.br.sendTransform([pose_t[0], pose_t[1], pose_t[2]],
-                    quat_t,
-                    rospy.Time.now(),
-                    "sam_test",
-                    self.odom_frame)
+            self.br.sendTransform([pose_t[0], pose_t[1], pose_t[2]],
+                        quat_t,
+                        rospy.Time.now(),
+                        "sam_test",
+                        self.odom_frame)
 
-        self.t_now += self.dr_period
+            self.t_now += self.dr_period
+
+    def thrust_cb(self, thrust1_msg, thrust2_msg):
+        # TODO: real motion model here
+        gain = 1./(2390.*2.)
+        self.mm_linear_vel = [gain * thrust1_msg.rpm.rpm + gain * thrust2_msg.rpm.rpm,
+                              0.,
+                              0.]
+
 
     def depth_cb(self, depth_msg):
 
@@ -194,8 +229,8 @@ class VehicleDR(object):
             self.base_depth = depth_msg.pose.pose.position.z + self.b2p_trans[0] * np.sin(self.rot_t[1])
 
 
-    def euler_cb(self, euler_msg):
-        self.init_z = euler_msg.angle.z
+    def sbg_cb(self, sbg_msg):
+        self.init_quat = sbg_msg.orientation
         self.init_heading = True
         # self.euler_sub.unregister()
 
@@ -215,11 +250,11 @@ class VehicleDR(object):
 
 
     def stim_cb(self, imu_msg):
-        if self.init_stim:
-            self.rot_stim = np.array([imu_msg.orientation.x,
-                                    imu_msg.orientation.y,
-                                    imu_msg.orientation.z,
-                                    imu_msg.orientation.w])
+        if self.init_stim and self.init_m2o:
+            # self.rot_stim = np.array([imu_msg.orientation.x,
+            #                         imu_msg.orientation.y,
+            #                         imu_msg.orientation.z,
+            #                         imu_msg.orientation.w])
             
             # Integrate angular velocities
             self.vel_rot = np.array([imu_msg.angular_velocity.x,
@@ -235,26 +270,26 @@ class VehicleDR(object):
             self.t_stim_prev = imu_msg.header.stamp.to_sec()
 
         else:
-            rospy.loginfo("Stim data coming in")
+            # rospy.loginfo("Stim data coming in")
             self.t_stim_prev = imu_msg.header.stamp.to_sec()
             self.init_stim = True
 
 
     # TODO: potential synch issue here with stim and dvl on variables
     def dvl_cb(self, dvl_msg):
-        if self.init_stim:
+        # if self.rot_stim.any():
 
-            # Project velocities into odom frame to correct for pitching of floatsam
-            euler = euler_from_quaternion(self.rot_stim)
-            mat_t = self.fullRotation(euler[0],euler[1],euler[2])
+        #     # # Project velocities into odom frame to correct for pitching of floatsam
+        #     euler = euler_from_quaternion(self.rot_stim)
+        #     mat_t = self.fullRotation(euler[0],euler[1],euler[2])
 
-            aux  = np.matmul(mat_t, np.array([dvl_msg.velocity.x,
-                                            dvl_msg.velocity.y,
-                                            dvl_msg.velocity.z]))
-            dvl_msg.velocity.x = aux[0]
-            dvl_msg.velocity.y = aux[1]
-            dvl_msg.velocity.z = aux[2]
-            self.dvl_latest = dvl_msg
+        #     aux  = np.matmul(mat_t, np.array([dvl_msg.velocity.x,
+        #                                     dvl_msg.velocity.y,
+        #                                     dvl_msg.velocity.z]))
+        #     dvl_msg.velocity.x = aux[0]
+        #     dvl_msg.velocity.y = aux[1]
+        #     dvl_msg.velocity.z = aux[2]
+        self.dvl_latest = dvl_msg
         
         if self.dvl_on:
             dt = dvl_msg.header.stamp.to_sec() - self.t_dvl_prev
