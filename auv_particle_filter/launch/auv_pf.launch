@@ -33,7 +33,7 @@
       <param name="utm_frame"                               value="$(arg utm_frame)" />
       <param name="base_frame"                              value="$(arg base_frame)" />
       <param name="odom_corrected_topic"                    value="/$(arg namespace)/dr/odom_corrected"/>
-      <param name="particle_poses_topic"                    value="/$(arg namespace)/particle_poses"/>
+      <param name="particle_poses_topic"                    value="/$(arg namespace)/dr/particle_poses"/>
     </node>
   </group>
 

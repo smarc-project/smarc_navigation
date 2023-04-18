@@ -35,6 +35,7 @@
           <param name="depth_topic" value="/$(arg namespace)/dr/depth"/>                               <!---->
           <param name="thrust1_fb" value="/$(arg namespace)/core/thruster1_fb" />
           <param name="thrust2_fb" value="/$(arg namespace)/core/thruster2_fb" />
+          <param name="thrust_vec_cmd" value="/$(arg namespace)/core/thrust_vector_cmd" />
           <param name="gps_odom_topic" value="$(arg gps_odom_topic)" />
           <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
           <param name="odom_frame" value="$(arg namespace)/odom" />
