@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 import matplotlib.pyplot as plt
@@ -19,7 +19,7 @@ class DRStatsVisualization(object):
         
         # Real mbes pings subscriber
         gps_odom_top = rospy.get_param("~gps_odom_topic", 'gps_odom')
-        dr_odom_top = rospy.get_param("~dvl_dr_topic", 'gps_odom')
+        dr_odom_top = rospy.get_param("~odom_topic", 'gps_odom')
         pf_odom_top = rospy.get_param("~odom_corrected_topic", 'gps_odom')
 
         # PF ping subscriber
@@ -51,7 +51,7 @@ class DRStatsVisualization(object):
         self.pf_odom_vec = np.zeros((3, 1))
 
         while not rospy.is_shutdown():
-            self.visualize()        
+            # self.visualize()        
             rospy.Rate(1.).sleep()
 
         # Print out final distances
@@ -70,6 +70,10 @@ class DRStatsVisualization(object):
         print("GPS distance ", gps_dist)
         print("DR distance ", dr_dist)
         print("PF distance ", pf_dist)
+
+        print("GPS final error ", np.linalg.norm(self.gps_odom_vec[:, -1]))
+        print("DR final error ", np.linalg.norm(self.dr_odom_vec[:, -1]))
+        print("PF final error ", np.linalg.norm(self.pf_odom_vec[:, -1]))
 
 
    

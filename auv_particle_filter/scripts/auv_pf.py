@@ -98,7 +98,7 @@ class auv_pf(object):
         # Aux topic to simulate diving
         dive_top = rospy.get_param("~aux_dive", '/dive')
         rospy.Subscriber(dive_top, Bool, self.dive_cb, queue_size=100)
-        self.diving = False
+        self.diving = True
 
         # GPS odom topic, in UTM frame
         gps_top = rospy.get_param("~gps_odom_topic", '/gps')

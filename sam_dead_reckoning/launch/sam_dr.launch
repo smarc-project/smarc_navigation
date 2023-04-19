@@ -56,11 +56,11 @@
             <arg name="gps_odom_topic" value="$(arg gps_odom_topic)" />
         </include>
 
-        <!-- <node pkg="auv_particle_filter" name="visual_tools" type="visual_tools.py" output="screen">
-          <param name="dvl_dr_topic" value="/$(arg namespace)/dr/dvl_dr" />
+        <node pkg="auv_particle_filter" name="visual_tools" type="visual_tools.py" output="screen">
+          <param name="odom_topic" value="$(arg odom_topic)" />
           <param name="odom_corrected_topic" value="/$(arg namespace)/dr/odom_corrected"/>
           <param name="gps_odom_topic" value="$(arg gps_odom_topic)" />
-        </node> -->
+        </node>
 
       </group>
     </group>

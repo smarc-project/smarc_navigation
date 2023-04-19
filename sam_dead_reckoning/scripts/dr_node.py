@@ -167,6 +167,7 @@ class VehicleDR(object):
 
             pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
             rot_vel_t = self.vel_rot    # TODO: rn this keeps the last vels even if the IMU dies
+            lin_vel_t = np.zeros(3)
 
             # DVL data coming in
             if self.dvl_on:
@@ -213,9 +214,9 @@ class VehicleDR(object):
             odom_msg.pose.pose.position.x = pose_t[0]
             odom_msg.pose.pose.position.y = pose_t[1]
             odom_msg.pose.pose.position.z = pose_t[2]
-            odom_msg.twist.twist.linear.x = self.lin_vel_t[0]
-            odom_msg.twist.twist.linear.y = self.lin_vel_t[1]
-            odom_msg.twist.twist.linear.z = self.lin_vel_t[2]
+            odom_msg.twist.twist.linear.x = lin_vel_t[0]
+            odom_msg.twist.twist.linear.y = lin_vel_t[1]
+            odom_msg.twist.twist.linear.z = lin_vel_t[2]
             odom_msg.twist.twist.angular.x = rot_vel_t[0]
             odom_msg.twist.twist.angular.y = rot_vel_t[1]
             odom_msg.twist.twist.angular.z = rot_vel_t[2]
@@ -275,7 +276,6 @@ class VehicleDR(object):
                                     imu_msg.orientation.w])
             euler_t = tf.transformations.euler_from_quaternion(self.rot_stim)
 
-
             # Integrate yaw velocities
             self.vel_rot = np.array([imu_msg.angular_velocity.x,
                                 imu_msg.angular_velocity.y,
@@ -298,7 +298,6 @@ class VehicleDR(object):
             self.init_stim = True
 
 
-    # TODO: potential synch issue here with stim and dvl on variables
     def dvl_cb(self, dvl_msg):
         # if self.rot_stim.any():
 

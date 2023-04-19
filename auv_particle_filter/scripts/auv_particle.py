@@ -39,16 +39,21 @@ class Particle(object):
         # Generate noise
         noise_vec = (np.sqrt(self.process_cov)*np.random.randn(1, 6)).flatten()
 
-        # Angular motion
-        vel_rot = np.array([odom_t.twist.twist.angular.x,
-                            odom_t.twist.twist.angular.y,
+        # Angular motion: integrate yaw, read roll and pitch directly
+        vel_rot = np.array([0.,
+                            0.,
                             odom_t.twist.twist.angular.z])
 
         rot_t = np.array(self.p_pose[3:6]) + vel_rot * dt + noise_vec[3:6]
-
-        roll_t = (rot_t[0] + np.pi) % (2 * np.pi) - np.pi
-        pitch_t = (rot_t[1] + np.pi) % (2 * np.pi) - np.pi
         yaw_t = (rot_t[2] + np.pi) % (2 * np.pi) - np.pi
+
+        euler_t = euler_from_quaternion(np.array([odom_t.pose.pose.orientation.x,
+                                                  odom_t.pose.pose.orientation.y,
+                                                  odom_t.pose.pose.orientation.z,
+                                                  odom_t.pose.pose.orientation.w]))
+
+        roll_t = euler_t[0]
+        pitch_t = euler_t[1]
         self.p_pose[3:6] = [roll_t, pitch_t, yaw_t]
 
         # Linear motion

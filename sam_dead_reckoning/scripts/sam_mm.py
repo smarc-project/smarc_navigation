@@ -73,7 +73,7 @@ class SAM(object):
         # y_cp = 0.
 
         # Control actuators
-        KT = 0.35
+        KT = 0.3
 
         # # Coriolis and centripetal matrix
         # C_RB = np.array([[0., 0., -self.m * (x_g * r + v)],
