@@ -163,7 +163,7 @@ class VehicleDR(object):
 
     def dr_timer(self, event):
         
-        if self.init_m2o:
+        if self.init_m2o and self.init_stim:
 
             pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
             rot_vel_t = self.vel_rot    # TODO: rn this keeps the last vels even if the IMU dies

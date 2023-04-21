@@ -21,7 +21,7 @@ class PublishGPSPose(object):
         self.gps_odom_top = rospy.get_param('~gps_odom_topic', 'gps_odom_sam')
 
         # GPS odom in UTM frame
-        self.gps_sam_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.sam_gps)
+        self.gps_sam_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.sam_gps_cb)
         self.gps_sam_pub = rospy.Publisher(self.gps_odom_top, Odometry, queue_size=10)
         
         # Broadcast UTM to map frame
@@ -39,7 +39,7 @@ class PublishGPSPose(object):
         self.ts.registerCallback(self.gps_callback)
 
 
-    def sam_gps(self, sam_gps):
+    def sam_gps_cb(self, sam_gps):
 
         if sam_gps.status.status != -1:
 
