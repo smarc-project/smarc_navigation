@@ -50,7 +50,8 @@ class UWGPSNode():
         self.antenna = rospy.get_param('~bool_antenna', True)
         self.uw_gps_odom = rospy.get_param('~uw_gps_odom', '/sam/external/uw_gps_odom')
         self.uw_gps_latlon = rospy.get_param('~uw_gps_latlon', '/sam/external/uw_gps_latlon')
-        self.base_url = rospy.get_param('~uwgps_server_ip', "https://demo.waterlinked.com")
+        self.base_url = rospy.get_param('~uwgps_server_ip', "http://192.168.2.94")
+        #self.base_url = rospy.get_param('~uwgps_server_ip', "https://demo.waterlinked.com")
 
         self.gps_global_pub = rospy.Publisher(self.uw_gps_latlon, NavSatFix, queue_size=10)
         self.uwgps_odom_pub = rospy.Publisher(self.uw_gps_odom, Odometry, queue_size=10)
