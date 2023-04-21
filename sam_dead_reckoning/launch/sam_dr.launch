@@ -10,6 +10,11 @@
     
       <group ns="dr">
 
+        <!-- Services to go to/from latlon to UTM -->
+        <include file="$(find tf_lat_lon)/launch/tf_lat_lon.launch">
+            <arg name="frame" value="$(arg robot_name)/base_link"/>
+        </include>
+
         <!-- Depth from pressure sensor converter -->
         <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
           <param name="odom_frame" value="$(arg namespace)/odom" />
@@ -61,6 +66,13 @@
           <param name="odom_corrected_topic" value="/$(arg namespace)/dr/odom_corrected"/>
           <param name="gps_odom_topic" value="$(arg gps_odom_topic)" />
         </node>
+
+        <!--Including tf_convenience topics-->
+    	  <node name="odom_listener" pkg="tf_convenience_topics" type="odom_listener" output="screen" >
+	    	  <param name="odom_topic" value="/$(arg robot_name)/dr/odom"/>
+	    	  <param name="topic_from_dvl" value="$/(arg robot_name)/core/dvl"/>
+        	<param name="loop_freq" value="10" />
+    	  </node>
 
       </group>
     </group>
