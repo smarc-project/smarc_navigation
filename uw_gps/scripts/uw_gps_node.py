@@ -80,6 +80,7 @@ class UWGPSNode():
                         acoustic_position["z"]))
                 depth = acoustic_position["z"]
 
+            # Locator global position
             global_position = self.get_global_position(self.base_url)
             if global_position:
                 print("Current global position. Latitude: {}, Longitude: {}, Depth: {}".format(

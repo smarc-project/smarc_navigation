@@ -137,7 +137,7 @@ class ExternalDR(object):
                 odom_msg.child_frame_id = "sam_test"
                 odom_msg.pose.pose.position.x = gps_odom.point.x
                 odom_msg.pose.pose.position.y = gps_odom.point.y
-                odom_msg.pose.pose.position.z = gps_odom.point.z
+                odom_msg.pose.pose.position.z = -gps_odom.point.z
                 # odom_msg.twist.twist.linear.x = lin_vel_t[0]
                 # odom_msg.twist.twist.linear.y = lin_vel_t[1]
                 # odom_msg.twist.twist.linear.z = lin_vel_t[2]
