@@ -43,21 +43,19 @@ class UWGPSNode():
 
     def __init__(self):
 
-        self.uw_gps_odom = rospy.get_param('~uw_gps_odom', '/sam/external/uw_gps_odom')
-        self.uw_gps_latlon = rospy.get_param('~uw_gps_latlon', '/sam/external/uw_gps_latlon')
-        self.map_frame = rospy.get_param('~map_frame', 'map')
+        # TODO: use uwgps_link instead of base_link
         self.utm_frame = rospy.get_param('~utm_frame', 'utm')
         self.uwgps_frame = rospy.get_param('~uwgps_frame', 'sam/uwgps_link')
+        self.base_frame = rospy.get_param('~base_frame', 'base_link')
         self.antenna = rospy.get_param('~bool_antenna', True)
+        self.uw_gps_odom = rospy.get_param('~uw_gps_odom', '/sam/external/uw_gps_odom')
+        self.uw_gps_latlon = rospy.get_param('~uw_gps_latlon', '/sam/external/uw_gps_latlon')
         self.base_url = rospy.get_param('~uwgps_server_ip', "https://demo.waterlinked.com")
 
-        # odom_pub = rospy.Publisher('/sam/dr/uw_gps_odom', Odometry, queue_size=10)
-        # gps_master_pub = rospy.Publisher('/sam/dr/uw_gps_master', NavSatFix, queue_size=10)
         self.gps_global_pub = rospy.Publisher(self.uw_gps_latlon, NavSatFix, queue_size=10)
         self.uwgps_odom_pub = rospy.Publisher(self.uw_gps_odom, Odometry, queue_size=10)
 
         print("Using base_url: %s" % self.base_url)
-
 
         while not rospy.is_shutdown():
 
@@ -97,7 +95,7 @@ class UWGPSNode():
                 odom_msg = Odometry()
                 odom_msg.header.stamp = t_now
                 odom_msg.header.frame_id = self.utm_frame
-                odom_msg.child_frame_id = self.uwgps_frame
+                odom_msg.child_frame_id = self.base_frame
                 odom_msg.pose.covariance = [0.] * 36
                 odom_msg.pose.pose.position.x = utm_uwgps.northing
                 odom_msg.pose.pose.position.y = utm_uwgps.easting
@@ -106,8 +104,9 @@ class UWGPSNode():
                 self.uwgps_odom_pub.publish(odom_msg)
 
                 gps_msg = NavSatFix()
-                gps_msg.header.frame_id = self.uwgps_frame
+                gps_msg.header.frame_id = self.base_frame
                 gps_msg.header.stamp = t_now
+                gps_msg.status.status = 0
                 gps_msg.latitude = global_position["lat"]
                 gps_msg.longitude = global_position["lon"]
                 gps_msg.altitude = -depth
@@ -116,7 +115,7 @@ class UWGPSNode():
             else:
                 rospy.logwarn("UW GPS: global position not received")
 
-            rospy.sleep(0.2)
+            rospy.sleep(0.1)
 
 if __name__ == "__main__":
     rospy.init_node("uw_gps_node")
