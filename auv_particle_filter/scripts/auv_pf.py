@@ -77,12 +77,14 @@ class auv_pf(object):
         try:
             rospy.loginfo("Waiting for transforms")
             m2o_tf = tfBuffer.lookup_transform(self.map_frame, self.odom_frame,
-                                               rospy.Time(0), rospy.Duration(35))
+                                               rospy.Time(0), rospy.Duration(60))
             self.m2o_mat = matrix_from_tf(m2o_tf)
             rospy.loginfo("PF: got transform %s to %s" % (self.map_frame, self.odom_frame))
 
         except:
             rospy.logerr("PF: Could not lookup transform %s to %s" % (self.map_frame, self.odom_frame))
+            
+            return
 
         # Initialize list of particles
         self.particles = np.empty(self.pc, dtype=object)
