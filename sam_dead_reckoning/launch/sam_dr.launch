@@ -12,7 +12,7 @@
 
         <!-- Services to go to/from latlon to UTM -->
         <include file="$(find tf_lat_lon)/launch/tf_lat_lon.launch">
-            <arg name="frame" value="$(arg robot_name)/base_link"/>
+            <arg name="frame" value="$(arg namespace)/base_link"/>
         </include>
 
         <!-- Depth from pressure sensor converter -->
@@ -69,8 +69,8 @@
 
         <!--Including tf_convenience topics-->
     	  <node name="odom_listener" pkg="tf_convenience_topics" type="odom_listener" output="screen" >
-	    	  <param name="odom_topic" value="/$(arg robot_name)/dr/odom"/>
-	    	  <param name="topic_from_dvl" value="$/(arg robot_name)/core/dvl"/>
+	    	  <param name="odom_topic" value="/$(arg namespace)/dr/odom"/>
+	    	  <param name="topic_from_dvl" value="$/(arg namespace)/core/dvl"/>
         	<param name="loop_freq" value="10" />
     	  </node>
 
