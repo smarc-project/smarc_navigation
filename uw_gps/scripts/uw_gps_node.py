@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Get position from Water Linked Underwater GPS
@@ -67,51 +67,56 @@ class UWGPSNode():
             depth = None
             if acoustic_position:
                 if antenna_position:
-                    print(acoustic_position)
-                    print(antenna_position)
+                    # print(acoustic_position)
+                    # print(antenna_position)
                     print("Current acoustic position relative to antenna. X: {}, Y: {}, Z: {}".format(
                         acoustic_position["x"] - antenna_position["x"],
                         acoustic_position["y"] - antenna_position["y"],
                         acoustic_position["z"] - antenna_position["depth"]))
-                else:
-                    print("Current acoustic position. X: {}, Y: {}, Z: {}".format(
-                        acoustic_position["x"],
-                        acoustic_position["y"],
-                        acoustic_position["z"]))
-                depth = acoustic_position["z"]
+                # else:
+                #     print("Current acoustic position. X: {}, Y: {}, Z: {}".format(
+                #         acoustic_position["x"],
+                #         acoustic_position["y"],
+                #         acoustic_position["z"]))
+                # depth = acoustic_position["z"]
 
             # Locator global position
-            global_position = self.get_global_position(self.base_url)
-            if global_position:
-                print("Current global position. Latitude: {}, Longitude: {}, Depth: {}".format(
-                    global_position["lat"],
-                    global_position["lon"],
-                    depth))
-                
+                # print("Current global position. Latitude: {}, Longitude: {}, Depth: {}".format(
+                #     global_position["lat"],
+                #     global_position["lon"],
+                #     depth))
+                    # UW GPS 
+                    t_now = rospy.Time.now()
+                    rot = [0., 0., 0., 1.]
+                    odom_msg = Odometry()
+                    odom_msg.header.stamp = t_now
+                    odom_msg.header.frame_id = "map"
+                    odom_msg.child_frame_id = self.uwgps_frame
+                    odom_msg.pose.covariance = [0.] * 36
+                    odom_msg.pose.pose.position.x = acoustic_position["y"]
+                    odom_msg.pose.pose.position.y = acoustic_position["x"]
+                    odom_msg.pose.pose.position.z = -acoustic_position["z"]
+                    odom_msg.pose.pose.orientation = Quaternion(*rot)
+                    self.uwgps_odom_pub.publish(odom_msg)
+
+            else:
+                rospy.logwarn("UW GPS: relative position not received")
+
                 utm_uwgps = utm.fromLatLong(
                     global_position["lat"], global_position["lon"])
 
-                # UW GPS 
-                t_now = rospy.Time.now()
-                rot = [0., 0., 0., 1.]
-                odom_msg = Odometry()
-                odom_msg.header.stamp = t_now
-                odom_msg.header.frame_id = self.utm_frame
-                odom_msg.child_frame_id = self.base_frame
-                odom_msg.pose.covariance = [0.] * 36
-                odom_msg.pose.pose.position.x = utm_uwgps.northing
-                odom_msg.pose.pose.position.y = utm_uwgps.easting
-                odom_msg.pose.pose.position.z = depth
-                odom_msg.pose.pose.orientation = Quaternion(*rot)
-                self.uwgps_odom_pub.publish(odom_msg)
+            
+            global_position = self.get_global_position(self.base_url)
+            
+            if global_position:
 
                 gps_msg = NavSatFix()
-                gps_msg.header.frame_id = self.base_frame
+                gps_msg.header.frame_id = "uwgps_antenna"
                 gps_msg.header.stamp = t_now
                 gps_msg.status.status = 0
                 gps_msg.latitude = global_position["lat"]
                 gps_msg.longitude = global_position["lon"]
-                gps_msg.altitude = -depth
+                gps_msg.altitude = 0.
                 self.gps_global_pub.publish(gps_msg)
 
             else:

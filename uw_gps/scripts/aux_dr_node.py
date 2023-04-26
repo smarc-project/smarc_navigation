@@ -58,6 +58,7 @@ class ExternalDR(object):
 
     # BC tf UTM to map
     def uw_gps_cb(self, sam_gps):
+        rospy.loginfo("Aux DR: getting GPS fix")
 
         if sam_gps.status.status != -1:
 
@@ -69,7 +70,7 @@ class ExternalDR(object):
             except (tf.LookupException, tf.ConnectivityException):
 
                 utm_sam = utm.fromLatLong(sam_gps.latitude, sam_gps.longitude)
-                rospy.loginfo("GPS node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))
+                rospy.loginfo("Aux DR: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))
                 
                 transformStamped = TransformStamped()
                 quat = tf.transformations.quaternion_from_euler(np.pi, -np.pi/2., 0., axes='rxzy')
@@ -81,6 +82,7 @@ class ExternalDR(object):
                 transformStamped.child_frame_id = self.map_frame
                 transformStamped.header.stamp = rospy.Time.now()
                 self.static_tf_bc.sendTransform(transformStamped)
+                self.uw_gps_sub.unregister()
 
                 return
 
@@ -98,7 +100,7 @@ class ExternalDR(object):
             gps_map = self.listener.transformPoint(self.map_frame, self.gps_utm)
 
             if self.init_heading:
-                rospy.loginfo("DR node: broadcasting transform %s to %s" % (
+                rospy.loginfo("Aux DR node: broadcasting transform %s to %s" % (
                     self.map_frame, self.odom_frame))
 
                 euler = euler_from_quaternion(
@@ -116,7 +118,7 @@ class ExternalDR(object):
                 self.init_m2o = True
 
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logwarn("AUX DR: Transform to utm-->map not available yet")
+            rospy.logwarn("AUX DR: Transform utm-->map not available yet")
         pass
 
 
@@ -137,7 +139,7 @@ class ExternalDR(object):
                 odom_msg.child_frame_id = "sam_test"
                 odom_msg.pose.pose.position.x = gps_odom.point.x
                 odom_msg.pose.pose.position.y = gps_odom.point.y
-                odom_msg.pose.pose.position.z = -gps_odom.point.z
+                odom_msg.pose.pose.position.z = gps_odom.point.z
                 # odom_msg.twist.twist.linear.x = lin_vel_t[0]
                 # odom_msg.twist.twist.linear.y = lin_vel_t[1]
                 # odom_msg.twist.twist.linear.z = lin_vel_t[2]
@@ -157,7 +159,7 @@ class ExternalDR(object):
                 self.t_now += self.dr_period
 
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                rospy.logwarn("Transform to base frame not available yet")
+                rospy.logwarn("Aux DR: Transform map to odom not available yet")
             pass
 
 
