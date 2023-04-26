@@ -5,6 +5,9 @@
   <arg name="namespace" default="sam"/>
   <arg name="odom_topic" default="/$(arg namespace)/dr/odom" />
   <arg name="gps_odom_topic" default="/$(arg namespace)/dr/gps_odom"/>
+
+  <arg name="gps_port" value="/dev/ttyACM0"/>
+  <arg name="gps_baud" value="115200"/>
   
     <group ns="$(arg namespace)">
     
@@ -15,12 +18,21 @@
             <arg name="frame" value="$(arg namespace)/base_link"/>
         </include>
 
+        <node pkg="nmea_navsat_driver" type="nmea_serial_driver" name="navsat_wl" respawn="true">
+          <param name="port" value="$(arg gps_port)"/>
+          <param name="baud" value="$(arg gps_baud)"/>
+          <param name="frame_id" value="master_link"/>
+          <remap from="fix" to="wl_gps"/>
+        </node>
+
         <node pkg="uw_gps" name="uw_gps_node" type="uw_gps_node.py" respawn="true" output="screen">
           <param name="utm_frame" value="utm" />
           <param name="uwgps_frame" value="$(arg namespace)/uwgps_link" />
           <param name="base_frame" value="$(arg namespace)/base_link" />
-          <param name="uw_gps_odom" value="/$(arg namespace)external/uw_gps_odom" />
-          <param name="uw_gps_latlon" value="/$(arg namespace)external/uw_gps_latlon" />
+          <param name="master_frame" value="master_link" />
+          <param name="uw_gps_odom" value="/$(arg namespace)/external/uw_gps_odom" />
+          <param name="uw_gps_latlon" value="/$(arg namespace)/external/uw_gps_latlon" />
+          <param name="wl_gps" value="/$(arg namespace)/dr/wl_gps" />
           <param name="uwgps_server_ip" value="http://192.168.2.94" />
         </node>
         
@@ -36,7 +48,7 @@
           <param name="odom_topic" value="$(arg odom_topic)" />
           <param name="uw_gps_odom_topic" value="/$(arg namespace)/external/uw_gps_odom" />
           <!-- <param name="uw_gps_latlon" value="/$(arg namespace)/external/uw_gps_latlon" /> -->
-          <param name="uw_gps_latlon" value="/$(arg namespace)/core/gps" />
+          <param name="sam_gps" value="/$(arg namespace)/core/gps" />
         </node>
       
         <!-- <include file="$(find auv_particle_filter)/launch/auv_pf.launch">
@@ -45,13 +57,13 @@
             <arg name="odom_frame" value="$(arg namespace)/odom"/>
             <arg name="base_frame" value="$(arg namespace)/base_link" />
             <arg name="odom_topic" value="$(arg odom_topic)" />
-            <arg name="gps_odom_topic" value="$/$(arg namespace)external/uw_gps_odom" />
+            <arg name="gps_odom_topic" value="$/$(arg namespace)/external/uw_gps_odom" />
         </include> -->
 
         <node pkg="auv_particle_filter" name="visual_tools" type="visual_tools.py" output="screen">
           <param name="odom_topic" value="$(arg odom_topic)" />
           <param name="odom_corrected_topic" value="/$(arg namespace)/dr/odom_corrected"/>
-          <param name="gps_odom_topic" value="/$(arg namespace)external/uw_gps_odom" />
+          <param name="gps_odom_topic" value="/$(arg namespace)/external/uw_gps_odom" />
         </node>
 
         <!--Including tf_convenience topics-->

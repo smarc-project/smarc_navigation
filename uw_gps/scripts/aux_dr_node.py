@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import rospy
 import numpy as np
@@ -28,7 +28,7 @@ class ExternalDR(object):
         self.uwgps_frame = rospy.get_param('~uwgps_frame', 'uwgps_frame')
         self.odom_top = rospy.get_param('~odom_topic', '/sam/dr/dvl_dr')
         self.uw_gps_odom = rospy.get_param('~uw_gps_odom_topic', '/sam/core/gps')
-        self.uw_gps_topic = rospy.get_param('~uw_gps_latlon', 'uw_gps_latlon')
+        self.sam_gps_topic = rospy.get_param('~sam_gps', 'uw_gps_latlon')
 
         self.listener = tf.TransformListener()
         self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
@@ -50,14 +50,16 @@ class ExternalDR(object):
         self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb)
         self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb)
         self.uw_gps_odom_sub = rospy.Subscriber(self.uw_gps_odom, Odometry, self.uw_gps_odom_cb)
-        self.uw_gps_sub = rospy.Subscriber(self.uw_gps_topic, NavSatFix, self.uw_gps_cb)
+        self.sam_gps_sub = rospy.Subscriber(self.sam_gps_topic, NavSatFix, self.sam_gps_cb)
+
+        self.uwgps_odom = None
 
         rospy.Timer(rospy.Duration(self.dr_period), self.dr_timer)
 
         rospy.spin()
 
-    # BC tf UTM to map
-    def uw_gps_cb(self, sam_gps):
+    # BC tf UTM --> map and map --> odom once
+    def sam_gps_cb(self, sam_gps):
         rospy.loginfo("Aux DR: getting GPS fix")
 
         if sam_gps.status.status != -1:
@@ -68,9 +70,9 @@ class ExternalDR(object):
                                                                          rospy.Time(0))
 
             except (tf.LookupException, tf.ConnectivityException):
+                rospy.loginfo("Aux DR: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))
 
                 utm_sam = utm.fromLatLong(sam_gps.latitude, sam_gps.longitude)
-                rospy.loginfo("Aux DR: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))
                 
                 transformStamped = TransformStamped()
                 quat = tf.transformations.quaternion_from_euler(np.pi, -np.pi/2., 0., axes='rxzy')
@@ -82,85 +84,86 @@ class ExternalDR(object):
                 transformStamped.child_frame_id = self.map_frame
                 transformStamped.header.stamp = rospy.Time.now()
                 self.static_tf_bc.sendTransform(transformStamped)
-                self.uw_gps_sub.unregister()
 
-                return
+            try:
+                (world_trans, world_rot) = self.listener.lookupTransform(self.map_frame,
+                                                                         self.odom_frame,
+                                                                         rospy.Time(0))
+
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+               
+                if self.init_heading:
+                    rospy.loginfo("Aux DR node: broadcasting transform %s to %s" % (
+                        self.map_frame, self.odom_frame))
+
+                    euler = euler_from_quaternion(
+                        [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
+                    quat = quaternion_from_euler(0., 0., euler[2])
+
+                    self.transformStamped.transform.translation.x = 0.
+                    self.transformStamped.transform.translation.y = 0.
+                    self.transformStamped.transform.translation.z = 0.
+                    self.transformStamped.transform.rotation = Quaternion(*quat)
+                    self.transformStamped.header.frame_id = self.map_frame
+                    self.transformStamped.child_frame_id = self.odom_frame
+                    self.transformStamped.header.stamp = rospy.Time.now()
+                    self.static_tf_bc.sendTransform(self.transformStamped)
+                    self.init_m2o = True
+
+                    self.sam_gps_sub.unregister()
+
 
     # BC tf map to odom
     def uw_gps_odom_cb(self, gps_odom_msg):
 
-        self.gps_utm = PointStamped()
-        self.gps_utm.header.frame_id = self.utm_frame
-        self.gps_utm.header.stamp = gps_odom_msg.header.stamp
-        self.gps_utm.point.x = gps_odom_msg.pose.pose.position.x
-        self.gps_utm.point.y = gps_odom_msg.pose.pose.position.y
-        self.gps_utm.point.z = gps_odom_msg.pose.pose.position.y
-        
-        try:
-            gps_map = self.listener.transformPoint(self.map_frame, self.gps_utm)
+        if self.init_m2o and self.init_stim:
 
-            if self.init_heading:
-                rospy.loginfo("Aux DR node: broadcasting transform %s to %s" % (
-                    self.map_frame, self.odom_frame))
-
-                euler = euler_from_quaternion(
-                    [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
-                quat = quaternion_from_euler(0., 0., euler[2])
-
-                self.transformStamped.transform.translation.x = gps_map.point.x
-                self.transformStamped.transform.translation.y = gps_map.point.y
-                self.transformStamped.transform.translation.z = 0.
-                self.transformStamped.transform.rotation = Quaternion(*quat)
-                self.transformStamped.header.frame_id = self.map_frame
-                self.transformStamped.child_frame_id = self.odom_frame
-                self.transformStamped.header.stamp = rospy.Time.now()
-                self.static_tf_bc.sendTransform(self.transformStamped)
-                self.init_m2o = True
-
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logwarn("AUX DR: Transform utm-->map not available yet")
-        pass
+            try:
+                
+                uwgps_rel = PointStamped()
+                uwgps_rel.header.frame_id = gps_odom_msg.header.frame_id
+                uwgps_rel.header.stamp = gps_odom_msg.header.stamp
+                uwgps_rel.point.x = gps_odom_msg.pose.pose.position.x
+                uwgps_rel.point.y = gps_odom_msg.pose.pose.position.y
+                uwgps_rel.point.z = gps_odom_msg.pose.pose.position.y
+                
+                self.uwgps_odom = self.listener.transformPoint(
+                    self.odom_frame, uwgps_rel)
+            
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                rospy.logwarn(
+                    "Aux DR: Transform master to odom not available yet")
 
 
     def dr_timer(self, event):
 
         # If tf map to odom exists:
-        if self.init_m2o and self.init_stim:
+        if self.uwgps_odom:
 
-            try:
-                
-                gps_odom = self.listener.transformPoint(self.odom_frame, self.gps_utm)
+            quat_t = tf.transformations.quaternion_from_euler(
+                self.rot_t[0], self.rot_t[1], self.rot_t[2])
+            odom_msg = Odometry()
+            odom_msg.header.frame_id = self.odom_frame
+            odom_msg.header.stamp = rospy.Time.now()
+            odom_msg.child_frame_id = "sam_test"
+            odom_msg.pose.pose.position.x = self.uwgps_odom.point.x
+            odom_msg.pose.pose.position.y = self.uwgps_odom.point.y
+            odom_msg.pose.pose.position.z = self.uwgps_odom.point.z
+            # odom_msg.twist.twist.linear.x = lin_vel_t[0]
+            # odom_msg.twist.twist.linear.y = lin_vel_t[1]
+            # odom_msg.twist.twist.linear.z = lin_vel_t[2]
+            # odom_msg.twist.twist.angular.x = rot_vel_t[0]
+            # odom_msg.twist.twist.angular.y = rot_vel_t[1]
+            # odom_msg.twist.twist.angular.z = rot_vel_t[2]
+            odom_msg.pose.covariance = [0.] * 36
+            odom_msg.pose.pose.orientation = Quaternion(*quat_t)
+            self.pub_odom.publish(odom_msg)
 
-                quat_t = tf.transformations.quaternion_from_euler(
-                    self.rot_t[0], self.rot_t[1], self.rot_t[2])
-                odom_msg = Odometry()
-                odom_msg.header.frame_id = self.odom_frame
-                odom_msg.header.stamp = rospy.Time.now()
-                odom_msg.child_frame_id = "sam_test"
-                odom_msg.pose.pose.position.x = gps_odom.point.x
-                odom_msg.pose.pose.position.y = gps_odom.point.y
-                odom_msg.pose.pose.position.z = gps_odom.point.z
-                # odom_msg.twist.twist.linear.x = lin_vel_t[0]
-                # odom_msg.twist.twist.linear.y = lin_vel_t[1]
-                # odom_msg.twist.twist.linear.z = lin_vel_t[2]
-                # odom_msg.twist.twist.angular.x = rot_vel_t[0]
-                # odom_msg.twist.twist.angular.y = rot_vel_t[1]
-                # odom_msg.twist.twist.angular.z = rot_vel_t[2]
-                odom_msg.pose.covariance = [0.] * 36
-                odom_msg.pose.pose.orientation = Quaternion(*quat_t)
-                self.pub_odom.publish(odom_msg)
-
-                self.br.sendTransform([gps_odom.point.x, gps_odom.point.y, gps_odom.point.z],
-                                    quat_t,
-                                    rospy.Time.now(),
-                                    "sam_test",
-                                    self.odom_frame)
-
-                self.t_now += self.dr_period
-
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                rospy.logwarn("Aux DR: Transform map to odom not available yet")
-            pass
+            self.br.sendTransform([self.uwgps_odom.point.x, self.uwgps_odom.point.y, self.uwgps_odom.point.z],
+                                quat_t,
+                                rospy.Time.now(),
+                                "sam_test",
+                                self.odom_frame)
 
 
     def sbg_cb(self, sbg_msg):
