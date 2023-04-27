@@ -10,7 +10,7 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler, qua
 from sensor_msgs.msg import Imu, NavSatFix
 from nav_msgs.msg import Odometry
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolRequest
-from sbg_driver.msg import SbgEkfEuler
+# from sbg_driver.msg import SbgEkfEuler
 from geodesy import utm
 
 

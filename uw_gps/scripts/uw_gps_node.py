@@ -62,8 +62,7 @@ class UWGPSNode():
                 master_gps.latitude, master_gps.longitude)
             
             master_imu = self.get_master_imu(self.base_url)
-            
-            rospy.loginfo("UW GPS node: broadcasting transform %s to %s" % (self.utm_frame, self.master_frame))
+            print("Master imu roll {}, pitch {}, yall {}".format(master_imu["roll"], master_imu["pitch"], master_imu["yaw"]))
             
             # Rotate to go from NED to ENU
             quat_ned = tf.transformations.quaternion_from_euler(
@@ -71,16 +70,24 @@ class UWGPSNode():
             quat_transf = tf.transformations.quaternion_from_euler(
                 np.pi, -np.pi/2., 0., axes='rxzy')
             quat_enu = quat_ned * quat_transf
+            mag = np.linalg.norm(quat_enu)
+
+            quat_enu /= mag
             
+            quat_b = [0.,0.,0.,1.]
             transformStamped = TransformStamped()
             transformStamped.transform.translation.x = utm_master.northing
             transformStamped.transform.translation.y = utm_master.easting
             transformStamped.transform.translation.z = 0.
-            transformStamped.transform.rotation = Quaternion(*quat_enu)
+            transformStamped.transform.rotation = Quaternion(*quat_transf)
             transformStamped.header.frame_id = self.utm_frame
             transformStamped.child_frame_id = self.master_frame
             transformStamped.header.stamp = rospy.Time.now()
             self.tf_bc.sendTransform(transformStamped)
+            rospy.loginfo("UW GPS node: broadcasting transform %s to %s" % (self.utm_frame, self.master_frame))
+
+        else:
+            rospy.logwarn("WL GPS status -1")
             
 
     def __init__(self):
@@ -126,7 +133,7 @@ class UWGPSNode():
             # if self.antenna:
             #     # Antenna position: x,y,z manually set wrt master cage
             #     antenna_position = self.get_antenna_position(self.base_url)
-            # depth = None
+            depth = None
             
             # Acoustic position: x,y,z wrt to master cage
             acoustic_position = self.get_acoustic_position(self.base_url)
@@ -162,13 +169,12 @@ class UWGPSNode():
             
             # Locator global position (lat/lon)
             global_position = self.get_global_position(self.base_url)
-            depth = acoustic_position["z"]
-            print("Current global position. Latitude: {}, Longitude: {}, Depth: {}".format(
-                global_position["lat"],
-                global_position["lon"],
-                depth))
-            
             if global_position:
+
+                print("Current global position. Latitude: {}, Longitude: {}".format(
+                    global_position["lat"],
+                    global_position["lon"]))
+                
                 t_now = rospy.Time.now()
 
                 gps_msg = NavSatFix()
@@ -177,7 +183,7 @@ class UWGPSNode():
                 gps_msg.status.status = 0
                 gps_msg.latitude = global_position["lat"]
                 gps_msg.longitude = global_position["lon"]
-                gps_msg.altitude = depth
+                gps_msg.altitude = 0.
                 self.gps_global_pub.publish(gps_msg)
 
             else:

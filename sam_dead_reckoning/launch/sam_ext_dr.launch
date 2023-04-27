@@ -14,9 +14,9 @@
       <group ns="dr">
 
         <!-- Services to go to/from latlon to UTM -->
-        <include file="$(find tf_lat_lon)/launch/tf_lat_lon.launch">
+        <!-- <include file="$(find tf_lat_lon)/launch/tf_lat_lon.launch">
             <arg name="frame" value="$(arg namespace)/base_link"/>
-        </include>
+        </include> -->
 
         <node pkg="nmea_navsat_driver" type="nmea_serial_driver" name="navsat_wl" respawn="true">
           <param name="port" value="$(arg gps_port)"/>
@@ -67,11 +67,11 @@
         </node>
 
         <!--Including tf_convenience topics-->
-    	  <node name="odom_listener" pkg="cd" type="odom_listener" output="screen" >
+    	  <!-- <node name="odom_listener" pkg="cd" type="odom_listener" output="screen" >
 	    	  <param name="odom_topic" value="/$(arg namespace)/dr/odom"/>
 	    	  <param name="topic_from_dvl" value="$/(arg namespace)/core/dvl"/>
         	<param name="loop_freq" value="10" />
-    	  </node>
+    	  </node> -->
 
       </group>
     </group>
