@@ -153,6 +153,17 @@ class UWGPSNode():
                 # UW GPS 
                 t_now = rospy.Time.now()
                 rot = [0., 0., 0., 1.]
+                
+                transformStamped = TransformStamped()
+                transformStamped.header.stamp = t_now
+                transformStamped.header.frame_id = self.master_frame
+                transformStamped.child_frame_id = self.uwgps_frame
+                transformStamped.transform.translation.x = acoustic_position["y"]
+                transformStamped.transform.translation.y = acoustic_position["x"]
+                transformStamped.transform.translation.z = -acoustic_position["z"]
+                transformStamped.transform.rotation = Quaternion(*rot)
+                self.tf_bc.sendTransform(transformStamped)
+                
                 odom_msg = Odometry()
                 odom_msg.header.stamp = t_now
                 odom_msg.header.frame_id = self.master_frame
@@ -164,15 +175,6 @@ class UWGPSNode():
                 odom_msg.pose.pose.orientation = Quaternion(*rot)
                 self.uwgps_odom_pub.publish(odom_msg)
 
-                transformStamped = TransformStamped()
-                transformStamped.header.stamp = t_now
-                transformStamped.header.frame_id = self.master_frame
-                transformStamped.child_frame_id = self.uwgps_frame
-                transformStamped.transform.translation.x = acoustic_position["y"]
-                transformStamped.transform.translation.y = acoustic_position["x"]
-                transformStamped.transform.translation.z = -acoustic_position["z"]
-                transformStamped.transform.rotation = Quaternion(*rot)
-                self.tf_bc.sendTransform(transformStamped)
 
             else:
                 rospy.logwarn("UW GPS: relative position not received")
