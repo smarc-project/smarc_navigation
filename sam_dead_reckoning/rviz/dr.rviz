@@ -85,7 +85,7 @@ Visualization Manager:
         sam/imu_link:
           Value: false
         sam/odom:
-          Value: false
+          Value: true
         sam/pose_sensor_link:
           Value: false
         sam/pressure_link:
@@ -100,8 +100,10 @@ Visualization Manager:
           Value: false
         sam/thruster_2:
           Value: false
+        sam/uwgps_link:
+          Value: true
         sam_test:
-          Value: false
+          Value: true
         utm:
           Value: true
       Marker Alpha: 1
@@ -116,7 +118,8 @@ Visualization Manager:
             sam/odom:
               {}
           master_link:
-            {}
+            sam/uwgps_link:
+              {}
       Update Interval: 0
       Value: true
     - Alpha: 0.699999988079071
@@ -286,7 +289,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 24.33829689025879
+      Distance: 50.902320861816406
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -302,9 +305,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.980398416519165
-      Target Frame: map
-      Yaw: 2.8204007148742676
+      Pitch: 1.5697963237762451
+      Target Frame: sam_test
+      Yaw: 3.2635812759399414
     Saved: ~
 Window Geometry:
   Displays:
