@@ -110,7 +110,7 @@ class ExternalDR(object):
                     self.static_tf_bc.sendTransform(self.transformStamped)
                     self.init_m2o = True
 
-                    self.sam_gps_sub.unregister()
+                    # self.sam_gps_sub.unregister()
 
 
     # BC tf map to odom
@@ -129,10 +129,13 @@ class ExternalDR(object):
                 
                 self.uwgps_odom = self.listener.transformPoint(
                     self.odom_frame, uwgps_rel)
-            
+
+                rospy.loginfo(
+                    "Aux DR: UW GPS to odom successful")
+
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 rospy.logwarn(
-                    "Aux DR: Transform master to odom not available yet")
+                    "Aux DR: Transform master to uwgps not available yet")
 
 
     def dr_timer(self, event):
