@@ -122,7 +122,7 @@ class ExternalDR(object):
                 
                 uwgps_rel = PointStamped()
                 uwgps_rel.header.frame_id = gps_odom_msg.header.frame_id
-                uwgps_rel.header.stamp = gps_odom_msg.header.stamp
+                uwgps_rel.header.stamp = rospy.Time(0)
                 uwgps_rel.point.x = gps_odom_msg.pose.pose.position.x
                 uwgps_rel.point.y = gps_odom_msg.pose.pose.position.y
                 uwgps_rel.point.z = gps_odom_msg.pose.pose.position.y
