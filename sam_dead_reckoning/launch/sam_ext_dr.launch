@@ -47,7 +47,6 @@
           <param name="dr_period" value="0.1" />
           <param name="odom_topic" value="$(arg odom_topic)" />
           <param name="uw_gps_odom_topic" value="/$(arg namespace)/external/uw_gps_odom" />
-          <!-- <param name="uw_gps_latlon" value="/$(arg namespace)/external/uw_gps_latlon" /> -->
           <param name="sam_gps" value="/$(arg namespace)/core/gps" />
         </node>
       
@@ -60,11 +59,11 @@
             <arg name="gps_odom_topic" value="$/$(arg namespace)/external/uw_gps_odom" />
         </include> -->
 
-        <node pkg="auv_particle_filter" name="visual_tools" type="visual_tools.py" output="screen">
+        <!-- <node pkg="auv_particle_filter" name="visual_tools" type="visual_tools.py" output="screen">
           <param name="odom_topic" value="$(arg odom_topic)" />
           <param name="odom_corrected_topic" value="/$(arg namespace)/dr/odom_corrected"/>
           <param name="gps_odom_topic" value="/$(arg namespace)/external/uw_gps_odom" />
-        </node>
+        </node> -->
 
         <!--Including tf_convenience topics-->
     	  <!-- <node name="odom_listener" pkg="cd" type="odom_listener" output="screen" >
