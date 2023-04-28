@@ -12,7 +12,7 @@ import message_filters
 from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolRequest
-from sbg_driver.msg import SbgEkfEuler
+# from sbg_driver.msg import SbgEkfEuler
 from sam_mm import *
 from sam_msgs.msg import ThrusterAngles
 
@@ -210,7 +210,7 @@ class VehicleDR(object):
             odom_msg = Odometry()
             odom_msg.header.frame_id = self.odom_frame
             odom_msg.header.stamp = rospy.Time.now()
-            odom_msg.child_frame_id = "sam_test"
+            odom_msg.child_frame_id = self.base_frame
             odom_msg.pose.pose.position.x = pose_t[0]
             odom_msg.pose.pose.position.y = pose_t[1]
             odom_msg.pose.pose.position.z = pose_t[2]
@@ -227,7 +227,7 @@ class VehicleDR(object):
             self.br.sendTransform([pose_t[0], pose_t[1], pose_t[2]],
                         quat_t,
                         rospy.Time.now(),
-                        "sam_test",
+                        self.base_frame,
                         self.odom_frame)
 
             self.t_now += self.dr_period
