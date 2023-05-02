@@ -18,7 +18,7 @@
         <!-- Depth from pressure sensor converter -->
         <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
           <param name="odom_frame" value="$(arg namespace)/odom" />
-          <param name="pressure_topic" value="/$(arg namespace)/core/pressure" />
+          <param name="pressure_topic" value="/$(arg namespace)/core/depth20_pressure" />
           <param name="depth_topic" value="/$(arg namespace)/dr/depth"/>                               <!---->
           <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
           <param name="base_frame" value="$(arg namespace)/base_link" />
