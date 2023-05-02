@@ -44,6 +44,7 @@ class PublishGPSPose(object):
         if sam_gps.status.status != -1:
 
             utm_sam = utm.fromLatLong(sam_gps.latitude, sam_gps.longitude)
+            rot = [0., 0., 0., 1.]
             
             try:
                 (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
@@ -53,11 +54,10 @@ class PublishGPSPose(object):
             except (tf.LookupException, tf.ConnectivityException):
                 rospy.loginfo("GPS node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
                 transformStamped = TransformStamped()
-                quat = tf.transformations.quaternion_from_euler(np.pi, -np.pi/2., 0., axes='rxzy')
                 transformStamped.transform.translation.x = utm_sam.easting
                 transformStamped.transform.translation.y = utm_sam.northing
                 transformStamped.transform.translation.z = 0.
-                transformStamped.transform.rotation = Quaternion(*quat)               
+                transformStamped.transform.rotation = Quaternion(*rot)               
                 transformStamped.header.frame_id = self.utm_frame
                 transformStamped.child_frame_id = self.map_frame
                 transformStamped.header.stamp = rospy.Time.now()
@@ -66,7 +66,6 @@ class PublishGPSPose(object):
                 return
 
             # For SAM GPS
-            rot = [0., 0., 0., 1.]
             odom_msg = Odometry()
             odom_msg.header.stamp = rospy.Time.now()
             odom_msg.header.frame_id = self.utm_frame
