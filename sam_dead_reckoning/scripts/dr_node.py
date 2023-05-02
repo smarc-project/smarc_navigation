@@ -177,6 +177,7 @@ class VehicleDR(object):
                 # If last DVL msg isn't too old
                 if self.t_now - self.t_dvl_prev < self.dvl_period and \
                         abs(self.dvl_latest.velocity.y) < 0.5 and \
+                        abs(self.dvl_latest.velocity.x) < 1.5 and \
                         self.dvl_latest.velocity.x > -0.1:
                     
                     lin_vel_t = np.array([self.dvl_latest.velocity.x,

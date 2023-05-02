@@ -93,7 +93,7 @@ class PublishGPSPose(object):
         utm_mid = diff/2. + np.array([utm_stb.northing, utm_stb.easting]) 
         heading = np.arctan2(diff[1], diff[0]) - np.pi/2.0
 
-        
+    #TODO: flip easting northing where required :D
         #### Auxiliar ones for floatsam
         rot = [0., 0., 0., 1.]
         odom_msg = Odometry()
