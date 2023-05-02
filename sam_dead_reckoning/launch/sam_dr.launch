@@ -82,6 +82,9 @@
         	<param name="loop_freq" value="10" />
     	  </node>
 
+        <node pkg="sam_dead_reckoning" name="yaw_2_heading" type="yaw_2_heading.py" output="screen"/>
+
+
       </group>
     </group>
 
