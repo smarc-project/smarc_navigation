@@ -54,8 +54,8 @@ class PublishGPSPose(object):
                 rospy.loginfo("GPS node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
                 transformStamped = TransformStamped()
                 quat = tf.transformations.quaternion_from_euler(np.pi, -np.pi/2., 0., axes='rxzy')
-                transformStamped.transform.translation.x = utm_sam.northing
-                transformStamped.transform.translation.y = utm_sam.easting
+                transformStamped.transform.translation.x = utm_sam.easting
+                transformStamped.transform.translation.y = utm_sam.northing
                 transformStamped.transform.translation.z = 0.
                 transformStamped.transform.rotation = Quaternion(*quat)               
                 transformStamped.header.frame_id = self.utm_frame
@@ -72,8 +72,8 @@ class PublishGPSPose(object):
             odom_msg.header.frame_id = self.utm_frame
             odom_msg.child_frame_id = self.gps_frame
             odom_msg.pose.covariance = [0.] * 36
-            odom_msg.pose.pose.position.x = utm_sam.northing
-            odom_msg.pose.pose.position.y = utm_sam.easting
+            odom_msg.pose.pose.position.x = utm_sam.easting
+            odom_msg.pose.pose.position.y = utm_sam.northing
             odom_msg.pose.pose.position.z = 0.
             odom_msg.pose.pose.orientation = Quaternion(*rot)
             self.gps_sam_pub.publish(odom_msg)
