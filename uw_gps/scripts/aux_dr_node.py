@@ -10,7 +10,7 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler, qua
 from sensor_msgs.msg import Imu, NavSatFix
 from nav_msgs.msg import Odometry
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolRequest
-from sbg_driver.msg import SbgEkfEuler
+# from sbg_driver.msg import SbgEkfEuler
 from geodesy import utm
 
 
@@ -60,7 +60,6 @@ class ExternalDR(object):
 
     # BC tf UTM --> map and map --> odom once
     def sam_gps_cb(self, sam_gps):
-        rospy.loginfo("Aux DR: getting GPS fix")
 
         if sam_gps.status.status != -1:
 
@@ -121,18 +120,21 @@ class ExternalDR(object):
             try:
                 
                 uwgps_rel = PointStamped()
-                uwgps_rel.header.frame_id = gps_odom_msg.header.frame_id
-                uwgps_rel.header.stamp = gps_odom_msg.header.stamp
+                uwgps_rel.header.frame_id = "master_link"
+                uwgps_rel.header.stamp = rospy.Time(0)
                 uwgps_rel.point.x = gps_odom_msg.pose.pose.position.x
                 uwgps_rel.point.y = gps_odom_msg.pose.pose.position.y
-                uwgps_rel.point.z = gps_odom_msg.pose.pose.position.y
+                uwgps_rel.point.z = gps_odom_msg.pose.pose.position.z
                 
                 self.uwgps_odom = self.listener.transformPoint(
                     self.odom_frame, uwgps_rel)
-            
+
+                # rospy.loginfo(
+                #     "Aux DR: UW GPS to odom successful")
+
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 rospy.logwarn(
-                    "Aux DR: Transform master to odom not available yet")
+                    "Aux DR: Transform master to uwgps not available yet")
 
 
     def dr_timer(self, event):
@@ -145,7 +147,7 @@ class ExternalDR(object):
             odom_msg = Odometry()
             odom_msg.header.frame_id = self.odom_frame
             odom_msg.header.stamp = rospy.Time.now()
-            odom_msg.child_frame_id = "sam_test"
+            odom_msg.child_frame_id = "sam_test_wl"
             odom_msg.pose.pose.position.x = self.uwgps_odom.point.x
             odom_msg.pose.pose.position.y = self.uwgps_odom.point.y
             odom_msg.pose.pose.position.z = self.uwgps_odom.point.z
@@ -162,7 +164,7 @@ class ExternalDR(object):
             self.br.sendTransform([self.uwgps_odom.point.x, self.uwgps_odom.point.y, self.uwgps_odom.point.z],
                                 quat_t,
                                 rospy.Time.now(),
-                                "sam_test",
+                                "sam_test_wl",
                                 self.odom_frame)
 
 

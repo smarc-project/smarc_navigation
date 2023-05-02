@@ -24,6 +24,14 @@
           <param name="base_frame" value="$(arg namespace)/base_link" />
         </node>
 
+        <!-- Required to reply filtered rosbags offline -->
+        <!-- <param name="robot_description"
+           command="$(find xacro)/xacro '$(find sam_description)/robots/sam_auv_$(arg mode).urdf.xacro' debug:=$(arg debug) namespace:=$(arg namespace)" />
+
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen">
+          <param name="robot_description" value="/$(arg namespace)/robot_description" />
+        </node> -->
+
         <node name="gps_pose_pub" pkg="sam_dead_reckoning" type="gps_node.py" respawn="true" output="screen">
           <param name="gps_topic" value="/$(arg namespace)/core/gps" />
           <param name="map_frame" value="map" />
@@ -52,14 +60,14 @@
           <param name="dr_period" value="0.02" />
         </node>
       
-        <include file="$(find auv_particle_filter)/launch/auv_pf.launch">
+        <!-- <include file="$(find auv_particle_filter)/launch/auv_pf.launch">
             <arg name="map_frame" value="map"/>
             <arg name="utm_frame" value="utm"/>
             <arg name="odom_frame" value="$(arg namespace)/odom"/>
             <arg name="base_frame" value="$(arg namespace)/base_link" />
             <arg name="odom_topic" value="$(arg odom_topic)" />
             <arg name="gps_odom_topic" value="$(arg gps_odom_topic)" />
-        </include>
+        </include> -->
 
         <node pkg="auv_particle_filter" name="visual_tools" type="visual_tools.py" output="screen">
           <param name="odom_topic" value="$(arg odom_topic)" />
@@ -73,6 +81,9 @@
 	    	  <param name="topic_from_dvl" value="$/(arg namespace)/core/dvl"/>
         	<param name="loop_freq" value="10" />
     	  </node>
+
+        <node pkg="sam_dead_reckoning" name="yaw_2_heading" type="yaw_2_heading.py" output="screen"/>
+
 
       </group>
     </group>
