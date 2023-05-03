@@ -54,6 +54,7 @@
           <param name="odom_frame" value="$(arg namespace)/odom" />
           <param name="utm_frame" value="utm" />
           <param name="base_frame" value="$(arg namespace)/base_link" />
+          <param name="base_frame_2d" value="$(arg namespace)/base_link_2d" />
           <param name="map_frame" value="map" />
           <param name="dvl_frame" value="$(arg namespace)/dvl_link" />
           <param name="dvl_period" value="0.1" />
