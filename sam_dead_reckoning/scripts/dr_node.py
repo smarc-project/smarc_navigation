@@ -25,6 +25,7 @@ class VehicleDR(object):
         self.stim_topic = rospy.get_param('~imu', '/sam/core/imu')
         self.sbg_topic = rospy.get_param('~sbg_topic', '/sam/core/imu')
         self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
+        self.base_frame_2d = rospy.get_param('~base_frame_2d', 'sam/base_link')
         self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
         self.map_frame = rospy.get_param('~map_frame', 'map')
         self.utm_frame = rospy.get_param('~utm_frame', 'utm')
@@ -230,7 +231,15 @@ class VehicleDR(object):
                         rospy.Time.now(),
                         self.base_frame,
                         self.odom_frame)
-
+            
+            # Base link frame 
+            quat_t = tf.transformations.quaternion_from_euler(0., 0., pose_t[5])
+            self.br.sendTransform([pose_t[0], pose_t[1], pose_t[2]],
+                        quat_t,
+                        rospy.Time.now(),
+                        self.base_frame_2d,
+                        self.odom_frame)
+            
             self.t_now += self.dr_period
 
             # Update global variable
