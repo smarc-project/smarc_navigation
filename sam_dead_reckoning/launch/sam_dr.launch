@@ -69,11 +69,11 @@
             <arg name="gps_odom_topic" value="$(arg gps_odom_topic)" />
         </include> -->
 
-        <node pkg="auv_particle_filter" name="visual_tools" type="visual_tools.py" output="screen">
+        <!--<node pkg="auv_particle_filter" name="visual_tools" type="visual_tools.py" output="screen">
           <param name="odom_topic" value="$(arg odom_topic)" />
           <param name="odom_corrected_topic" value="/$(arg namespace)/dr/odom_corrected"/>
           <param name="gps_odom_topic" value="$(arg gps_odom_topic)" />
-        </node>
+        </node>-->
 
         <!--Including tf_convenience topics-->
     	  <node name="odom_listener" pkg="tf_convenience_topics" type="odom_listener" output="screen" >
