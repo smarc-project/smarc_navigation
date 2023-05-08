@@ -148,9 +148,9 @@ include
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(dr_node 
-	src/dr_node.cpp
-	src/dr_provider.cpp)
+#add_executable(dr_node 
+#	src/dr_node.cpp
+#	src/dr_provider.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -160,15 +160,15 @@ add_executable(dr_node
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(dr_node 
-	${${PROJECT_NAME}_EXPORTED_TARGETS} 
-	${catkin_EXPORTED_TARGETS}
-)
+#add_dependencies(dr_node 
+	#${${PROJECT_NAME}_EXPORTED_TARGETS} 
+	#${catkin_EXPORTED_TARGETS}
+	#)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(dr_node
-  ${catkin_LIBRARIES}
-)
+#target_link_libraries(dr_node
+#  ${catkin_LIBRARIES}
+#)
 
 #############
 ## Install ##
@@ -176,7 +176,7 @@ target_link_libraries(dr_node
 
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
-catkin_install_python(PROGRAMS scripts/acc_model.py scripts/press_to_depth.py scripts/dvl_twist.py
+catkin_install_python(PROGRAMS scripts/press_to_depth.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
@@ -188,11 +188,11 @@ catkin_install_python(PROGRAMS scripts/acc_model.py scripts/press_to_depth.py sc
 # )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS dr_node
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+#install(TARGETS dr_node
+#  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+#)
 
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/
