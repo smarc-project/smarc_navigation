@@ -86,8 +86,8 @@
         <!-- Temp: provides heading for nodered -->
         <node pkg="sam_dead_reckoning" name="yaw_2_heading" type="yaw_2_heading.py" output="screen"/>
 
-
-        <node pkg="sam_dead_reckoning" name="wp_vis_node" type="path_vis_node.py" output="screen"/>
+        <!-- Rviz vis of latest WP from nodered -->
+        <node pkg="sam_dead_reckoning" name="wp_vis_node" type="wp_vis_node.py" output="screen"/>
 
 
       </group>
