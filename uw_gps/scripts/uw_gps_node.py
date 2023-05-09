@@ -1,23 +1,21 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 """
-Create tracklog from Water Linked Underwater GPS
+Get position from Water Linked Underwater GPS
 """
-from __future__ import print_function
-import requests
 import argparse
-import time
-import logging
-import datetime
-import gpxpy
-import gpxpy.gpx
+import json
+import requests
 import rospy
-import utm 
 from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import PoseStamped
+import tf
+import tf2_ros
+from geodesy import utm
+import numpy as np
+from geometry_msgs.msg import Quaternion, TransformStamped
 
-class UWGps():
+class UWGPSNode():
 
     def get_data(self, url):
         try:
@@ -32,131 +30,185 @@ class UWGps():
 
         return r.json()
 
+    def get_antenna_position(self, base_url):
+        return self.get_data("{}/api/v1/config/antenna".format(base_url))
+
     def get_acoustic_position(self, base_url):
         return self.get_data("{}/api/v1/position/acoustic/filtered".format(base_url))
 
-
-    def get_global_position(self, base_url):
+    def get_global_position(self, base_url, acoustic_depth = None):
         return self.get_data("{}/api/v1/position/global".format(base_url))
-
+    
     def get_master_position(self, base_url):
         return self.get_data("{}/api/v1/position/master".format(base_url))
+    
+    def get_master_imu(self, base_url):
+        return self.get_data("{}/api/v1/imu/calibrate".format(base_url))
+    
+    def set_position_master(self, url, latitude, longitude, orientation):
+        payload = dict(lat=latitude, lon=longitude, orientation=orientation)
+        # Keep loop running even if for some reason there is no connection.
+        try:
+            requests.put(url, json=payload, timeout=1)
+        except requests.exceptions.RequestException as err:
+            print("Serial connection error: {}".format(err))
 
+    # BC tf UTM --> master (NED)
+    def wl_gps(self, master_gps):
+
+        if master_gps.status.status != -1:
+
+            utm_master = utm.fromLatLong(
+                master_gps.latitude, master_gps.longitude)
+            
+            # try:
+            #     (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame,
+            #                                                              "map",
+            #                                                              rospy.Time(0))
+
+            # except (tf.LookupException, tf.ConnectivityException):
+            #     rospy.loginfo("Aux DR: broadcasting transform %s to %s" % (self.utm_frame, "map"))
+
+            #     utm_sam = utm.fromLatLong(master_gps.latitude, master_gps.longitude)
+                
+            #     transformStamped = TransformStamped()
+            #     quat = tf.transformations.quaternion_from_euler(np.pi, -np.pi/2., 0., axes='rxzy')
+            #     transformStamped.transform.translation.x = utm_sam.northing
+            #     transformStamped.transform.translation.y = utm_sam.easting
+            #     transformStamped.transform.translation.z = 0.
+            #     transformStamped.transform.rotation = Quaternion(*quat)
+            #     transformStamped.header.frame_id = self.utm_frame
+            #     transformStamped.child_frame_id = "map"
+            #     transformStamped.header.stamp = rospy.Time.now()
+            #     self.static_tf_bc.sendTransform(transformStamped)
+            
+            master_imu = self.get_master_imu(self.base_url)
+            quat_transf = tf.transformations.quaternion_from_euler(
+                np.pi, -np.pi/2., 0., axes='rxzy')
+            # if master_imu:
+            print("Master imu roll {}, pitch {}, yaw {}".format(master_imu["roll"], master_imu["pitch"], master_imu["yaw"]))
+            euler_rad = np.deg2rad([master_imu["roll"], master_imu["pitch"], master_imu["yaw"]])
+            euler_rad = [(angle + np.pi) % (2 * np.pi) - np.pi for angle in  euler_rad]
+            # Rotate to go from NED to ENU
+            quat_ned = tf.transformations.quaternion_from_euler(
+                0.,0.,euler_rad[2], axes='sxyz')
+                # euler_rad[0],euler_rad[1],euler_rad[2], axes='sxyz')
+            quat_enu = quat_ned * quat_transf
+            mag = np.linalg.norm(quat_enu)
+            quat_enu /= mag
+        
+            quat_b = [0.,0.,0.,1.]
+            transformStamped = TransformStamped()
+            transformStamped.header.stamp = rospy.Time.now()
+            transformStamped.header.frame_id = self.utm_frame
+            transformStamped.child_frame_id = self.master_frame
+            transformStamped.transform.translation.x = utm_master.northing
+            transformStamped.transform.translation.y = utm_master.easting
+            transformStamped.transform.translation.z = 0.
+            transformStamped.transform.rotation = Quaternion(*quat_transf)
+            self.tf_bc.sendTransform(transformStamped)
+            
+            rospy.loginfo("UW GPS node: broadcasting transform %s to %s" % (self.utm_frame, self.master_frame))
+
+        else:
+            rospy.logwarn("WL GPS status -1")
+            
 
     def __init__(self):
-        log = logging.getLogger()
-        logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
-        gps_global_pub = rospy.Publisher('/sam/dr/uw_gps_global', NavSatFix, queue_size=10)
-        odom_pub = rospy.Publisher('/sam/dr/uw_gps_odom', Odometry, queue_size=10)
-        gps_master_pub = rospy.Publisher('/sam/dr/uw_gps_master', NavSatFix, queue_size=10)
-        pose_pub = rospy.Publisher('/sam/dr/uw_gps_pose', PoseStamped, queue_size=10)
-        
-        parser = argparse.ArgumentParser(description=__doc__)
-        parser.add_argument('-u', '--url', help='Base URL to use', type=str, default='http://demo.waterlinked.com')
-        parser.add_argument('-o', '--output', help='Output filename', type=str, default='tracklog.gpx')
+        # TODO: use uwgps_link instead of base_link
+        self.utm_frame = rospy.get_param('~utm_frame', 'utm')
+        self.uwgps_frame = rospy.get_param('~uwgps_frame', 'sam/uwgps_link')
+        self.base_frame = rospy.get_param('~base_frame', 'base_link')
+        self.master_frame = rospy.get_param('~master_frame', 'master_link')
+        self.antenna = rospy.get_param('~bool_antenna', False)
+        self.uw_gps_odom = rospy.get_param('~uw_gps_odom', '/sam/external/uw_gps_odom')
+        self.uw_gps_latlon = rospy.get_param('~uw_gps_latlon', '/sam/external/uw_gps_latlon')
+        self.external_gps = rospy.get_param('~wl_gps', '/sam/external/uw_gps_latlon')
+        # self.base_url = rospy.get_param('~uwgps_server_ip', "http://192.168.2.94")
+        self.base_url = rospy.get_param('~uwgps_server_ip', "https://demo.waterlinked.com")
 
-        args = parser.parse_args()
+        self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
+        self.tf_bc = tf2_ros.TransformBroadcaster()
+        self.master_pos_ext = None
+        self.listener = tf.TransformListener()
 
-        base_url = args.url
-        filename = args.output
-        log.info("Creating tracklog from: {} into file {}. Press Ctrl-C to stop logging".format(base_url, filename))
+        self.gps_global_pub = rospy.Publisher(self.uw_gps_latlon, NavSatFix, queue_size=10)
+        self.uwgps_odom_pub = rospy.Publisher(self.uw_gps_odom, Odometry, queue_size=10)
+        self.wl_gps_sub = rospy.Subscriber(self.external_gps, NavSatFix, self.wl_gps)
 
-        gpx = gpxpy.gpx.GPX()
 
-        # Create track
-        gpx_track = gpxpy.gpx.GPXTrack()
-        gpx.tracks.append(gpx_track)
+        print("Using base_url: %s" % self.base_url)
 
-        # Create segment
-        gpx_segment_master = gpxpy.gpx.GPXTrackSegment()
-        gpx_segment_global = gpxpy.gpx.GPXTrackSegment()
+        while not rospy.is_shutdown():
 
-        gpx_track.segments.append(gpx_segment_master)
-        gpx_track.segments.append(gpx_segment_global)
+            print("------------------------")
+           
+            # Acoustic position: x,y,z wrt to master cage
+            acoustic_position = self.get_acoustic_position(self.base_url)
+            if acoustic_position:
+                print("Current acoustic position. X: {}, Y: {}, Z: {}".format(
+                    acoustic_position["x"],
+                    acoustic_position["y"],
+                    acoustic_position["z"]))
+                depth = acoustic_position["z"]
 
-        # Open file for writing so we don't get an access denied error
-        # after a full log session is completed
-        f = open(filename, "w")
+                # UW GPS 
+                t_now = rospy.Time.now()
+                rot = [0., 0., 0., 1.]
+                               
+                odom_msg = Odometry()
+                odom_msg.header.stamp = t_now
+                odom_msg.header.frame_id = self.master_frame
+                odom_msg.child_frame_id = self.uwgps_frame
+                odom_msg.pose.covariance = [0.] * 36
+                odom_msg.pose.pose.position.x = acoustic_position["y"]
+                odom_msg.pose.pose.position.y = acoustic_position["x"]
+                odom_msg.pose.pose.position.z = -acoustic_position["z"]
+                odom_msg.pose.pose.orientation = Quaternion(*rot)
+                self.uwgps_odom_pub.publish(odom_msg)
 
-        try:
-            while True:
-                pos_global = self.get_global_position(base_url)
-                if not pos_global:
-                    log.warning("Got no global position")
-                    continue
+                transformStamped = TransformStamped()
+                transformStamped.header.stamp = t_now
+                transformStamped.header.frame_id = self.master_frame
+                transformStamped.child_frame_id = self.uwgps_frame
+                transformStamped.transform.translation.x = acoustic_position["y"]
+                transformStamped.transform.translation.y = acoustic_position["x"]
+                transformStamped.transform.translation.z = -acoustic_position["z"]
+                transformStamped.transform.rotation = Quaternion(*rot)
+                self.tf_bc.sendTransform(transformStamped)
 
-                lat_global = pos_global["lat"]
-                lon_global = pos_global["lon"]
+            else:
+                rospy.logwarn("UW GPS: relative position not received")
+            
+            # Locator global position (lat/lon)
+            global_position = self.get_global_position(self.base_url)
+            if global_position:
 
-                pos_master = self.get_master_position(base_url)
-                if not pos_master:
-                    log.warning("Got no master position")
-                    continue
-
-                lat_master = pos_master["lat"]
-                lon_master = pos_master["lon"]
-
-                acoustic = self.get_acoustic_position(base_url)
-                if not acoustic:
-                    log.warning("Got no acoustic position")
-                    continue
-
-                depth = acoustic["z"]
-                altitude = -depth
-
-                log.info("Global: Lat: {} Lon: {} Alt: {}".format(lat_global, lon_global, altitude))
-                gpx_segment_global.points.append(gpxpy.gpx.GPXTrackPoint(lat_global, lon_global, elevation=-altitude, time=datetime.datetime.utcnow()))
-
-                log.info("Master: Lat: {} Lon: {}".format(lat_master, lon_master))
-                gpx_segment_master.points.append(gpxpy.gpx.GPXTrackPoint(lat_master, lon_master, time=datetime.datetime.utcnow()))
+                print("Current global position. Latitude: {}, Longitude: {}".format(
+                    global_position["lat"],
+                    global_position["lon"]))
+                
+                t_now = rospy.Time.now()
 
                 gps_msg = NavSatFix()
-                gps_msg.header.frame_id = 'world'
-                gps_msg.header.stamp = rospy.Time.now()
-                gps_msg.latitude = lat_global
-                gps_msg.longitude = lon_global
-                gps_msg.altitude = altitude 
-                gps_global_pub.publish(gps_msg)
+                gps_msg.header.frame_id = self.uwgps_frame
+                gps_msg.header.stamp = t_now
+                gps_msg.status.status = 0
+                gps_msg.latitude = global_position["lat"]
+                gps_msg.longitude = global_position["lon"]
+                gps_msg.altitude = 0.
+                self.gps_global_pub.publish(gps_msg)
 
-                gps_msg.header.frame_id = 'uw_master'
-                gps_msg.header.stamp = rospy.Time.now()
-                gps_msg.latitude = lat_master 
-                gps_msg.longitude = lon_master 
-                gps_msg.altitude = 0.0 
-                gps_master_pub.publish(gps_msg)
+            else:
+                rospy.logwarn("UW GPS: global position not received")
+            
+            rospy.sleep(0.1)
 
-                pose_msg = PoseStamped()
-                pose_msg.header.frame_id = 'map'
-                pose_msg.header.stamp = rospy.Time.now()
-                pose_msg.pose.position.x = lat_global
-                pose_msg.pose.position.y = lon_global
-                pose_msg.pose.position.z = -depth 
-
-                pose_pub.publish(pose_msg)
-
-                #  (utm_x, utm_y, utm_zone, utm_letter) = utm.from_latlon(lat_global, lon_global)
-                #  odom_msg = Odometry()
-                #  odom_msg.header.frame_id = 'world'
-                #  odom_msg.child_frame_id = 'base_link'
-                #  odom_msg.pose.pose.position.x = lat_global
-                #  odom_msg.pose.pose.position.y = lon_global
-                #  odom_msg.pose.pose.position.z = depth
-
-                #  odom_pub.publish(odom_msg)
-
-                time.sleep(1)
-
-        except KeyboardInterrupt:
-            pass
-    
-        print("Saving data to file: {}".format(filename))
-        f.write(gpx.to_xml())
-        f.close()
 
 if __name__ == "__main__":
-    rospy.init_node('uw_gps_node')
+    rospy.init_node("uw_gps_node")
     try:
-        UWGps()
+        UWGPSNode()
     except rospy.ROSInterruptException:
         pass
