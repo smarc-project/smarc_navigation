@@ -83,6 +83,26 @@ class VehicleDR(object):
         self.u = [0., dr]
         self.thrust_cmd = ThrusterAngles()
 
+
+        # Transforms from base_link to press_link
+        tfBuffer = tf2_ros.Buffer()
+        tf2_ros.TransformListener(tfBuffer)
+        try:
+            rospy.loginfo("DR Waiting for transform %s to %s" %
+                          (self.base_frame, self.press_frame))
+            self.b2d_tf = tfBuffer.lookup_transform(self.base_frame, self.press_frame,
+                                               rospy.Time(0), timeout=rospy.Duration(60))
+            rospy.loginfo("DR: got transform %s to %s" %
+                          (self.base_frame, self.press_frame))
+            self.depth_meas = True
+
+        except:
+            rospy.logwarn("DR node: could not get transform %s to %s" %
+                          (self.base_frame, self.press_frame))
+            rospy.logwarn("Assuming surface vehicle")
+
+            return
+        
         # Connect
         self.pub_odom = rospy.Publisher(self.odom_top, Odometry, queue_size=100)
         self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb)
@@ -146,20 +166,6 @@ class VehicleDR(object):
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 rospy.logwarn("DR: Transform to utm-->map not available yet")
             pass
-
-        # Is there a depth sensor? If so, AUV.
-        try:
-            # TODO: test this on SAM. If needed, add wait()
-            (self.b2p_trans, b2p_rot) = self.listener.lookupTransform(self.base_frame, 
-                                                                self.press_frame,
-                                                                rospy.Time(0))
-            self.depth_meas = True
-            rospy.loginfo("DR node: got transform %s to %s" % (self.base_frame, self.press_frame))            
-
-        except (tf.LookupException, tf.ConnectivityException):
-            rospy.logwarn("DR node: could not get transform %s to %s" % (self.base_frame, self.press_frame))            
-            rospy.logwarn("Assuming surface vehicle")
-
 
 
     def dr_timer(self, event):
@@ -253,9 +259,9 @@ class VehicleDR(object):
 
     def depth_cb(self, depth_msg):
 
-        # TODO: test with SAM data
         if self.depth_meas:
-            self.base_depth = depth_msg.pose.pose.position.z + self.b2p_trans[0] * np.sin(self.rot_t[1])
+            self.base_depth = depth_msg.pose.pose.position.z + \
+                self.b2d_tf.transform.translation.x * np.sin(self.rot_t[1])
 
 
     def sbg_cb(self, sbg_msg):
