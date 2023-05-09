@@ -30,7 +30,13 @@
 
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen">
           <param name="robot_description" value="/$(arg namespace)/robot_description" />
+        </node>
+
+        <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" respawn="true" output="screen">
+          <param name="use_gui" value="false"/>
+          <rosparam param="source_list">["/sam/command_states"]</rosparam>
         </node> -->
+        <!-- until here -->
 
         <node name="gps_pose_pub" pkg="sam_dead_reckoning" type="gps_node.py" respawn="true" output="screen">
           <param name="gps_topic" value="/$(arg namespace)/core/gps" />
