@@ -1,0 +1,27 @@
+<launch>
+
+  <arg name="debug" default="0"/>
+  <arg name="mode" default="default"/>
+  <arg name="namespace" default="sam"/>
+  <arg name="odom_topic" default="/$(arg namespace)/dr/odom" />
+  <arg name="gps_odom_topic" default="/$(arg namespace)/dr/gps_odom"/>
+  
+  <arg name="gps_port" value="/dev/ttyACM0"/>
+  <arg name="gps_baud" value="115200"/>
+
+    <group ns="$(arg namespace)">
+
+      <group ns="external">
+        <node pkg="nmea_navsat_driver" type="nmea_serial_driver" name="navsat_external" respawn="true">
+          <param name="port" value="$(arg gps_port)"/>
+          <param name="baud" value="$(arg gps_baud)"/>
+          <param name="frame_id" value="external/gps_link"/>
+          <remap from="fix" to="gps"/>
+        </node>
+	<param name="robot_description"
+           command="$(find xacro)/xacro '$(find sam_description)/robots/sam_auv_$(arg mode).urdf.xacro' debug:=$(arg debug) namespace:=$(arg namespace)" />
+      </group>
+    
+    </group>
+
+</launch>
