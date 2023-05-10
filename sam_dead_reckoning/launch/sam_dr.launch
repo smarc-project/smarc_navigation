@@ -6,14 +6,22 @@
   <arg name="odom_topic" default="/$(arg namespace)/dr/odom" />
   <arg name="gps_odom_topic" default="/$(arg namespace)/dr/gps_odom"/>
   
+  <arg name="utm_zone" default="32"/>
+  <arg name="utm_band" default="V"/>
+  
+  <arg name="gps_port" value="/dev/ttyACM0"/>
+  <arg name="gps_baud" value="115200"/>
+
     <group ns="$(arg namespace)">
-    
+
       <group ns="dr">
 
-        <!-- Services to go to/from latlon to UTM -->
-        <include file="$(find tf_lat_lon)/launch/tf_lat_lon.launch">
-            <arg name="frame" value="$(arg namespace)/base_link"/>
-        </include>
+        <node pkg="tf_lat_lon" type="tf_lat_lon_node" name="tf_lat_lon_node" output="screen">
+          <param name="frame" value="$(arg frame)"/>
+          <param name="utm_zone" value="$(arg utm_zone)"/>
+          <param name="utm_band" value="$(arg utm_band)"/>
+          <remap from="tf_lat_lon" to="$(arg lat_lon_topic)"/>
+        </node>
 
         <!-- Depth from pressure sensor converter -->
         <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
@@ -39,7 +47,7 @@
         <!-- until here -->
 
         <node name="gps_pose_pub" pkg="sam_dead_reckoning" type="gps_node.py" respawn="true" output="screen">
-          <param name="gps_topic" value="/$(arg namespace)/core/gps" />
+          <param name="gps_topic" value="/$(arg namespace)/external/gps" />
           <param name="map_frame" value="map" />
           <param name="utm_frame" value="utm" />
           <param name="gps_frame" value="$(arg namespace)/gps_link" />
@@ -94,7 +102,6 @@
 
         <!-- Rviz vis of latest WP from nodered -->
         <node pkg="sam_dead_reckoning" name="wp_vis_node" type="wp_vis_node.py" output="screen"/>
-
 
       </group>
     </group>

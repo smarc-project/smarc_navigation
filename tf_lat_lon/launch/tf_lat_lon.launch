@@ -2,6 +2,8 @@
 
 <arg name="frame" default="sam/base_link"/>
 <arg name="lat_lon_topic" default="lat_lon"/>
+<arg name="utm_zone" default="32"/>
+<arg name="utm_band" default="V"/>
 
 <!-- <param name="utm_zone" type="int" value="32"/> -->
 <!-- <param name="utm_band" type="string" value="V"/> -->
