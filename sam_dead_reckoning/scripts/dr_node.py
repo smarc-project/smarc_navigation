@@ -15,6 +15,7 @@ from std_srvs.srv import SetBool, SetBoolRequest, SetBoolRequest
 # from sbg_driver.msg import SbgEkfEuler
 from sam_mm import *
 from sam_msgs.msg import ThrusterAngles
+from sbg_driver.msg import SbgEkfQuat
 
 
 class VehicleDR(object):
@@ -105,7 +106,7 @@ class VehicleDR(object):
         
         # Connect
         self.pub_odom = rospy.Publisher(self.odom_top, Odometry, queue_size=100)
-        self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb)
+        self.sbg_sub = rospy.Subscriber(self.sbg_topic, SbgEkfQuat, self.sbg_cb)
         self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
         self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb)
         self.depth_sub = rospy.Subscriber(self.depth_top, PoseWithCovarianceStamped, self.depth_cb)
@@ -146,12 +147,10 @@ class VehicleDR(object):
 
                 if self.init_heading:
                     rospy.loginfo("DR node: broadcasting transform %s to %s" % (self.map_frame, self.odom_frame))            
-                    # SBG points to north while map's x axis points east (ENU) so 
-                    # the map --> odom tf needs an extra +90 deg turn in z 
-
-                    euler = euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
-                    quat = quaternion_from_euler(0.,0., euler[2]) # -0.3 for feb_24 with floatsam
                     
+                    # -0.3 for feb_24 with floatsam
+                    quat = quaternion_from_euler(
+                        0., 0., self.init_yaw + np.pi/2)
                     self.transformStamped.transform.translation.x = gps_map.point.x
                     self.transformStamped.transform.translation.y = gps_map.point.y
                     self.transformStamped.transform.translation.z = 0.
@@ -265,9 +264,19 @@ class VehicleDR(object):
 
 
     def sbg_cb(self, sbg_msg):
-        self.init_quat = sbg_msg.orientation
-        self.init_heading = True
-        # self.euler_sub.unregister()
+        self.init_quat = sbg_msg.quaternion
+        
+        if not self.init_heading:
+            self.init_heading = True
+            self.init_yaw = euler_from_quaternion(
+                [self.init_quat.y, self.init_quat.x, -self.init_quat.z, self.init_quat.w])[2]
+        else:
+            self.rot_sbg = np.array([sbg_msg.quaternion.y,
+                                     sbg_msg.quaternion.x,
+                                     -sbg_msg.quaternion.z,
+                                     sbg_msg.quaternion.w])
+            self.rot_t[2] = tf.transformations.euler_from_quaternion(
+                self.rot_sbg)[2] - self.init_yaw
 
 
     def fullRotation(self, roll, pitch, yaw):

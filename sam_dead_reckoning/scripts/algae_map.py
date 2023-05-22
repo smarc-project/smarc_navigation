@@ -90,7 +90,7 @@ class PubBuoyTf(object):
             navsatfix.longitude = self.longs[i]
             
             self.publisher_transform(navsatfix)
-            rospy.sleep(0.1)
+            rospy.sleep(0.2)
 
         rospy.spin()
         
