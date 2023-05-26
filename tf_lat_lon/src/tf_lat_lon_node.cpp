@@ -170,7 +170,7 @@ public:
     {
         ros::NodeHandle pn("~");
         pn.param<std::string>("frame", frame, "sam/base_link");
-        pn.param<int>("/utm_zone", utm_zone, 32);
+        pn.param<int>("/utm_zone", utm_zone, 34);
         pn.param<string>("/utm_band", utm_band, "V");
         
         ROS_INFO("Starting tf lat lon server with UTM zone: %d, band: %s...", utm_zone, utm_band.c_str());

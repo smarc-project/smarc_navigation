@@ -217,7 +217,7 @@ class VehicleDR(object):
             odom_msg = Odometry()
             odom_msg.header.frame_id = self.odom_frame
             odom_msg.header.stamp = rospy.Time.now()
-            odom_msg.child_frame_id = self.base_frame
+            odom_msg.child_frame_id = "base_test" #self.base_frame
             odom_msg.pose.pose.position.x = pose_t[0]
             odom_msg.pose.pose.position.y = pose_t[1]
             odom_msg.pose.pose.position.z = pose_t[2]
@@ -234,7 +234,8 @@ class VehicleDR(object):
             self.br.sendTransform([pose_t[0], pose_t[1], pose_t[2]],
                         quat_t,
                         rospy.Time.now(),
-                        self.base_frame,
+                        #self.base_frame,
+                        "base_test",
                         self.odom_frame)
             
             # Base link frame 

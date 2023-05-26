@@ -258,6 +258,14 @@ class auv_pf(object):
                                     rospy.Time.now(),
                                     self.base_frame,
                                     self.odom_frame)
+        
+        quat_t = quaternion_from_euler(0., 0., yaw)
+        self.loc_tf.sendTransform([ave_pose[0], ave_pose[1], 0.],
+                                    quat_t,
+                                    rospy.Time.now(),
+                                    "sam/base_link_2d",
+                                    self.odom_frame)
+
 
     # TODO: publish markers instead of poses
     #       Optimize this function
