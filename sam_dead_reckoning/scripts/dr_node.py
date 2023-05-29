@@ -107,6 +107,7 @@ class VehicleDR(object):
         # Connect
         self.pub_odom = rospy.Publisher(self.odom_top, Odometry, queue_size=100)
         self.sbg_sub = rospy.Subscriber(self.sbg_topic, SbgEkfQuat, self.sbg_cb)
+        # self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb)
         self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
         self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb)
         self.depth_sub = rospy.Subscriber(self.depth_top, PoseWithCovarianceStamped, self.depth_cb)
@@ -147,6 +148,9 @@ class VehicleDR(object):
 
                 if self.init_heading:
                     rospy.loginfo("DR node: broadcasting transform %s to %s" % (self.map_frame, self.odom_frame))            
+                    
+                    # euler = euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
+                    # quat = quaternion_from_euler(0.,0., euler[2]) # -0.3 for feb_24 with floatsam
                     
                     # -0.3 for feb_24 with floatsam
                     quat = quaternion_from_euler(
@@ -265,6 +269,9 @@ class VehicleDR(object):
 
 
     def sbg_cb(self, sbg_msg):
+        # self.init_quat = sbg_msg.orientation
+        # self.init_heading = True
+        
         self.init_quat = sbg_msg.quaternion
         
         if not self.init_heading:
