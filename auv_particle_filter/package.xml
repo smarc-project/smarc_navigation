@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>auv_particle_filter</name>
-  <version>0.0.19</version>
+  <version>0.0.20</version>
   <description>The auv_particle_filter package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
