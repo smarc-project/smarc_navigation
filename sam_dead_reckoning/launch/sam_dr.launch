@@ -68,7 +68,8 @@
           <param name="dvl_topic" value="/$(arg namespace)/core/dvl" />
           <param name="odom_topic" value="$(arg odom_topic)" />
           <param name="stim_imu" value="/$(arg namespace)/core/imu" />
-          <param name="sbg_topic" value="/$(arg namespace)/sbg/ekf_quat" />
+          <!--<param name="sbg_topic" value="/$(arg namespace)/sbg/ekf_quat" />-->
+          <param name="sbg_topic" value="/$(arg namespace)/core/sbg_imu" />
           <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                               <!---->
           <param name="thrust1_fb" value="/$(arg namespace)/core/thruster1_fb" />
           <param name="thrust2_fb" value="/$(arg namespace)/core/thruster2_fb" />
@@ -85,14 +86,14 @@
           <param name="dr_period" value="0.02" />
         </node>
      
-        <!-- <include file="$(find auv_particle_filter)/launch/auv_pf.launch">
+        <include file="$(find auv_particle_filter)/launch/auv_pf.launch">
             <arg name="map_frame" value="map"/>
             <arg name="utm_frame" value="utm"/>
             <arg name="odom_frame" value="$(arg namespace)/odom"/>
             <arg name="base_frame" value="$(arg namespace)/base_link" />
             <arg name="odom_topic" value="$(arg odom_topic)" />
             <arg name="gps_odom_topic" value="$(arg gps_odom_topic)" />
-        </include>-->
+        </include>
 
         <!-- <node pkg="auv_particle_filter" name="visual_tools" type="visual_tools.py" output="screen">
           <param name="odom_topic" value="$(arg odom_topic)" />

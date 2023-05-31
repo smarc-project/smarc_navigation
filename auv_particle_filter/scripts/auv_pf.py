@@ -100,7 +100,7 @@ class auv_pf(object):
         # Aux topic to simulate diving
         dive_top = rospy.get_param("~aux_dive", '/dive')
         rospy.Subscriber(dive_top, Bool, self.dive_cb, queue_size=100)
-        self.diving = True
+        self.diving = False
 
         # GPS odom topic, in UTM frame
         gps_top = rospy.get_param("~gps_odom_topic", '/gps')
@@ -123,7 +123,7 @@ class auv_pf(object):
         self.diving = dive_msg.data
 
     def gps_odom_cb(self, gps_odom):
-        if self.old_time and self.time > self.old_time:
+        if self.old_time: # and self.time > self.old_time:
             # To simulate diving as absence of GPS in floatsam        
             if not self.diving:
                 # Meas update
@@ -131,6 +131,7 @@ class auv_pf(object):
 
                 # Particle resampling
                 self.resample(weights)
+                #self.diving = True
     
     def update(self, gps_odom):
         
