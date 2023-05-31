@@ -268,8 +268,8 @@ class VehicleDR(object):
     def depth_cb(self, depth_msg):
 
         if self.depth_meas:
-            self.base_depth = depth_msg.pose.pose.position.z - \
-                self.b2d_tf.transform.translation.x * np.sin(self.rot_t[1])
+            self.base_depth = depth_msg.pose.pose.position.z + \
+                np.abs(self.b2d_tf.transform.translation.x) * np.sin(self.rot_t[1])
 
 
     def sbg_cb(self, sbg_msg):
