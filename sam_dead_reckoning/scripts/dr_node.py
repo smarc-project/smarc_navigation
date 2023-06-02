@@ -107,9 +107,9 @@ class VehicleDR(object):
         # Connect
         self.pub_odom = rospy.Publisher(self.odom_top, Odometry, queue_size=100)
         #self.sbg_sub = rospy.Subscriber(self.sbg_topic, SbgEkfQuat, self.sbg_cb)
-        self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb)
+        self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb,  queue_size=10)
         self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
-        self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb)
+        self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb, queue_size=10)
         self.depth_sub = rospy.Subscriber(self.depth_top, PoseWithCovarianceStamped, self.depth_cb)
         self.gps_sub = rospy.Subscriber(self.gps_topic, Odometry, self.gps_cb)
 
@@ -153,8 +153,7 @@ class VehicleDR(object):
                     quat = quaternion_from_euler(0.,0., euler[2]) # -0.3 for feb_24 with floatsam
                     
                     # -0.3 for feb_24 with floatsam
-                    #quat = quaternion_from_euler(
-                    #    0., 0., self.init_yaw + np.pi/2)
+                    #quat = quaternion_from_euler(0., 0., self.init_yaw + np.pi/2)
                     
                     self.transformStamped.transform.translation.x = gps_map.point.x
                     #self.transformStamped.transform.translation.x = 0.
@@ -224,8 +223,8 @@ class VehicleDR(object):
             odom_msg = Odometry()
             odom_msg.header.frame_id = self.odom_frame
             odom_msg.header.stamp = rospy.Time.now()
-            #odom_msg.child_frame_id = self.base_frame
-            odom_msg.child_frame_id = "base_test"
+            odom_msg.child_frame_id = self.base_frame
+            #odom_msg.child_frame_id = "base_test"
             odom_msg.pose.pose.position.x = pose_t[0]
             odom_msg.pose.pose.position.y = pose_t[1]
             odom_msg.pose.pose.position.z = pose_t[2]
@@ -242,8 +241,8 @@ class VehicleDR(object):
             self.br.sendTransform([pose_t[0], pose_t[1], pose_t[2]],
                         quat_t,
                         rospy.Time.now(),
-                        #self.base_frame,
-                        "base_test",
+                        self.base_frame,
+                        #"base_test",
                         self.odom_frame)
             
             # Base link frame 
@@ -268,7 +267,7 @@ class VehicleDR(object):
     def depth_cb(self, depth_msg):
 
         if self.depth_meas:
-            self.base_depth = depth_msg.pose.pose.position.z + \
+            self.base_depth = depth_msg.pose.pose.position.z - \
                 np.abs(self.b2d_tf.transform.translation.x) * np.sin(self.rot_t[1])
 
 

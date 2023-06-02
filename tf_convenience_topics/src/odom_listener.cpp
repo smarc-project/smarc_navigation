@@ -71,12 +71,11 @@ class OdomListener{
 
         tf::Matrix3x3(tfq).getEulerYPR(y,p,r);
 
-        // TODO: Check signs?
         //orientation
         current_pitch.data= p;
         current_roll.data= r;
         current_yaw.data= y;
-        current_depth.data= -odom_msg.pose.pose.position.z;
+        current_depth.data= odom_msg.pose.pose.position.z;
         current_x.data= odom_msg.pose.pose.position.x;
         current_y.data= odom_msg.pose.pose.position.y;
 
