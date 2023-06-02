@@ -36,7 +36,10 @@ public:
     geometry_msgs::Point convert_point(const geographic_msgs::GeoPoint& lat_lon_point)
     {
         geodesy::UTMPoint geo_utm_point;
-        geodesy::fromMsg(lat_lon_point, geo_utm_point, true, utm_band[0], utm_zone);
+	geo_utm_point.zone = utm_zone;
+	geo_utm_point.band = utm_band[0];
+	//geodesy::fromMsg(lat_lon_point, geo_utm_point, true, utm_band[0], utm_zone);
+        geodesy::fromMsg(lat_lon_point, geo_utm_point);
         // ENU -> x=easting, y=northing, z=altitude
         geometry_msgs::Point utm_point;
         utm_point.x = geo_utm_point.easting;
