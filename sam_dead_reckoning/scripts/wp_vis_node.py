@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import rospy
 from geometry_msgs.msg import Quaternion, TransformStamped
@@ -8,7 +8,7 @@ import tf
 from geodesy import utm
 import numpy as np
 import tf2_ros
-from smarc_msgs.msg import GotoWaypoint
+from smarc_bt.msg import GotoWaypoint
 import message_filters
 
 class PublishWPsVis(object):
