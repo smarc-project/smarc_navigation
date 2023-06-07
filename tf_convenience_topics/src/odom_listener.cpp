@@ -26,31 +26,29 @@ class OdomListener{
 
       std::string odom_topic_;
       std::string dvl_topic_;
-      double freq;
 
       ros::NodeHandle node_priv("~");
       node_priv.param<std::string>("odom_topic", odom_topic_, "/sam/dr/local/odom/filtered");
       node_priv.param<std::string>("dvl_topic", dvl_topic_, "/sam/core/dvl");
-      node_priv.param<double>("loop_freq", freq, 10);
 
       // initiate subscribers
       ros::Subscriber dvl_sub = node.subscribe(dvl_topic_, 1, &OdomListener::DVLCallback, this);
       ros::Subscriber odom_sub = node.subscribe(odom_topic_, 1, &OdomListener:: OdomCallback, this);
 
       // initiate publishers
-      feedback_pitch = node.advertise<std_msgs::Float64>("pitch", freq);
-      feedback_roll = node.advertise<std_msgs::Float64>("roll", freq);
-      feedback_yaw = node.advertise<std_msgs::Float64>("yaw", freq);
-      feedback_depth = node.advertise<std_msgs::Float64>("depth", freq);
-      feedback_x = node.advertise<std_msgs::Float64>("x", freq);
-      feedback_y = node.advertise<std_msgs::Float64>("y", freq);
-      feedback_u = node.advertise<std_msgs::Float64>("u", freq);
-      feedback_v = node.advertise<std_msgs::Float64>("v", freq);
-      feedback_w = node.advertise<std_msgs::Float64>("w", freq);
-      feedback_p = node.advertise<std_msgs::Float64>("p", freq);
-      feedback_q = node.advertise<std_msgs::Float64>("q", freq);
-      feedback_r = node.advertise<std_msgs::Float64>("r", freq);
-      feedback_alt = node.advertise<std_msgs::Float64>("altitude", freq);
+      feedback_pitch = node.advertise<std_msgs::Float64>("pitch", 10);
+      feedback_roll = node.advertise<std_msgs::Float64>("roll", 10);
+      feedback_yaw = node.advertise<std_msgs::Float64>("yaw", 10);
+      feedback_depth = node.advertise<std_msgs::Float64>("depth", 10);
+      feedback_x = node.advertise<std_msgs::Float64>("x", 10);
+      feedback_y = node.advertise<std_msgs::Float64>("y", 10);
+      feedback_u = node.advertise<std_msgs::Float64>("u", 10);
+      feedback_v = node.advertise<std_msgs::Float64>("v", 10);
+      feedback_w = node.advertise<std_msgs::Float64>("w", 10);
+      feedback_p = node.advertise<std_msgs::Float64>("p", 10);
+      feedback_q = node.advertise<std_msgs::Float64>("q", 10);
+      feedback_r = node.advertise<std_msgs::Float64>("r", 10);
+      feedback_alt = node.advertise<std_msgs::Float64>("altitude", 10);
 
       ros::spin();
     }

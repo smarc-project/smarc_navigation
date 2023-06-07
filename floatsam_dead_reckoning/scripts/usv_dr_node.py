@@ -13,16 +13,15 @@ from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolRequest
 # from sbg_driver.msg import SbgEkfEuler
-from floatsam_mm import *
-from sam_msgs.msg import ThrusterAngles
+# from floatsam_mm import *
+# from sam_msgs.msg import ThrusterAngles
 from sbg_driver.msg import SbgEkfQuat
 
 
 class VehicleDR(object):
 
     def __init__(self):
-        # self.dvl_topic = rospy.get_param('~dvl_topic', '/sam/core/dvl')
-        self.odom_top = rospy.get_param('~odom_topic', '/sam/dr/dvl_dr')                         #topic used in the launch file for the DVL sensor
+        self.odom_top = rospy.get_param('~odom_topic', '/sam/dr/dvl_dr')
         self.stim_topic = rospy.get_param('~imu', '/sam/core/imu')
         self.sbg_topic = rospy.get_param('~sbg_topic', '/sam/core/imu')
         self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
@@ -30,15 +29,15 @@ class VehicleDR(object):
         self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
         self.map_frame = rospy.get_param('~map_frame', 'map')
         self.utm_frame = rospy.get_param('~utm_frame', 'utm')
+        # self.dvl_topic = rospy.get_param('~dvl_topic', '/sam/core/dvl')
         # self.dvl_frame = rospy.get_param('~dvl_frame', 'dvl_link')
         # self.dvl_period = rospy.get_param('~dvl_period', 0.2)
         self.dr_period = rospy.get_param('~dr_period', 0.02)
-        self.depth_top = rospy.get_param('~depth_topic', '/depth')
-        self.press_frame = rospy.get_param('~pressure_frame', 'pressure_link')
         self.rpm1_topic = rospy.get_param('~thrust1_fb', '/sam/core/rpm_fb1')
         self.rpm2_topic = rospy.get_param('~thrust2_fb', '/sam/core/rpm_fb2')
         self.thrust_topic = rospy.get_param('~thrust_vec_cmd', '/sam/core/thrust')
         self.gps_topic = rospy.get_param('~gps_odom_topic', '/sam/core/gps')
+        self.KT = rospy.get_param('~KT_thrusters', 0.1)
         # self.dr_pub_period = rospy.get_param('~dr_pub_period', 0.1)
 
         self.listener = tf.TransformListener()
@@ -77,13 +76,11 @@ class VehicleDR(object):
         self.base_depth = 0. # abs depth of base frame
 
         # Motion model
-        self.floatsam = FloatSAM() 
-        self.mm_on = False
-        self.mm_linear_vel = [0.] * 3
-        # dr = np.clip(0., -7 * np.pi / 180, 7 * np.pi / 180)
+        # self.floatsam = FloatSAM() 
+        # self.mm_on = False
+        # self.mm_linear_vel = [0.] * 3
+        # dr = np.clip(0., -7 * np.pi / 180, 7 * np.pi / 180)        
         self.u = np.array([0., 0.])
-        self.KT = 0.1
-        self.thrust_cmd = ThrusterAngles()
 
         # Connect
         self.pub_odom = rospy.Publisher(self.odom_top, Odometry, queue_size=100)
@@ -94,7 +91,6 @@ class VehicleDR(object):
         # self.depth_sub = rospy.Subscriber(self.depth_top, PoseWithCovarianceStamped, self.depth_cb)
         self.gps_sub = rospy.Subscriber(self.gps_topic, Odometry, self.gps_cb)
 
-        self.thrust_cmd_sub = rospy.Subscriber(self.thrust_topic, ThrusterAngles, self.thrust_cmd_cb)
         self.thrust1_sub = message_filters.Subscriber(self.rpm1_topic, ThrusterFeedback)
         self.thrust2_sub = message_filters.Subscriber(self.rpm2_topic, ThrusterFeedback)
         self.ts = message_filters.ApproximateTimeSynchronizer([self.thrust1_sub, self.thrust2_sub],
@@ -104,10 +100,6 @@ class VehicleDR(object):
         rospy.Timer(rospy.Duration(self.dr_period), self.dr_timer)
 
         rospy.spin()
-
-
-    def thrust_cmd_cb(self, thrust_cmd_msg):
-        self.thrust_cmd = thrust_cmd_msg
 
 
     def gps_cb(self, gps_msg):
@@ -215,7 +207,6 @@ class VehicleDR(object):
             self.pos_t = pose_t[0:3]
 
     def thrust_cb(self, thrust1_msg, thrust2_msg):
-        # dr = np.clip(-self.thrust_cmd.thruster_horizontal_radians, -7 * np.pi / 180, 7 * np.pi / 180)
 
         thrust = thrust1_msg.rpm.rpm + thrust2_msg.rpm.rpm
         self.u = np.array([thrust, thrust])
