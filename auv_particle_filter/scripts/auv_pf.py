@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Standard dependencies
 import rospy
@@ -29,6 +29,7 @@ class auv_pf(object):
         self.base_frame = rospy.get_param('~base_frame', 'base_link') 
         self.utm_frame = rospy.get_param('~utm_frame', 'utm') 
         self.odom_frame = rospy.get_param('~odom_frame', 'sam/odom')
+        self.base_frame_2d = rospy.get_param('~base_frame_2d', 'sam/base_link')
 
         # Initialize tf listener
         tfBuffer = tf2_ros.Buffer()
@@ -264,7 +265,7 @@ class auv_pf(object):
         self.loc_tf.sendTransform([ave_pose[0], ave_pose[1], 0.],
                                     quat_t,
                                     rospy.Time.now(),
-                                    "sam/base_link_2d",
+                                    self.base_frame_2d,
                                     self.odom_frame)
 
 
