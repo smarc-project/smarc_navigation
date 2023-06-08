@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
 
-"""
-Get position from Water Linked Underwater GPS
-"""
-import argparse
-import json
-import requests
 import rospy
 from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Odometry
@@ -15,43 +9,10 @@ from geodesy import utm
 import numpy as np
 from geometry_msgs.msg import Quaternion, TransformStamped
 
+from uwgps_interface import UWGPSInterface
+import time
+
 class UWGPSNode():
-
-    def get_data(self, url):
-        try:
-            r = requests.get(url)
-        except requests.exceptions.RequestException as exc:
-            print("Exception occured {}".format(exc))
-            return None
-
-        if r.status_code != requests.codes.ok:
-            print("Got error {}: {}".format(r.status_code, r.text))
-            return None
-
-        return r.json()
-
-    def get_antenna_position(self, base_url):
-        return self.get_data("{}/api/v1/config/antenna".format(base_url))
-
-    def get_acoustic_position(self, base_url):
-        return self.get_data("{}/api/v1/position/acoustic/filtered".format(base_url))
-
-    def get_global_position(self, base_url, acoustic_depth = None):
-        return self.get_data("{}/api/v1/position/global".format(base_url))
-    
-    def get_master_position(self, base_url):
-        return self.get_data("{}/api/v1/position/master".format(base_url))
-    
-    def get_master_imu(self, base_url):
-        return self.get_data("{}/api/v1/imu/calibrate".format(base_url))
-    
-    def set_position_master(self, url, latitude, longitude, orientation):
-        payload = dict(lat=latitude, lon=longitude, orientation=orientation)
-        # Keep loop running even if for some reason there is no connection.
-        try:
-            requests.put(url, json=payload, timeout=1)
-        except requests.exceptions.RequestException as err:
-            print("Serial connection error: {}".format(err))
 
     # BC tf UTM --> master (NED)
     def wl_gps(self, master_gps):
@@ -82,7 +43,7 @@ class UWGPSNode():
             #     transformStamped.header.stamp = rospy.Time.now()
             #     self.static_tf_bc.sendTransform(transformStamped)
             
-            master_imu = self.get_master_imu(self.base_url)
+            master_imu = self.uwgps_int.get_master_imu(self.base_url)
             quat_transf = tf.transformations.quaternion_from_euler(
                 np.pi, -np.pi/2., 0., axes='rxzy')
             # if master_imu:
@@ -128,6 +89,8 @@ class UWGPSNode():
         # self.base_url = rospy.get_param('~uwgps_server_ip', "http://192.168.2.94")
         self.base_url = rospy.get_param('~uwgps_server_ip', "https://demo.waterlinked.com")
 
+        self.uwgps_int = UWGPSInterface()
+
         self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
         self.tf_bc = tf2_ros.TransformBroadcaster()
         self.master_pos_ext = None
@@ -145,7 +108,8 @@ class UWGPSNode():
             print("------------------------")
            
             # Acoustic position: x,y,z wrt to master cage
-            acoustic_position = self.get_acoustic_position(self.base_url)
+            acoustic_position = self.uwgps_int.get_acoustic_position(
+                self.base_url)
             if acoustic_position:
                 print("Current acoustic position. X: {}, Y: {}, Z: {}".format(
                     acoustic_position["x"],
@@ -182,7 +146,7 @@ class UWGPSNode():
                 rospy.logwarn("UW GPS: relative position not received")
             
             # Locator global position (lat/lon)
-            global_position = self.get_global_position(self.base_url)
+            global_position = self.uwgps_int.get_global_position(self.base_url)
             if global_position:
 
                 print("Current global position. Latitude: {}, Longitude: {}".format(
