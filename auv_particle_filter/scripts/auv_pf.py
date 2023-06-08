@@ -19,6 +19,8 @@ from tf.transformations import identity_matrix, quaternion_from_euler, euler_fro
 # For sim mbes action client
 from auv_particle import Particle, matrix_from_tf
 from resampling import residual_resample
+from numpy import linalg as LA
+
 
 class auv_pf(object):
 
@@ -97,7 +99,7 @@ class auv_pf(object):
         # Start timing now
         self.time = rospy.Time.now().to_sec()
         self.old_time = rospy.Time.now().to_sec()
-        
+
         # Aux topic to simulate diving
         dive_top = rospy.get_param("~aux_dive", '/dive')
         rospy.Subscriber(dive_top, Bool, self.dive_cb, queue_size=100)
@@ -224,16 +226,27 @@ class auv_pf(object):
         self.loc_pose.pose.pose.position.x = ave_pose[0]
         self.loc_pose.pose.pose.position.y = ave_pose[1]
         self.loc_pose.pose.pose.position.z = ave_pose[2]
-        roll  = ave_pose[3]
-        pitch = ave_pose[4]
-
-        # TODO: fix wrapping up yaw
-        poses_array[:,5] = [(yaw + np.pi) % (2 * np.pi) - np.pi 
-                             for yaw in  poses_array[:,5]]
-        yaw = np.mean(poses_array[:,5])
         
-        quat_t = quaternion_from_euler(roll, pitch, yaw)
-        self.loc_pose.pose.pose.orientation = Quaternion(*quat_t)
+        # Avg of orientations as eigenvector with largest eigenvalue of Q*Qt
+        ors_quat = []
+        for i in range(poses_array[:, 3:6].shape[0]):
+            ors_quat.append(quaternion_from_euler(
+                poses_array[:, 3:6][i, 0], poses_array[:, 3:6][i, 1], poses_array[:, 3:6][i, 2]))
+
+        Q_T = np.asarray(ors_quat)
+        Q_quat = np.matmul(Q_T.T, Q_T)
+        w, v, = LA.eig(Q_quat)
+        l_v = v[:, np.argmax(w)]
+        self.loc_pose.pose.pose.orientation = Quaternion(*l_v)
+        
+        # roll  = ave_pose[3]
+        # pitch = ave_pose[4]
+        # poses_array[:,5] = [(yaw + np.pi) % (2 * np.pi) - np.pi 
+        #                      for yaw in  poses_array[:,5]]
+        # yaw = np.mean(poses_array[:,5])
+        # quat_t = quaternion_from_euler(roll, pitch, yaw)
+        # self.loc_pose.pose.pose.orientation = Quaternion(*quat_t)
+        
         self.loc_pose.header.stamp = rospy.Time.now()
         
         # Calculate covariance
