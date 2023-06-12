@@ -161,9 +161,9 @@ class VehicleDR(object):
                 # Integrate linear velocities from DVL
                 # If last DVL msg isn't too old
                 if self.t_now - self.t_dvl_prev < self.dvl_period and \
-                        abs(self.dvl_latest.velocity.y) < 0.2 and \
-                        abs(self.dvl_latest.velocity.x) < 1.5 and \
-                        self.dvl_latest.velocity.x > -0.1:
+                        abs(self.dvl_latest.velocity.y) < 0.4 and \
+                        abs(self.dvl_latest.velocity.x) < 2. and \
+                        self.dvl_latest.velocity.x > -0.4:
                     
                     lin_vel_t = np.array([self.dvl_latest.velocity.x,
                                             self.dvl_latest.velocity.y,

@@ -134,7 +134,7 @@ class auv_pf(object):
 
                 # Particle resampling
                 self.resample(weights)
-                self.diving = True
+                # self.diving = True
     
     def update(self, gps_odom):
         
