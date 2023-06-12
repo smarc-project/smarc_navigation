@@ -64,7 +64,7 @@
           <!-- <param name="dvl_frame" value="$(arg namespace)/dvl_link" /> -->
           <!-- <param name="dvl_period" value="0.1" /> -->
           <param name="dr_period" value="0.01" />
-          <param name="KT_thrusters" value="0.1" />
+          <param name="KT_thrusters" value="0.001" />
         </node>
       
         <include file="$(find auv_particle_filter)/launch/auv_pf.launch">

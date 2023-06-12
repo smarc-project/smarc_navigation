@@ -21,7 +21,6 @@
   <arg name="measurement_std"  default="1."/>
 
   <group ns="$(arg namespace)">
-    <group ns="localization">
       <node type="auv_pf.py" pkg="auv_particle_filter" name="auv_pf" output="screen">
         <param name="particle_count"          type= "int"     value="$(arg particle_count)" />
         <param name="init_covariance"                         value="$(arg init_covariance)" />
@@ -36,8 +35,8 @@
         <param name="base_frame"                              value="$(arg base_frame)" />
         <param name="odom_corrected_topic"                    value="/$(arg namespace)/dr/odom"/>
         <param name="particle_poses_topic"                    value="/$(arg namespace)/dr/particle_poses"/>
+	<param name="base_frame_2d"                    value="$(arg base_frame_2d)"/>
       </node>
-    </group>
   </group>
 </launch>
 

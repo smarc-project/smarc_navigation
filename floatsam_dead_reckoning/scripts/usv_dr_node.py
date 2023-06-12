@@ -22,7 +22,7 @@ class VehicleDR(object):
 
     def __init__(self):
         self.odom_top = rospy.get_param('~odom_topic', '/sam/dr/dvl_dr')
-        self.stim_topic = rospy.get_param('~imu', '/sam/core/imu')
+        self.stim_topic = rospy.get_param('~stim_imu', '/sam/core/imu')
         self.sbg_topic = rospy.get_param('~sbg_topic', '/sam/core/imu')
         self.base_frame = rospy.get_param('~base_frame', 'sam/base_link')
         self.base_frame_2d = rospy.get_param('~base_frame_2d', 'sam/base_link')
@@ -62,7 +62,7 @@ class VehicleDR(object):
         self.t_pub = 0. 
 
         # # DVL integration
-        # self.pos_t = [0.] * 3
+        self.pos_t = [0.] * 3
         # self.t_dvl_prev = 0.
         # self.dvl_on = False
         # self.dvl_latest = DVL()
@@ -194,12 +194,12 @@ class VehicleDR(object):
                         "base_test",
                         self.odom_frame)
             
-            quat_t = tf.transformations.quaternion_from_euler(0., 0., pose_t[5])
-            self.br.sendTransform([pose_t[0], pose_t[1], pose_t[2]],
-                        quat_t,
-                        rospy.Time.now(),
-                        self.base_frame_2d,
-                        self.odom_frame)
+            #quat_t = tf.transformations.quaternion_from_euler(0., 0., pose_t[5])
+            #self.br.sendTransform([pose_t[0], pose_t[1], pose_t[2]],
+            #            quat_t,
+            #            rospy.Time.now(),
+            #            self.base_frame_2d,
+            #            self.odom_frame)
             
             self.t_now += self.dr_period
 
