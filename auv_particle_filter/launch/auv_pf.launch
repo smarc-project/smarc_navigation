@@ -10,7 +10,7 @@
 
   <arg name="odom_topic" default="/$(arg namespace)/dr/odom" />
   <arg name="gps_odom_topic"  default="/$(arg namespace)/dr/gps"/>
-  <arg name="base_frame_2d" value="$(arg namespace)/base_link_2d" />
+  <arg name="base_frame_2d" default="$(arg namespace)/base_link_2d" />
 
   <!-- PF args -->
   <arg name="particle_count"  default="10"/>
