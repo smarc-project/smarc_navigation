@@ -169,13 +169,13 @@ class VehicleDR(object):
                                             self.dvl_latest.velocity.y,
                                             self.dvl_latest.velocity.z])    
 
-                    print("DVL vel ", lin_vel_t)
+                    # print("DVL vel ", lin_vel_t)
 
             else:
-   
-                # Linear vels from diff drive
-                lin_vel_t[0:2] = np.matmul(np.matrix([[np.cos(pose_t[5]), 0], 
-                                                        [0, np.sin(pose_t[5])]]), 0.5 * self.KT * self.u)
+                rospy.logwarn("No DVL data coming in")
+                # # Linear vels from diff drive
+                # lin_vel_t[0:2] = np.matmul(np.matrix([[np.cos(pose_t[5]), 0], 
+                #                                         [0, np.sin(pose_t[5])]]), 0.5 * self.KT * self.u)
             
             # Integrate linear vels                    
             step_t = np.matmul(rot_mat_t, lin_vel_t * self.dr_period)
