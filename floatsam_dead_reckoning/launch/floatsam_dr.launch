@@ -4,7 +4,7 @@
   <arg name="mode" default="default"/>
   <arg name="namespace" default="floatsam"/>
   <arg name="odom_topic" default="/$(arg namespace)/dr/odom_raw" />
-  <arg name="gps_odom_topic" default="/$(arg namespace)/dr/gps"/>
+  <arg name="gps_odom_topic" default="/$(arg namespace)/dr/gps_odom"/>
   
   <group ns="$(arg namespace)">
 
@@ -37,8 +37,8 @@
           <param name="rtk_prt_frame" value="$(arg namespace)/rtk_prt_link" />
           <param name="rtk_stb_frame" value="$(arg namespace)/rtk_stb_link" />
           <!-- Output topics -->
-          <param name="rtk_odom_topic" value="$(arg gps_odom_topic)" />
-          <param name="aux_gps_odom_topic" value="/$(arg namespace)/dr/gps_aux_odom" />
+          <param name="rtk_odom_topic" value="/$(arg namespace)/dr/gps_aux_odom" />
+          <param name="aux_gps_odom_topic" value="$(arg gps_odom_topic)" />
           <param name="rtk_prt_odom_top" value="/$(arg namespace)/dr/rtk_prt_odom" />
           <param name="rtk_stb_odom_top" value="/$(arg namespace)/dr/rtk_stb_odom" />
           <!-- Input topics -->
