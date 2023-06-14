@@ -28,6 +28,8 @@ class UWGPSPayload(object):
         self.goal_tolerance = rospy.get_param('~goal_tolerance', 1.)
         self.node_freq = rospy.get_param('~node_freq', 1.)
         self.base_frame = rospy.get_param('~base_frame', "floatsam/base_link")
+
+        self.point_pub = rospy.Publisher("/test/uw_gps/point", PointStamped, queue_size=10)
         
         self.uwgps_int = UWGPSInterface()
         rospy.on_shutdown(self.shutdown_node)
@@ -66,6 +68,9 @@ class UWGPSPayload(object):
 
                     try:
                         goal_base = self.listener.transformPoint(self.base_frame, goal_point)
+                        # For visualization
+                        self.point_pub.publish(goal_base)
+                        
                         print("Goal in base frame")
                         print(goal_base.point)
 
