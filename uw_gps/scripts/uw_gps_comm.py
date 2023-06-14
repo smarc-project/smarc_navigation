@@ -40,7 +40,7 @@ class UWCommGPS(object):
             # uint32 sender_id
 
             ucomm_gps = UnderwaterGPS()
-            ucomm_gps.frame = self.utm_frame
+            # ucomm_gps.frame = self.utm_frame
             ucomm_gps.timestamp = goal_utm.header.stamp
             
             ucomm_gps.easting = goal_utm.point.x
@@ -56,6 +56,7 @@ class UWCommGPS(object):
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 print("UW Comm GPS: Could not transform WP to utm")
                 pass
+
 
     def __init__(self):
 
