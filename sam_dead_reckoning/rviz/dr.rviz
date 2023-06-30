@@ -10,8 +10,12 @@ Panels:
         - /TF1
         - /TF1/Frames1
         - /Odometry1/Shape1
+        - /Odometry1/Covariance1/Position1
         - /Odometry2/Shape1
+        - /Odometry2/Covariance1
         - /Odometry3/Shape1
+        - /PoseArray1
+        - /PoseArray2
       Splitter Ratio: 0.520588219165802
     Tree Height: 1239
   - Class: rviz/Selection
@@ -59,53 +63,57 @@ Visualization Manager:
       Value: true
     - Class: rviz/TF
       Enabled: true
+      Filter (blacklist): ""
+      Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
         All Enabled: false
         map:
           Value: true
-        master_link:
-          Value: true
+        sam/back_prop_link:
+          Value: false
         sam/base_link:
+          Value: false
+        sam/base_link_2d:
+          Value: false
+        sam/battery_link:
           Value: false
         sam/camera_down_link:
           Value: false
-        sam/cover_link:
+        sam/camera_front_left_link:
           Value: false
-        sam/dvl_down_link:
+        sam/camera_front_link:
+          Value: false
+        sam/camera_front_right_link:
           Value: false
         sam/dvl_link:
           Value: false
-        sam/dvl_port_link:
-          Value: false
-        sam/dvl_starboard_link:
+        sam/front_prop_link:
           Value: false
         sam/gps_link:
           Value: false
         sam/imu_link:
           Value: false
         sam/odom:
-          Value: true
-        sam/pose_sensor_link:
           Value: false
         sam/pressure_link:
           Value: false
         sam/sbg_link:
           Value: false
-        sam/shaft_link:
+        sam/sidescan_link:
           Value: false
-        sam/shaft_link_dummy:
+        sam/tcg1_link:
           Value: false
-        sam/thruster_1:
+        sam/tcg2_link:
           Value: false
-        sam/thruster_2:
+        sam/thruster_link:
           Value: false
-        sam/uwgps_link:
-          Value: true
-        sam_test:
-          Value: true
+        sam/thruster_yaw_link:
+          Value: false
+        sam/uw_gps_link:
+          Value: false
         utm:
-          Value: true
+          Value: false
       Marker Alpha: 1
       Marker Scale: 2
       Name: TF
@@ -116,10 +124,44 @@ Visualization Manager:
         utm:
           map:
             sam/odom:
-              {}
-          master_link:
-            sam/uwgps_link:
-              {}
+              sam/base_link:
+                sam/back_prop_link:
+                  {}
+                sam/battery_link:
+                  {}
+                sam/camera_down_link:
+                  {}
+                sam/camera_front_left_link:
+                  {}
+                sam/camera_front_link:
+                  {}
+                sam/camera_front_right_link:
+                  {}
+                sam/dvl_link:
+                  {}
+                sam/front_prop_link:
+                  {}
+                sam/gps_link:
+                  {}
+                sam/imu_link:
+                  {}
+                sam/pressure_link:
+                  {}
+                sam/sbg_link:
+                  {}
+                sam/sidescan_link:
+                  {}
+                sam/tcg1_link:
+                  {}
+                sam/tcg2_link:
+                  {}
+                sam/thruster_yaw_link:
+                  sam/thruster_link:
+                    {}
+                sam/uw_gps_link:
+                  {}
+              sam/base_link_2d:
+                {}
       Update Interval: 0
       Value: true
     - Alpha: 0.699999988079071
@@ -190,8 +232,8 @@ Visualization Manager:
           Color: 204; 51; 204
           Scale: 1
           Value: true
-        Value: false
-      Enabled: false
+        Value: true
+      Enabled: true
       Keep: 0
       Name: Odometry
       Position Tolerance: 0.10000000149011612
@@ -206,9 +248,9 @@ Visualization Manager:
         Shaft Length: 0.10000000149011612
         Shaft Radius: 0.05000000074505806
         Value: Arrow
-      Topic: /sam/dr/odom_corrected
+      Topic: /sam/dr/ds_odom
       Unreliable: false
-      Value: false
+      Value: true
     - Angle Tolerance: 0.10000000149011612
       Class: rviz/Odometry
       Covariance:
@@ -226,7 +268,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: false
-      Enabled: true
+      Enabled: false
       Keep: 1000
       Name: Odometry
       Position Tolerance: 0.10000000149011612
@@ -243,7 +285,7 @@ Visualization Manager:
         Value: Arrow
       Topic: /sam/dr/gps_odom
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Arrow Length: 0.30000001192092896
       Axes Length: 0.30000001192092896
@@ -258,7 +300,24 @@ Visualization Manager:
       Shaft Length: 0.23000000417232513
       Shaft Radius: 0.009999999776482582
       Shape: Arrow (Flat)
-      Topic: /sam/dr/particle_poses
+      Topic: /sam/dr/sam_particle_poses
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Arrow Length: 0.30000001192092896
+      Axes Length: 0.30000001192092896
+      Axes Radius: 0.009999999776482582
+      Class: rviz/PoseArray
+      Color: 252; 233; 79
+      Enabled: true
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
+      Name: PoseArray
+      Queue Size: 10
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
+      Shape: Arrow (Flat)
+      Topic: /sam/dr/ds_particle_poses
       Unreliable: false
       Value: true
   Enabled: true
@@ -289,7 +348,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 50.902320861816406
+      Distance: 6.478753566741943
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -297,17 +356,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 2.6168079376220703
+        Y: 0.24651993811130524
+        Z: -0.0005718739703297615
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 0.29979658126831055
       Target Frame: sam_test
-      Yaw: 3.2635812759399414
+      Yaw: 2.1853973865509033
     Saved: ~
 Window Geometry:
   Displays:
@@ -325,5 +384,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 2560
-  X: 0
+  X: 40
   Y: 27

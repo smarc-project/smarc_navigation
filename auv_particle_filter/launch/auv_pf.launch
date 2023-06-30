@@ -35,7 +35,7 @@
         <param name="base_frame"                              value="$(arg base_frame)" />
         <param name="odom_corrected_topic"                    value="/$(arg namespace)/dr/odom"/>
         <param name="particle_poses_topic"                    value="/$(arg namespace)/dr/particle_poses"/>
-	<param name="base_frame_2d"                    value="$(arg base_frame_2d)"/>
+	      <param name="base_frame_2d"                    value="$(arg base_frame_2d)"/>
       </node>
   </group>
 </launch>

@@ -197,7 +197,7 @@ public:
             transformStamped = tfBuffer.lookupTransform("utm", frame, ros::Time(0));
         }
         catch (tf2::TransformException &ex) {
-            ROS_WARN("Could not get lat/lon: %s", ex.what());
+            // ROS_WARN("Could not get lat/lon: %s", ex.what());
             return;
         }
 

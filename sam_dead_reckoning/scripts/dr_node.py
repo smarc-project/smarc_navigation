@@ -88,21 +88,21 @@ class VehicleDR(object):
         # Transforms from base_link to press_link
         tfBuffer = tf2_ros.Buffer()
         tf2_ros.TransformListener(tfBuffer)
-        try:
-            rospy.loginfo("DR Waiting for transform %s to %s" %
-                          (self.base_frame, self.press_frame))
-            self.b2d_tf = tfBuffer.lookup_transform(self.base_frame, self.press_frame,
-                                               rospy.Time(0), timeout=rospy.Duration(60))
-            rospy.loginfo("DR: got transform %s to %s" %
-                          (self.base_frame, self.press_frame))
-            self.depth_meas = True
+        # try:
+        #     rospy.loginfo("DR Waiting for transform %s to %s" %
+        #                   (self.base_frame, self.press_frame))
+        #     self.b2d_tf = tfBuffer.lookup_transform(self.base_frame, self.press_frame,
+        #                                        rospy.Time(0), timeout=rospy.Duration(1))
+        #     rospy.loginfo("DR: got transform %s to %s" %
+        #                   (self.base_frame, self.press_frame))
+        #     self.depth_meas = True
 
-        except:
-            rospy.logwarn("DR node: could not get transform %s to %s" %
-                          (self.base_frame, self.press_frame))
-            rospy.logwarn("Assuming surface vehicle")
+        # except:
+        #     rospy.logwarn("DR node: could not get transform %s to %s" %
+        #                   (self.base_frame, self.press_frame))
+        #     rospy.logwarn("Assuming surface vehicle")
 
-            return
+        #     return
         
         # Connect
         self.pub_odom = rospy.Publisher(self.odom_top, Odometry, queue_size=100)
@@ -130,7 +130,9 @@ class VehicleDR(object):
 
 
     def gps_cb(self, gps_msg):
+
         try:
+
             # goal_point_local = self.listener.transformPoint("map", goal_point)
             (world_trans, world_rot) = self.listener.lookupTransform(self.map_frame, self.odom_frame, rospy.Time(0))
 
@@ -144,7 +146,9 @@ class VehicleDR(object):
             goal_point.point.z = 0.
 
             try:
+
                 gps_map = self.listener.transformPoint(self.map_frame, goal_point)
+
 
                 if self.init_heading:
                     rospy.loginfo("DR node: broadcasting transform %s to %s" % (self.map_frame, self.odom_frame))            
@@ -169,6 +173,8 @@ class VehicleDR(object):
                     self.gps_sub.unregister()
 
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                print("[DR Node]: GPS CB except 2")
+
                 rospy.logwarn("DR: Transform to utm-->map not available yet")
             pass
 
@@ -176,13 +182,15 @@ class VehicleDR(object):
     def dr_timer(self, event):
         
         if self.init_m2o and self.init_stim:
+        # if True
 
             pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
             rot_vel_t = self.vel_rot    # TODO: rn this keeps the last vels even if the IMU dies
             lin_vel_t = np.zeros(3)
 
             # DVL data coming in
-            if self.dvl_on:
+            if True:
+            # if self.dvl_on:
                 rot_mat_t = self.fullRotation(pose_t[3], pose_t[4], pose_t[5])
 
                 # Integrate linear velocities from DVL
@@ -209,7 +217,7 @@ class VehicleDR(object):
                         [self.lin_acc_t[0], -self.lin_acc_t[1],  0.])
                     
                     lin_vel_t = self.lin_acc_t * self.dr_period
-                    #print("MM vel ", lin_vel_t)
+                    # print("MM vel ", lin_vel_t)
                     
                 # Integrate linear vels                    
                 step_t = np.matmul(rot_mat_t, lin_vel_t * self.dr_period)
