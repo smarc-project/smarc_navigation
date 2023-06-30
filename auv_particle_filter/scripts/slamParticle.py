@@ -1,18 +1,17 @@
 #!/usr/bin/env python
 
 # Standard dependencies
-import math
-import rospy
 import numpy as np
 
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
-from tf.transformations import translation_matrix, translation_from_matrix
-from tf.transformations import quaternion_matrix, quaternion_from_matrix
-
-from scipy.stats import multivariate_normal
+from tf.transformations import translation_matrix
+from tf.transformations import quaternion_matrix
 
 
 class Particle(object):
+    """
+    Class with particle definition for particle filter based SLAM
+    """
     def __init__(self, p_num, index, map2odom_matrix,
                  init_ds = [0., 0.],
                  init_cov=[0.]*12, meas_std=0.01,
@@ -21,8 +20,7 @@ class Particle(object):
         self.p_num = p_num  # What is this?
         self.index = index  # What is this?
 
-        # self.weight = 1.
-        self.p_pose = [0.]*12   # now [SAM, DS], both with 6 DoF 
+        self.p_pose = [0.]*12   # now [SAM, DS], both with 6 DoF
         self.p_pose[6:8] = init_ds # Initial estimate for the docking station position
         self.map2odom_mat = map2odom_matrix
         self.init_cov = init_cov
@@ -32,6 +30,9 @@ class Particle(object):
         self.add_noise(init_cov)
 
     def add_noise(self, noise):
+        """
+        Add noise to covariances and poses
+        """
         noise_cov =np.diag(noise)
         current_pose = np.asarray(self.p_pose)
         noisy_pose = current_pose + np.sqrt(noise_cov).dot(np.random.randn(12,1)).T
@@ -39,6 +40,10 @@ class Particle(object):
 
 
     def motion_pred(self, odom_t, dt):
+        """
+        Predict where the particle will be based on SAM's and the docking stations'
+        motion model.
+        """
         # Generate noise
         noise_vec = (np.sqrt(self.process_cov)*np.random.randn(1, 12)).flatten()
 
@@ -64,14 +69,13 @@ class Particle(object):
         vel_p = np.array([odom_t.twist.twist.linear.x,
                          odom_t.twist.twist.linear.y,
                          odom_t.twist.twist.linear.z])
-        
-        rot_mat_t = self.fullRotation(roll_t,pitch_t, yaw_t)
+
+        rot_mat_t = self.full_rotation(roll_t,pitch_t, yaw_t)
         step_t = np.matmul(rot_mat_t, vel_p * dt) + noise_vec[0:3]
 
         self.p_pose[0] += step_t[0]
         self.p_pose[1] += step_t[1]
-        # Depth can be read directly
-        self.p_pose[2] = odom_t.pose.pose.position.z
+        self.p_pose[2] = odom_t.pose.pose.position.z    # Depth can be read directly
 
         ## Docking Station motion model
         # Assume the docking station doesn't move.
@@ -84,27 +88,32 @@ class Particle(object):
         # Linear motion
         ds_lin_vel = np.array([0., 0., 0.])
 
-        ds_rot_mat_t = self.fullRotation(*ds_rot_t)
+        ds_rot_mat_t = self.full_rotation(*ds_rot_t)
         ds_lin_t = np.matmul(ds_rot_mat_t, ds_lin_vel * dt) + noise_vec[6:9]
 
         self.p_pose[6:9] += ds_lin_t
 
 
     def get_p_pose(self):
-        # Find particle's mbes_frame pose in the map frame 
+        """
+        Convert pose into position vector and rotation matrix
+        """
         t_particle = translation_matrix(self.p_pose[0:3])
         q = quaternion_from_euler(self.p_pose[3],self.p_pose[4],self.p_pose[5])
         q_particle = quaternion_matrix(q)
         mat = np.dot(t_particle, q_particle)
-        
-        trans_mat = self.map2odom_mat.dot(mat)
-        self.p = trans_mat[0:3, 3]
-        self.R = trans_mat[0:3, 0:3]
-        
-        return (self.p, self.R)
 
-    
-    def fullRotation(self, roll, pitch, yaw):
+        trans_mat = self.map2odom_mat.dot(mat)
+        p = trans_mat[0:3, 3]
+        R = trans_mat[0:3, 0:3]
+
+        return (p, R)
+
+
+    def full_rotation(self, roll, pitch, yaw):
+        """
+        Calculate a rotation around x, y, and z axis
+        """
         rot_z = np.array([[np.cos(yaw), -np.sin(yaw), 0.0],
                           [np.sin(yaw), np.cos(yaw), 0.0],
                           [0., 0., 1]])
@@ -119,13 +128,19 @@ class Particle(object):
 
 
     def compute_weight(self, docking_station_pose):
-        # TODO: Used 1/distance to compute the weight, because we went to penealize big differences between the 
+        """
+        Compute the weight of the particle based on the distance between
+        SAM and the docking station measured by the perception node
+        and encoded in the particle's states.
+        """
+        # TODO: Used 1/distance to compute the weight,
+        # because we went to penealize big differences between the
         # particle states and the perception measurements.
 
         perception_diff = np.zeros(2)
         perception_diff[0] = self.p_pose[6] - docking_station_pose.pose.pose.position.x
         perception_diff[1] = self.p_pose[7] - docking_station_pose.pose.pose.position.y
-        
+
         perception_diff_norm = np.linalg.norm(perception_diff)
 
         particle_diff = np.zeros(2)
@@ -139,6 +154,9 @@ class Particle(object):
 
 
 def matrix_from_tf(transform):
+    """
+    Transform a transform message into a numpy matrix.
+    """
     if transform._type == 'geometry_msgs/TransformStamped':
         transform = transform.transform
 
