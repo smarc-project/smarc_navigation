@@ -57,7 +57,7 @@
         <!-- until here -->
 
         <node name="gps_pose_pub" pkg="sam_dead_reckoning" type="gps_node.py" respawn="true" output="screen">
-          <param name="gps_topic" value="/$(arg namespace)/core/gps" />
+          <param name="gps_topic" value="/$(arg namespace)/external/gps" />
           <param name="map_frame" value="map" />
           <param name="utm_frame" value="utm" />
           <param name="gps_frame" value="$(arg namespace)/gps_link" />
