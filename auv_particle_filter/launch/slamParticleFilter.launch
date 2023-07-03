@@ -23,7 +23,7 @@
   <arg name="measurement_std"  default="2."/>
 
   <group ns="$(arg namespace)">
-      <node type="slamParticleFilter.py" pkg="auv_particle_filter" name="slamParticleFilter" output="screen">
+      <node type="slam_particle_filter.py" pkg="auv_particle_filter" name="slam_particle_filter" output="screen">
         <param name="particle_count" type= "int" value="$(arg particle_count)" />
         <param name="ds_range" value="$(arg ds_range)" />        
 

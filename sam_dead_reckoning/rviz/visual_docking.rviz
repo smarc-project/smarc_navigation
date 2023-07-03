@@ -1,0 +1,416 @@
+Panels:
+  - Class: rviz/Displays
+    Help Height: 78
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Status1
+        - /Grid1
+        - /TF1
+        - /TF1/Frames1
+        - /Odometry1/Shape1
+        - /Odometry1/Covariance1/Position1
+        - /Odometry2/Shape1
+        - /Odometry2/Covariance1
+        - /PoseArray1
+        - /PoseArray2
+        - /Cam_Forward1
+        - /Cam_Port1
+        - /Cam_Starboard1
+        - /Perception1
+      Splitter Ratio: 0.520588219165802
+    Tree Height: 549
+  - Class: rviz/Selection
+    Name: Selection
+  - Class: rviz/Tool Properties
+    Expanded:
+      - /2D Pose Estimate1
+      - /2D Nav Goal1
+      - /Publish Point1
+    Name: Tool Properties
+    Splitter Ratio: 0.5886790156364441
+  - Class: rviz/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+  - Class: rviz/Time
+    Name: Time
+    SyncMode: 0
+    SyncSource: Cam_Forward
+Preferences:
+  PromptSaveOnExit: true
+Toolbars:
+  toolButtonStyle: 2
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 90
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz/TF
+      Enabled: true
+      Filter (blacklist): ""
+      Filter (whitelist): ""
+      Frame Timeout: 15
+      Frames:
+        All Enabled: false
+        ds_base_link:
+          Value: true
+        map:
+          Value: true
+        sam/back_prop_link:
+          Value: false
+        sam/base_link:
+          Value: false
+        sam/base_link_2d:
+          Value: false
+        sam/battery_link:
+          Value: false
+        sam/camera_down_link:
+          Value: false
+        sam/camera_front_left_link:
+          Value: false
+        sam/camera_front_link:
+          Value: false
+        sam/camera_front_right_link:
+          Value: false
+        sam/dvl_link:
+          Value: false
+        sam/front_prop_link:
+          Value: false
+        sam/gps_link:
+          Value: false
+        sam/imu_link:
+          Value: false
+        sam/odom:
+          Value: false
+        sam/pressure_link:
+          Value: false
+        sam/sbg_link:
+          Value: false
+        sam/sidescan_link:
+          Value: false
+        sam/tcg1_link:
+          Value: false
+        sam/tcg2_link:
+          Value: false
+        sam/thruster_link:
+          Value: false
+        sam/thruster_yaw_link:
+          Value: false
+        sam/uw_gps_link:
+          Value: false
+        utm:
+          Value: false
+      Marker Alpha: 1
+      Marker Scale: 2
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Tree:
+        utm:
+          map:
+            sam/odom:
+              ds_base_link:
+                {}
+              sam/base_link:
+                sam/back_prop_link:
+                  {}
+                sam/battery_link:
+                  {}
+                sam/camera_down_link:
+                  {}
+                sam/camera_front_left_link:
+                  {}
+                sam/camera_front_link:
+                  {}
+                sam/camera_front_right_link:
+                  {}
+                sam/dvl_link:
+                  {}
+                sam/front_prop_link:
+                  {}
+                sam/gps_link:
+                  {}
+                sam/imu_link:
+                  {}
+                sam/pressure_link:
+                  {}
+                sam/sbg_link:
+                  {}
+                sam/sidescan_link:
+                  {}
+                sam/tcg1_link:
+                  {}
+                sam/tcg2_link:
+                  {}
+                sam/thruster_yaw_link:
+                  sam/thruster_link:
+                    {}
+                sam/uw_gps_link:
+                  {}
+              sam/base_link_2d:
+                {}
+      Update Interval: 0
+      Value: true
+    - Alpha: 0.699999988079071
+      Blocks: 3
+      Class: rviz_plugins/AerialMapDisplay
+      Draw Behind: false
+      Enabled: false
+      Map Frame: map
+      Map transform type: NavSatFix Messages and Map Frame
+      Name: AerialMapDisplay
+      Object URI: https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png
+      Topic: /sam/core/gps
+      UTM Frame: utm
+      UTM Zone: -1
+      Value: false
+      XY Reference: <NavSatFix Message>
+      Z Offset: 0
+      Z Reference: <NavSatFix Message>
+      Zoom: 19
+    - Angle Tolerance: 0.10000000149011612
+      Class: rviz/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: true
+      Keep: 1
+      Name: Odometry
+      Position Tolerance: 0.10000000149011612
+      Queue Size: 10
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 25; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 0.10000000149011612
+        Shaft Radius: 0.05000000074505806
+        Value: Arrow
+      Topic: /sam/dr/odom
+      Unreliable: false
+      Value: true
+    - Angle Tolerance: 0.10000000149011612
+      Class: rviz/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: true
+      Keep: 1
+      Name: Odometry
+      Position Tolerance: 0.10000000149011612
+      Queue Size: 10
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 252; 233; 79
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 0.10000000149011612
+        Shaft Radius: 0.05000000074505806
+        Value: Arrow
+      Topic: /sam/dr/ds_odom
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Arrow Length: 0.30000001192092896
+      Axes Length: 0.30000001192092896
+      Axes Radius: 0.009999999776482582
+      Class: rviz/PoseArray
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
+      Name: PoseArray
+      Queue Size: 10
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
+      Shape: Arrow (Flat)
+      Topic: /sam/dr/sam_particle_poses
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Arrow Length: 0.30000001192092896
+      Axes Length: 0.30000001192092896
+      Axes Radius: 0.009999999776482582
+      Class: rviz/PoseArray
+      Color: 252; 233; 79
+      Enabled: true
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
+      Name: PoseArray
+      Queue Size: 10
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
+      Shape: Arrow (Flat)
+      Topic: /sam/dr/ds_particle_poses
+      Unreliable: false
+      Value: true
+    - Class: rviz/Image
+      Enabled: true
+      Image Topic: /sam/payload/cam_forward/image_raw
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Cam_Forward
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Unreliable: false
+      Value: true
+    - Class: rviz/Image
+      Enabled: true
+      Image Topic: /sam/payload/cam_port/image_raw
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Cam_Port
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Unreliable: false
+      Value: true
+    - Class: rviz/Image
+      Enabled: true
+      Image Topic: /sam/payload/cam_starboard/image_raw
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Cam_Starboard
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Unreliable: false
+      Value: true
+    - Class: rviz/Image
+      Enabled: true
+      Image Topic: /lolo_camera/image_processed_pose
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Perception
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Unreliable: false
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Default Light: true
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz/Interact
+      Hide Inactive Objects: true
+    - Class: rviz/MoveCamera
+    - Class: rviz/Select
+    - Class: rviz/FocusCamera
+    - Class: rviz/Measure
+    - Class: rviz/SetInitialPose
+      Theta std deviation: 0.2617993950843811
+      Topic: /initialpose
+      X std deviation: 0.5
+      Y std deviation: 0.5
+    - Class: rviz/SetGoal
+      Topic: /move_base_simple/goal
+    - Class: rviz/PublishPoint
+      Single click: true
+      Topic: /clicked_point
+  Value: true
+  Views:
+    Current:
+      Class: rviz/Orbit
+      Distance: 8.276254653930664
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Field of View: 0.7853981852531433
+      Focal Point:
+        X: -1.4152212142944336
+        Y: -0.12534309923648834
+        Z: 0.4732509255409241
+      Focal Shape Fixed Size: false
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.8497963547706604
+      Target Frame: sam_test
+      Yaw: 2.085397958755493
+    Saved: ~
+Window Geometry:
+  Cam_Forward:
+    collapsed: false
+  Cam_Port:
+    collapsed: false
+  Cam_Starboard:
+    collapsed: false
+  Displays:
+    collapsed: false
+  Height: 1536
+  Hide Left Dock: false
+  Hide Right Dock: false
+  Perception:
+    collapsed: false
+  QMainWindow State: 000000ff00000000fd00000004000000000000015600000416fc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb0000001400500065007200630065007000740069006f006e0100000189000001600000001600fffffffb000000100044006900730070006c00610079007301000002ef000002b0000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f00000416fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000018900000416000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000a0000000146fc0100000004fb0000001000430061006d005f0050006f007200740100000000000002cf0000007700fffffffb0000001600430061006d005f0046006f0072007700610072006401000002d5000004db0000009300fffffffb0000001a00430061006d005f00530074006100720062006f00610072006401000007b60000024a0000009e00fffffffb0000000a00560069006500770073030000004e00000080000002e1000001970000000300000a000000003efc0100000002fb0000000800540069006d0065010000000000000a00000003bc00fffffffb0000000800540069006d006501000000000000045000000000000000000000078f0000041600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Selection:
+    collapsed: false
+  Time:
+    collapsed: false
+  Tool Properties:
+    collapsed: false
+  Views:
+    collapsed: false
+  Width: 2560
+  X: 40
+  Y: 27

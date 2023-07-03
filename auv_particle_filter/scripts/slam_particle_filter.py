@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+"""
+SLAM-based particle filter for underwater docking.
+"""
 
-# Standard dependencies
 import rospy
 import numpy as np
 import tf2_ros
@@ -12,8 +14,7 @@ from nav_msgs.msg import Odometry
 
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
-# For sim mbes action client
-from slamParticle import Particle, matrix_from_tf
+from slam_particle import Particle, matrix_from_tf
 from resampling import residual_resample
 from numpy import linalg as LA
 
@@ -76,7 +77,8 @@ class SlamParticleFilter(object):
         self.sam_localization_pose.header.frame_id = self.odom_frame
         self.sam_localization_pose.child_frame_id = self.base_frame
         sam_localization_topic = rospy.get_param("~odom_corrected_topic", '/average_pose')
-        self.sam_localization_pub = rospy.Publisher(sam_localization_topic, Odometry, queue_size=100)
+        self.sam_localization_pub = rospy.Publisher(sam_localization_topic,
+                                                    Odometry, queue_size=100)
 
         self.sam_localization_tf = tf.TransformBroadcaster()
 
@@ -91,6 +93,7 @@ class SlamParticleFilter(object):
 
         # Transforms from auv_2_ros
         # TODO: Get transform from sam/base_link to camera frame and transform the measurements first
+        # -> This has to go into the perception node, as it depends on which camera you use
         try:
             rospy.loginfo("Waiting for transforms")
             map2odom_tf = tf_buffer.lookup_transform(self.map_frame, self.odom_frame,
@@ -99,9 +102,23 @@ class SlamParticleFilter(object):
             rospy.loginfo("PF: got transform %s to %s" % (self.map_frame, self.odom_frame))
 
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logerr("PF: Could not lookup transform %s to %s" % (self.map_frame, self.odom_frame))
+            rospy.logerr("PF: Could not lookup transform %s to %s" 
+                         % (self.map_frame, self.odom_frame))
 
             return
+
+        # try:
+        #     rospy.loginfo("Waiting for %s to %s transform" % (self.camera_frame, self.base_frame))
+        #     camera2base_tf = tf_buffer.lookup_transform(self.base_frame, self.camera_frame,
+        #                                                 rospy.Time(0), rospy.Duration(60))
+        #     self.camera2base_mat = matrix_from_tf(camera2base_tf)
+        #     rospy.loginfo("PF: got transform %s to %s" % (self.camera_frame, self.base_frame))
+
+        # except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        #     rospy.logerr("PF: Could not lookup transform %s to %s"
+        #                  % (self.camera_frame, self.base_frame))
+
+        #     return
 
         # Initialize list of particles
         self.particles = np.empty(self.particle_count, dtype=object)
@@ -144,12 +161,11 @@ class SlamParticleFilter(object):
         Compute new particle weights based on perception input
         Resample particles based on new weights.
         """
-        if self.old_time: # and self.time > self.old_time:
-            # Meas update
-            weights = self.update(docking_station_pose)
+        # Meas update
+        weights = self.update(docking_station_pose)
 
-            # Particle resampling
-            self.resample(weights)
+        # Particle resampling
+        self.resample(weights)
 
 
     def update(self, docking_station_pose):
@@ -157,7 +173,7 @@ class SlamParticleFilter(object):
         Update individual particle weights
         """
         weights = []
-        for i in range(0, self.particle_count):                     
+        for i in range(0, self.particle_count):
             # Compute particle weight
             self.particles[i].compute_weight(docking_station_pose)
             weights.append(self.particles[i].w)

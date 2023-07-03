@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Particle module for SLAM-based particle filter to detect underwater docking station.
+"""
 
 # Standard dependencies
 import numpy as np
