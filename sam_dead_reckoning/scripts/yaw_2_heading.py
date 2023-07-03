@@ -10,8 +10,8 @@ from std_msgs.msg import Float64
 class Yaw2Heading(object):
 
 	def __init__(self):
-		self.sbg_topic = rospy.get_param('/sam/sbg/ekf_euler', '/sam/sbg/ekf_euler')
-		self.heading_topic = rospy.get_param('/sam/dr/heading', '/sam/dr/heading')
+		self.sbg_topic = rospy.get_param('/sam/sbg/ekf_euler', '/floatsam/sbg/ekf_euler')
+		self.heading_topic = rospy.get_param('/sam/dr/heading', '/floatsam/dr/heading')
 
 		self.subs = rospy.Subscriber(self.sbg_topic, SbgEkfEuler, self.headingCB)
 		self.pub = rospy.Publisher(self.heading_topic, Float64, queue_size=10)

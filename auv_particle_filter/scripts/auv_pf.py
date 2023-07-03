@@ -134,7 +134,7 @@ class auv_pf(object):
 
                 # Particle resampling
                 self.resample(weights)
-                self.diving = True
+                # self.diving = True
     
     def update(self, gps_odom):
         
@@ -269,12 +269,14 @@ class auv_pf(object):
         self.loc_pub.publish(self.loc_pose)
 
         self.loc_tf.sendTransform([ave_pose[0], ave_pose[1], 0.],
-                                    quat_t,
+                                    #quat_t,
+                                    l_v,
                                     rospy.Time.now(),
                                     self.base_frame,
                                     self.odom_frame)
         
-        quat_t = quaternion_from_euler(0., 0., yaw)
+        euler = euler_from_quaternion(l_v)
+        quat_t = quaternion_from_euler(0., 0., euler[2])
         self.loc_tf.sendTransform([ave_pose[0], ave_pose[1], 0.],
                                     quat_t,
                                     rospy.Time.now(),
