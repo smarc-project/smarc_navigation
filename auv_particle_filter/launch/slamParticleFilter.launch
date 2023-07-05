@@ -11,7 +11,7 @@
   <arg name="ds_range"  default="10"/>
 
   <arg name="odom_topic" default="/$(arg namespace)/dr/odom" />
-  <arg name="perception_topic" default="/lolo_camera/estimated_pose" />
+  <arg name="perception_topic" default="/sam/perception/estimated_pose" />
   <arg name="base_frame_2d" default="$(arg namespace)/base_link_2d" />
 
   <!-- PF args -->
