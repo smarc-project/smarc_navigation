@@ -7,9 +7,10 @@ import rospy
 import numpy as np
 import tf2_ros
 import tf
+from tf import transformations
 
 from geometry_msgs.msg import Pose, PoseArray, PoseWithCovarianceStamped
-from geometry_msgs.msg import Quaternion, Point
+from geometry_msgs.msg import Quaternion, Point, PointStamped, PoseStamped
 from nav_msgs.msg import Odometry
 
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
@@ -67,7 +68,7 @@ class SlamParticleFilter(object):
         self.sam_pose_array_pub = rospy.Publisher(sam_pose_array_topic, PoseArray, queue_size=10)
 
         self.ds_poses = PoseArray()
-        self.ds_poses.header.frame_id = self.odom_frame
+        self.ds_poses.header.frame_id = self.base_frame
         ds_pose_array_top = rospy.get_param("~ds_particle_poses_topic", '/ds_particle_poses')
         self.ds_pose_array_pub = rospy.Publisher(ds_pose_array_top, PoseArray, queue_size=10)
 
@@ -82,18 +83,22 @@ class SlamParticleFilter(object):
 
         self.sam_localization_tf = tf.TransformBroadcaster()
 
-        # Docking Station Odom
+        # Docking Station in sam/base_link
         self.ds_localization_pose = Odometry()
-        self.ds_localization_pose.header.frame_id = self.odom_frame
+        self.ds_localization_pose.header.frame_id = self.base_frame
         self.ds_localization_pose.child_frame_id = self.ds_base_frame
         ds_localization_topic = rospy.get_param("~ds_corrected_topic", '/ds_pose')
         self.ds_localization_pub = rospy.Publisher(ds_localization_topic, Odometry, queue_size=100)
 
         self.ds_localization_tf = tf.TransformBroadcaster()
 
+        # Docking Station in odom
+        self.ds_odom_pose = Odometry()
+        self.ds_odom_pose.header.frame_id = self.odom_frame
+        self.ds_odom_pose.child_frame_id = "ds_odom_frame"
+        self.ds_odom_tf = tf.TransformBroadcaster()
+
         # Transforms from auv_2_ros
-        # TODO: Get transform from sam/base_link to camera frame and transform the measurements first
-        # -> This has to go into the perception node, as it depends on which camera you use
         try:
             rospy.loginfo("Waiting for transforms")
             map2odom_tf = tf_buffer.lookup_transform(self.map_frame, self.odom_frame,
@@ -104,21 +109,7 @@ class SlamParticleFilter(object):
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.logerr("PF: Could not lookup transform %s to %s" 
                          % (self.map_frame, self.odom_frame))
-
             return
-
-        # try:
-        #     rospy.loginfo("Waiting for %s to %s transform" % (self.camera_frame, self.base_frame))
-        #     camera2base_tf = tf_buffer.lookup_transform(self.base_frame, self.camera_frame,
-        #                                                 rospy.Time(0), rospy.Duration(60))
-        #     self.camera2base_mat = matrix_from_tf(camera2base_tf)
-        #     rospy.loginfo("PF: got transform %s to %s" % (self.camera_frame, self.base_frame))
-
-        # except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-        #     rospy.logerr("PF: Could not lookup transform %s to %s"
-        #                  % (self.camera_frame, self.base_frame))
-
-        #     return
 
         # Initialize list of particles
         self.particles = np.empty(self.particle_count, dtype=object)
@@ -242,8 +233,6 @@ class SlamParticleFilter(object):
         Main localization loop runs at every timestep to broadcast current
         estimated pose
         """
-        # TODO (Nacho): publish markers instead of poses
-        #       Optimize this function
         sam_pose_list, ds_pose_list = self.convert_poses()
 
         self.update_localization_poses(sam_pose_list, ds_pose_list)
@@ -292,13 +281,14 @@ class SlamParticleFilter(object):
         self.sam_poses.header.stamp = rospy.Time.now()
         self.ds_poses.header.stamp = rospy.Time.now()
 
-        return sam_pose_list,ds_pose_list
+        return sam_pose_list, ds_pose_list
 
 
     def update_localization_poses(self, sam_pose_list, ds_pose_list):
         """
-        Update SAM pose based on particles
+        Update poses based on the average of the respective particles.
         """
+        # Update SAM pose based on particles
         sam_poses_array = np.array(sam_pose_list)
 
         self.sam_localization_pose.pose.pose.position = self.average_pose_position(sam_poses_array)
@@ -313,10 +303,10 @@ class SlamParticleFilter(object):
         self.ds_localization_pose.pose.pose.position = self.average_pose_position(ds_poses_array)
         self.ds_localization_pose.pose.pose.orientation = self.average_pose_orientation(ds_poses_array)
         self.ds_localization_pose.header.stamp = rospy.Time.now()
-        self.ds_localization_pose.pose.covariance = self.calculate_covariance(ds_poses_array, 
+        self.ds_localization_pose.pose.covariance = self.calculate_covariance(ds_poses_array,
                                                                                 self.ds_localization_pose.pose.pose.position)
 
-   
+
     def average_pose_position(self, poses_array):
         """
         Average position over all particles
@@ -326,8 +316,8 @@ class SlamParticleFilter(object):
         pose_point = Point(*ave_pose[0:3])
 
         return pose_point
-        
-        
+
+
     def average_pose_orientation(self, poses_array):
         """
         Avg of orientations as eigenvector with largest eigenvalue of Q*Qt
@@ -374,20 +364,20 @@ class SlamParticleFilter(object):
         Broadcast all poses to the TF tree
         """
         # Wrangle poses
-        sam_ave_pose = [self.sam_localization_pose.pose.pose.position.x, 
-                        self.sam_localization_pose.pose.pose.position.y, 
+        sam_ave_pose = [self.sam_localization_pose.pose.pose.position.x,
+                        self.sam_localization_pose.pose.pose.position.y,
                         self.sam_localization_pose.pose.pose.position.z]
-        sam_l_v = [self.sam_localization_pose.pose.pose.orientation.x, 
-                   self.sam_localization_pose.pose.pose.orientation.y, 
-                   self.sam_localization_pose.pose.pose.orientation.z, 
+        sam_l_v = [self.sam_localization_pose.pose.pose.orientation.x,
+                   self.sam_localization_pose.pose.pose.orientation.y,
+                   self.sam_localization_pose.pose.pose.orientation.z,
                    self.sam_localization_pose.pose.pose.orientation.w]
 
-        ds_ave_pose = [self.ds_localization_pose.pose.pose.position.x, 
-                        self.ds_localization_pose.pose.pose.position.y, 
+        ds_ave_pose = [self.ds_localization_pose.pose.pose.position.x,
+                        self.ds_localization_pose.pose.pose.position.y,
                         self.ds_localization_pose.pose.pose.position.z]
-        ds_l_v = [self.ds_localization_pose.pose.pose.orientation.x, 
-                   self.ds_localization_pose.pose.pose.orientation.y, 
-                   self.ds_localization_pose.pose.pose.orientation.z, 
+        ds_l_v = [self.ds_localization_pose.pose.pose.orientation.x,
+                   self.ds_localization_pose.pose.pose.orientation.y,
+                   self.ds_localization_pose.pose.pose.orientation.z,
                    self.ds_localization_pose.pose.pose.orientation.w]
 
         # Broadcast TFs
@@ -407,12 +397,30 @@ class SlamParticleFilter(object):
                                     self.base_frame_2d,
                                     self.odom_frame)
 
-        # TODO: This doesn't really work yet.
         self.ds_localization_tf.sendTransform([ds_ave_pose[0], ds_ave_pose[1], 0.],
                                               ds_l_v,
                                               rospy.Time.now(),
                                               self.ds_base_frame,
-                                              self.odom_frame)
+                                              self.base_frame)
+
+        # Transform into odom frame for the TF odom --> docking station
+        R_sam_odom = transformations.quaternion_matrix(sam_l_v)
+        R_ds_base = transformations.quaternion_matrix(ds_l_v)
+
+        R_ds_odom = np.matmul(R_sam_odom,R_ds_base)
+
+        quat_ds_odom = transformations.quaternion_from_matrix(R_ds_odom)
+
+        t_ds_odom = [0.]*3
+        t_ds_odom[0] = sam_ave_pose[0] + ds_ave_pose[0]
+        t_ds_odom[1] = sam_ave_pose[1] + ds_ave_pose[1]
+        t_ds_odom[2] = sam_ave_pose[2] + ds_ave_pose[2]
+
+        self.ds_odom_tf.sendTransform(t_ds_odom,
+                                    quat_ds_odom,
+                                    rospy.Time.now(),
+                                    self.ds_odom_pose.child_frame_id,
+                                    self.odom_frame)
 
 
     def publish_poses(self):

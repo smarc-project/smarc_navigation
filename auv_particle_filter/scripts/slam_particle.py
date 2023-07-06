@@ -32,6 +32,7 @@ class Particle(object):
         self.w = 0.0
         self.add_noise(init_cov)
 
+
     def add_noise(self, noise):
         """
         Add noise to covariances and poses
@@ -139,10 +140,12 @@ class Particle(object):
         # TODO: Used 1/distance to compute the weight,
         # because we went to penealize big differences between the
         # particle states and the perception measurements.
+        # TODO: Take into account the mahalanobis distance or measurment covariance
+        # As this is different when you have a measurement or estimated distance
 
         perception_diff = np.zeros(2)
-        perception_diff[0] = self.p_pose[6] - docking_station_pose.pose.pose.position.x
-        perception_diff[1] = self.p_pose[7] - docking_station_pose.pose.pose.position.y
+        perception_diff[0] = docking_station_pose.pose.pose.position.x
+        perception_diff[1] = docking_station_pose.pose.pose.position.y
 
         perception_diff_norm = np.linalg.norm(perception_diff)
 
@@ -152,7 +155,13 @@ class Particle(object):
 
         particle_diff_norm = np.linalg.norm(particle_diff)
 
+        # print("[P]: perception diff: {}, particle diff: {}".format(
+        #     np.array2string(perception_diff, suppress_small=True, precision=4),
+        #     np.array2string(particle_diff, suppress_small=True, precision=4)))
+
         self.w = 1/(abs(perception_diff_norm - particle_diff_norm) + 1.e-200)
+
+        # print("[P]: weight: {}".format(self.w))
 
 
 
