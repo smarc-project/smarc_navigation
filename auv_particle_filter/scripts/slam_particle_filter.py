@@ -10,7 +10,7 @@ import tf
 from tf import transformations
 
 from geometry_msgs.msg import Pose, PoseArray, PoseWithCovarianceStamped
-from geometry_msgs.msg import Quaternion, Point, PointStamped, PoseStamped
+from geometry_msgs.msg import Quaternion, Point
 from nav_msgs.msg import Odometry
 
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
