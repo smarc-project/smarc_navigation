@@ -88,21 +88,21 @@ class VehicleDR(object):
         # Transforms from base_link to press_link
         tfBuffer = tf2_ros.Buffer()
         tf2_ros.TransformListener(tfBuffer)
-        # try:
-        #     rospy.loginfo("DR Waiting for transform %s to %s" %
-        #                   (self.base_frame, self.press_frame))
-        #     self.b2d_tf = tfBuffer.lookup_transform(self.base_frame, self.press_frame,
-        #                                        rospy.Time(0), timeout=rospy.Duration(1))
-        #     rospy.loginfo("DR: got transform %s to %s" %
-        #                   (self.base_frame, self.press_frame))
-        #     self.depth_meas = True
+        try:
+            rospy.loginfo("DR Waiting for transform %s to %s" %
+                          ('sam/base_link' , self.press_frame))
+            self.b2d_tf = tfBuffer.lookup_transform('sam/base_link', self.press_frame,
+                                               rospy.Time(0), timeout=rospy.Duration(1))
+            rospy.loginfo("DR: got transform %s to %s" %
+                          ('sam/base_link', self.press_frame))
+            self.depth_meas = True
 
-        # except:
-        #     rospy.logwarn("DR node: could not get transform %s to %s" %
-        #                   (self.base_frame, self.press_frame))
-        #     rospy.logwarn("Assuming surface vehicle")
+        except:
+            rospy.logwarn("DR node: could not get transform %s to %s" %
+                          (self.base_frame, self.press_frame))
+            rospy.logwarn("Assuming surface vehicle")
 
-        #     return
+            return
         
         # Connect
         self.pub_odom = rospy.Publisher(self.odom_top, Odometry, queue_size=100)

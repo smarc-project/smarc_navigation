@@ -18,8 +18,8 @@
   <arg name="particle_count"  default="10"/>
   <!-- Order [x, y, z, roll, pitch, yaw] -->
   <arg name="init_covariance" default="[0.1, 0.1, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0001, 0.001, 0.001, 0.001]"/>
-  <arg name="motion_covariance" default="[0.0000, 0.0000, 0.0, 0.0, 0.0, 0.000000000001, 0.01, 0.01, 0.0001, 0.1, 0.1, 0.1]"/>
-  <arg name="resampling_noise_covariance" default="[0.1, 0.1, 0.0, 0.0, 0.0, 0.000, 0.1, 0.1, 0.00001, 0.0, 0.0, 0.000]"/>
+  <arg name="motion_covariance" default="[1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-5]"/>
+  <arg name="resampling_noise_covariance" default="[0.1, 0.1, 0.0, 0.0, 0.0, 0.000, 0.01, 0.01, 0.01, 0.0, 0.0, 0.000]"/>
   <arg name="measurement_std"  default="2."/>
 
   <group ns="$(arg namespace)">
@@ -34,8 +34,10 @@
 
         <param name="odom_topic" value="$(arg odom_topic)"/>
         <param name="perception_topic" value="$(arg perception_topic)"/>
-        <param name="odom_corrected_topic" value="/$(arg namespace)/dr/odom"/>
+        <param name="odom_corrected_topic" value="/$(arg namespace)/slam/odom"/>
         <param name="ds_corrected_topic" value="/$(arg namespace)/dr/ds_odom"/>
+        <param name="sam_map_topic" value="/$(arg namespace)/dr/sam_map"/>
+        <param name="ds_map_topic" value="/$(arg namespace)/dr/ds_map"/>
         <param name="sam_particle_poses_topic" value="/$(arg namespace)/dr/sam_particle_poses"/>
         <param name="ds_particle_poses_topic" value="/$(arg namespace)/dr/ds_particle_poses"/>
 	      
