@@ -136,33 +136,31 @@ class Particle(object):
         Compute the weight of the particle based on the distance between
         SAM and the docking station measured by the perception node
         and encoded in the particle's states.
+        Note, the covariance is stored as an array in row-major order:
+        https://en.wikipedia.org/wiki/Row-_and_column-major_order
+        Take that into account when accessing the values
+        Also note, Used 1/distance to compute the weight,
+        because we went to penealize big differences between the
+        particle states and the perception measurements.
         """
-        # TODO: Used 1/distance to compute the weight,
-        # because we went to penealize big differences between the
-        # particle states and the perception measurements.
-        # TODO: Take into account the mahalanobis distance or measurment covariance
-        # As this is different when you have a measurement or estimated distance
-
         perception_diff = np.zeros(2)
         perception_diff[0] = docking_station_pose.pose.pose.position.x
         perception_diff[1] = docking_station_pose.pose.pose.position.y
-
-        perception_diff_norm = np.linalg.norm(perception_diff)
 
         particle_diff = np.zeros(2)
         particle_diff[0] = self.p_pose[6] - self.p_pose[0]
         particle_diff[1] = self.p_pose[7] - self.p_pose[1]
 
-        particle_diff_norm = np.linalg.norm(particle_diff)
+        diff = particle_diff - perception_diff
 
-        # print("[P]: perception diff: {}, particle diff: {}".format(
-        #     np.array2string(perception_diff, suppress_small=True, precision=4),
-        #     np.array2string(particle_diff, suppress_small=True, precision=4)))
+        meas_cov = np.zeros((2,2))
+        meas_cov[0,0] = docking_station_pose.pose.covariance[0]
+        meas_cov[1,1] = docking_station_pose.pose.covariance[7]
+        inv_cov = np.linalg.inv(meas_cov)
 
-        self.w = 1/(abs(perception_diff_norm - particle_diff_norm) + 1.e-200)
+        mahal_dist = np.sqrt(np.matmul(diff, np.matmul(inv_cov, diff)))
 
-        # print("[P]: weight: {}".format(self.w))
-
+        self.w = 1/(mahal_dist + 1.e-200)
 
 
 def matrix_from_tf(transform):

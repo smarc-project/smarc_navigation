@@ -9,10 +9,12 @@ Panels:
         - /Grid1
         - /TF1
         - /TF1/Frames1
-        - /Odometry1/Shape1
-        - /Odometry1/Covariance1/Position1
-        - /Odometry2/Shape1
-        - /Odometry2/Covariance1
+        - /SAM Odom1
+        - /SAM Odom1/Shape1
+        - /SAM Odom1/Covariance1/Position1
+        - /DS Odom1
+        - /DS Odom1/Shape1
+        - /DS Odom1/Covariance1
         - /PoseArray1
         - /PoseArray2
         - /Cam_Forward1
@@ -43,7 +45,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: Perception Port
+    SyncSource: Cam_Forward
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -135,53 +137,55 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
+        ds_base_link:
+          {}
+        ds_odom_frame:
+          {}
+        sam/back_prop_link:
+          {}
+        sam/base_link:
+          sam/camera_down_link:
+            {}
+          sam/camera_front_left_link:
+            {}
+          sam/camera_front_link:
+            {}
+          sam/camera_front_right_link:
+            {}
+          sam/dvl_link:
+            {}
+          sam/gps_link:
+            {}
+          sam/imu_link:
+            {}
+          sam/pressure_link:
+            {}
+          sam/sbg_link:
+            {}
+          sam/sidescan_link:
+            {}
+          sam/uw_gps_link:
+            {}
+        sam/base_link_2d:
+          {}
+        sam/base_link_DR:
+          {}
+        sam/battery_link:
+          {}
+        sam/front_prop_link:
+          {}
+        sam/tcg1_link:
+          {}
+        sam/tcg2_link:
+          {}
+        sam/thruster_link:
+          {}
+        sam/thruster_yaw_link:
+          {}
         utm:
           map:
             sam/odom:
-              ds_odom_frame:
-                {}
-              sam/base_link:
-                ds_base_link:
-                  {}
-                sam/back_prop_link:
-                  {}
-                sam/battery_link:
-                  {}
-                sam/camera_down_link:
-                  {}
-                sam/camera_front_left_link:
-                  {}
-                sam/camera_front_link:
-                  {}
-                sam/camera_front_right_link:
-                  {}
-                sam/dvl_link:
-                  {}
-                sam/front_prop_link:
-                  {}
-                sam/gps_link:
-                  {}
-                sam/imu_link:
-                  {}
-                sam/pressure_link:
-                  {}
-                sam/sbg_link:
-                  {}
-                sam/sidescan_link:
-                  {}
-                sam/tcg1_link:
-                  {}
-                sam/tcg2_link:
-                  {}
-                sam/thruster_yaw_link:
-                  sam/thruster_link:
-                    {}
-                sam/uw_gps_link:
-                  {}
-              sam/base_link_2d:
-                {}
-              sam/base_link_DR:
-                {}
+              {}
       Update Interval: 0
       Value: true
     - Alpha: 0.699999988079071
@@ -220,7 +224,7 @@ Visualization Manager:
         Value: true
       Enabled: true
       Keep: 1
-      Name: Odometry
+      Name: SAM Odom
       Position Tolerance: 0.10000000149011612
       Queue Size: 10
       Shape:
@@ -233,7 +237,7 @@ Visualization Manager:
         Shaft Length: 0.10000000149011612
         Shaft Radius: 0.05000000074505806
         Value: Arrow
-      Topic: /sam/dr/odom
+      Topic: /sam/slam/odom
       Unreliable: false
       Value: true
     - Angle Tolerance: 0.10000000149011612
@@ -255,7 +259,7 @@ Visualization Manager:
         Value: true
       Enabled: true
       Keep: 1
-      Name: Odometry
+      Name: DS Odom
       Position Tolerance: 0.10000000149011612
       Queue Size: 10
       Shape:
@@ -443,7 +447,7 @@ Visualization Manager:
       Axes Length: 1
       Axes Radius: 0.10000000149011612
       Class: rviz/PoseWithCovariance
-      Color: 255; 25; 0
+      Color: 245; 121; 0
       Covariance:
         Orientation:
           Alpha: 0.5
@@ -498,7 +502,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 7.70704460144043
+      Distance: 0.0010000000474974513
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -506,17 +510,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -1.4152212142944336
-        Y: -0.12534309923648834
-        Z: 0.4732509255409241
+        X: -5.3011016845703125
+        Y: -13.841164588928223
+        Z: 11.767021179199219
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.38979631662368774
+      Pitch: 0.6097972989082336
       Target Frame: sam_test
-      Yaw: 1.745383858680725
+      Yaw: 4.01674222946167
     Saved: ~
 Window Geometry:
   Cam_Forward:

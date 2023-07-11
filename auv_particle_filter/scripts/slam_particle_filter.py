@@ -358,6 +358,7 @@ class SlamParticleFilter(object):
         """
         Calculate the covariance of a pose
         """
+        # FIXME: Sketchy and incomplete stuff happening
         cov = np.zeros((3, 3))
         for i in range(self.particle_count):
             dx = (poses_array[i, 0:3] - [ave_pose.x, ave_pose.y, ave_pose.z])
@@ -444,7 +445,7 @@ class SlamParticleFilter(object):
                                     quat_ds_odom,
                                     rospy.Time.now(),
                                     self.ds_odom_pose.child_frame_id,
-                                    self.odom_frame)
+                                    self.map_frame)
 
         # Transform map --> docking station
         map_to_ds_mat = np.matmul(self.map2odom_mat,odom_to_ds_mat)
