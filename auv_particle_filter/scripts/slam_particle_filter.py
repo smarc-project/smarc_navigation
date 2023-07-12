@@ -39,8 +39,8 @@ class SlamParticleFilter(object):
         self.base_frame_2d = rospy.get_param('~base_frame_2d', 'sam/base_link')
 
         # Initialize tf listener
-        tf_buffer = tf2_ros.Buffer()
-        tf2_ros.TransformListener(tf_buffer)
+        self.tf_buffer = tf2_ros.Buffer()
+        tf2_ros.TransformListener(self.tf_buffer)
         self.listener = tf.TransformListener()
 
         # Read covariance values
@@ -108,7 +108,7 @@ class SlamParticleFilter(object):
 
         # SAM in map
         self.sam_map_pose = PoseWithCovarianceStamped()
-        self.sam_map_pose.header.frame_id = self.map_frame
+        # self.sam_map_pose.header.frame_id = self.map_frame
         self.sam_map_pub = rospy.Publisher(sam_map_topic, PoseWithCovarianceStamped, queue_size=1)
 
         # Docking Station in map
@@ -119,9 +119,9 @@ class SlamParticleFilter(object):
         # Transforms from auv_2_ros
         try:
             rospy.loginfo("Waiting for transforms")
-            map2odom_tf = tf_buffer.lookup_transform(self.map_frame, self.odom_frame,
+            odom_to_map_tf = self.tf_buffer.lookup_transform(self.map_frame, self.odom_frame,
                                                rospy.Time(0), rospy.Duration(60))
-            self.map2odom_mat = matrix_from_tf(map2odom_tf)
+            self.odom_to_map_mat = matrix_from_tf(odom_to_map_tf)
             rospy.loginfo("PF: got transform %s to %s" % (self.map_frame, self.odom_frame))
 
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
@@ -138,7 +138,7 @@ class SlamParticleFilter(object):
                                             size=(self.particle_count, 2))
 
         for i in range(self.particle_count):
-            self.particles[i] = Particle(self.particle_count, i, self.map2odom_mat,
+            self.particles[i] = Particle(self.particle_count, i, self.odom_to_map_mat.T,
                                          init_ds = ds_distribution[i],
                                          init_cov=init_cov, meas_std=meas_std,
                                          process_cov=motion_cov)
@@ -439,7 +439,7 @@ class SlamParticleFilter(object):
 
         t_ds_odom_mat = transformations.translation_matrix(t_ds_odom)
 
-        odom_to_ds_mat = np.dot(R_ds_odom,t_ds_odom_mat)
+        odom_to_ds_mat = np.matmul(t_ds_odom_mat,R_ds_odom)     # Note the order of the arguments!
 
         self.ds_odom_tf.sendTransform(t_ds_odom,
                                     quat_ds_odom,
@@ -448,10 +448,11 @@ class SlamParticleFilter(object):
                                     self.map_frame)
 
         # Transform map --> docking station
-        map_to_ds_mat = np.matmul(self.map2odom_mat,odom_to_ds_mat)
+        map_to_ds_mat = np.matmul(self.odom_to_map_mat.T,odom_to_ds_mat)
         t_map_to_ds = transformations.translation_from_matrix(map_to_ds_mat)
         quat_map_to_ds = transformations.quaternion_from_matrix(map_to_ds_mat)
-
+        
+        self.ds_map_pose.header.frame_id = self.odom_frame
         self.ds_map_pose.header.stamp = rospy.Time.now()
         self.ds_map_pose.pose.pose.position.x = t_map_to_ds[0]
         self.ds_map_pose.pose.pose.position.y = t_map_to_ds[1]
@@ -464,12 +465,13 @@ class SlamParticleFilter(object):
 
         # Transform map --> sam/base_link
         t_sam_odom_mat = transformations.translation_matrix(sam_ave_pose)
-        odom_to_sam_mat = np.dot(R_sam_odom,t_sam_odom_mat)
-        map_to_sam_mat = np.matmul(self.map2odom_mat, odom_to_sam_mat)
+        odom_to_sam_mat = np.matmul(t_sam_odom_mat, R_sam_odom)
+        map_to_sam_mat = np.matmul(self.odom_to_map_mat.T, odom_to_sam_mat)
 
         t_map_to_sam = transformations.translation_from_matrix(map_to_sam_mat)
         quat_map_to_sam = transformations.quaternion_from_matrix(map_to_sam_mat)
 
+        self.sam_map_pose.header.frame_id = self.odom_frame
         self.sam_map_pose.header.stamp = rospy.Time.now()
         self.sam_map_pose.pose.pose.position.x = t_map_to_sam[0]
         self.sam_map_pose.pose.pose.position.y = t_map_to_sam[1]

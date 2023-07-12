@@ -15,7 +15,7 @@ class Particle(object):
     """
     Class with particle definition for particle filter based SLAM
     """
-    def __init__(self, p_num, index, map2odom_matrix,
+    def __init__(self, p_num, index, odom_to_map_mat,
                  init_ds = [0., 0.],
                  init_cov=[0.]*12, meas_std=0.01,
                  process_cov=[0.]*12):
@@ -25,7 +25,7 @@ class Particle(object):
 
         self.p_pose = [0.]*12   # now [SAM, DS], both with 6 DoF
         self.p_pose[6:8] = init_ds # Initial estimate for the docking station position
-        self.map2odom_mat = map2odom_matrix
+        self.odom_to_map_mat = odom_to_map_mat
         self.init_cov = init_cov
         self.process_cov = np.asarray(process_cov)
         self.meas_cov = np.diag([meas_std**2]*2)
@@ -98,20 +98,20 @@ class Particle(object):
         self.p_pose[6:9] += ds_lin_t
 
 
-    def get_p_pose(self):
-        """
-        Convert pose into position vector and rotation matrix
-        """
-        t_particle = translation_matrix(self.p_pose[0:3])
-        q = quaternion_from_euler(self.p_pose[3],self.p_pose[4],self.p_pose[5])
-        q_particle = quaternion_matrix(q)
-        mat = np.dot(t_particle, q_particle)
+    # def get_p_pose(self):
+    #     """
+    #     Convert pose into position vector and rotation matrix
+    #     """
+    #     t_particle = translation_matrix(self.p_pose[0:3])
+    #     q = quaternion_from_euler(self.p_pose[3],self.p_pose[4],self.p_pose[5])
+    #     q_particle = quaternion_matrix(q)
+    #     mat = np.dot(t_particle, q_particle)
 
-        trans_mat = self.map2odom_mat.dot(mat)
-        p = trans_mat[0:3, 3]
-        R = trans_mat[0:3, 0:3]
+    #     trans_mat = self.odom_to_map_mat.dot(mat)
+    #     p = trans_mat[0:3, 3]
+    #     R = trans_mat[0:3, 0:3]
 
-        return (p, R)
+    #     return (p, R)
 
 
     def full_rotation(self, roll, pitch, yaw):
