@@ -153,6 +153,9 @@ class Particle(object):
 
         diff = particle_diff - perception_diff
 
+        print("Particle distance: {}".format(particle_diff))
+        print("Perception distance: {}".format(perception_diff))
+
         meas_cov = np.zeros((2,2))
         meas_cov[0,0] = docking_station_pose.pose.covariance[0]
         meas_cov[1,1] = docking_station_pose.pose.covariance[7]

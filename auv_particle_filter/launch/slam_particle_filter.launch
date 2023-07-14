@@ -19,7 +19,7 @@
   <!-- Order [x, y, z, roll, pitch, yaw] -->
   <arg name="init_covariance" default="[0.1, 0.1, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0001, 0.001, 0.001, 0.001]"/>
   <arg name="motion_covariance" default="[1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-5]"/>
-  <arg name="resampling_noise_covariance" default="[0.1, 0.1, 0.0, 0.0, 0.0, 0.000, 0.01, 0.01, 0.01, 0.0, 0.0, 0.000]"/>
+  <arg name="resampling_noise_covariance" default="[1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3]"/>
   <arg name="measurement_std"  default="2."/>
 
   <group ns="$(arg namespace)">
