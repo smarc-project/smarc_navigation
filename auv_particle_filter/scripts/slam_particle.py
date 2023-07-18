@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Particle module for SLAM-based particle filter to detect underwater docking station.
 """
@@ -8,7 +8,7 @@ import numpy as np
 
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 from tf.transformations import translation_matrix
-from tf.transformations import quaternion_matrix
+from tf.transformations import quaternion_matrix, quaternion_from_matrix
 
 
 class Particle(object):
@@ -24,18 +24,18 @@ class Particle(object):
         self.index = index  # What is this?
 
         self.p_pose = [0.]*12   # now [SAM, DS], both with 6 DoF
-        self.p_pose[6:8] = init_ds # Initial estimate for the docking station position
+        self.p_pose[6:12] = init_ds # Initial estimate for the docking station position
         self.odom_to_map_mat = odom_to_map_mat
         self.init_cov = init_cov
         self.process_cov = np.asarray(process_cov)
-        self.meas_cov = np.diag([meas_std**2]*2)
+        # self.meas_cov = np.diag([meas_std**2]*2)
         self.w = 0.0
         self.add_noise(init_cov)
 
 
     def add_noise(self, noise):
         """
-        Add noise to covariances and poses
+        Add noise to poses
         """
         noise_cov =np.diag(noise)
         current_pose = np.asarray(self.p_pose)
@@ -84,10 +84,13 @@ class Particle(object):
         ## Docking Station motion model
         # Assume the docking station doesn't move.
         # Angular motion
+        # print("DS rot: {}".format(self.p_pose[9:12]))
+
         ds_rot_vel = np.array([0., 0., 0.])
-        ds_rot_t = np.array(self.p_pose[9:12]) + ds_rot_vel * dt * noise_vec[9:12]
+        ds_rot_t = np.array(self.p_pose[9:12]) + ds_rot_vel * dt + noise_vec[9:12]
 
         self.p_pose[9:12] = ds_rot_t
+
 
         # Linear motion
         ds_lin_vel = np.array([0., 0., 0.])
@@ -142,23 +145,148 @@ class Particle(object):
         Also note, Used 1/distance to compute the weight,
         because we went to penealize big differences between the
         particle states and the perception measurements.
+        Last, note that we can't just subtract the Euler angles. We need
+        to properly compute the difference by multiplying the two rotation 
+        matrices, while inverting the latter one. 
         """
-        perception_diff = np.zeros(2)
-        perception_diff[0] = docking_station_pose.pose.pose.position.x
-        perception_diff[1] = docking_station_pose.pose.pose.position.y
+        #region separate translation and rotation
+        # perception_quat = [docking_station_pose.pose.pose.orientation.x,
+        #         docking_station_pose.pose.pose.orientation.y,
+        #         docking_station_pose.pose.pose.orientation.z,
+        #         docking_station_pose.pose.pose.orientation.w]
+        # perception_rpy = euler_from_quaternion(perception_quat)
 
-        particle_diff = np.zeros(2)
-        particle_diff[0] = self.p_pose[6] - self.p_pose[0]
-        particle_diff[1] = self.p_pose[7] - self.p_pose[1]
+        # R_perception = quaternion_matrix(perception_quat)
 
-        diff = particle_diff - perception_diff
+        # perception_diff = np.zeros(6)
+        # perception_diff[0] = docking_station_pose.pose.pose.position.x
+        # perception_diff[1] = docking_station_pose.pose.pose.position.y
+        # perception_diff[2] = docking_station_pose.pose.pose.position.z
+        # perception_diff[3] = perception_rpy[0]
+        # perception_diff[4] = perception_rpy[1]
+        # perception_diff[5] = perception_rpy[2]
 
-        print("Particle distance: {}".format(particle_diff))
-        print("Perception distance: {}".format(perception_diff))
+        # # Get rotation matrices for SAM and DS
+        # sam_quat = quaternion_from_euler(*self.p_pose[3:6])
+        # ds_quat = quaternion_from_euler(*self.p_pose[9:12])
 
-        meas_cov = np.zeros((2,2))
-        meas_cov[0,0] = docking_station_pose.pose.covariance[0]
-        meas_cov[1,1] = docking_station_pose.pose.covariance[7]
+        # R_sam = quaternion_matrix(sam_quat)
+        # R_ds = quaternion_matrix(ds_quat)
+
+        # # Difference between SAM and DS to get the relative pose,
+        # # similar to waht the perception node provides.
+        # particle_diff = np.zeros(6)
+        # particle_diff[0] = self.p_pose[6] - self.p_pose[0]
+        # particle_diff[1] = self.p_pose[7] - self.p_pose[1]
+        # particle_diff[2] = self.p_pose[8] - self.p_pose[2]
+
+        # R_particle_diff = np.matmul(R_ds, R_sam.T)
+        # quat_particle_diff = quaternion_from_matrix(R_particle_diff)
+        # rpy_particle_diff = euler_from_quaternion(quat_particle_diff)
+
+        # particle_diff[3] = rpy_particle_diff[0]
+        # particle_diff[4] = rpy_particle_diff[1]
+        # particle_diff[5] = rpy_particle_diff[2]
+
+        # # Difference between particles and perception
+        # # Translation
+        # diff = particle_diff - perception_diff
+
+        # R_diff = np.matmul(R_particle_diff, R_perception.T)
+        # quat_diff = quaternion_from_matrix(R_diff)
+        # rpy_diff = euler_from_quaternion(quat_diff)
+
+        # diff[3:6] = rpy_diff
+        # endregion
+
+        ## Calculate difference between the poses
+        # 1. Difference between SAM and DS from particle -> relative pose particle
+        # Build transformation matrices:
+        # Translation matrices
+        t_sam_particle = self.p_pose[0:3]
+        T_ds_particle = translation_matrix(self.p_pose[6:9])
+
+        # Rotation matrices:
+        quat_sam_particle = quaternion_from_euler(*self.p_pose[3:6])
+        quat_ds_particle = quaternion_from_euler(*self.p_pose[9:12])
+
+        R_sam_particle = quaternion_matrix(quat_sam_particle)
+        R_ds_particle = quaternion_matrix(quat_ds_particle)
+
+        t_inv_sam_particle = -np.dot(R_sam_particle[0:3,0:3], t_sam_particle)
+        T_inv_sam_particle = translation_matrix(t_inv_sam_particle)
+
+        M_inv_sam_particle = np.matmul(T_inv_sam_particle, R_sam_particle.T)
+        M_ds_particle = np.matmul(T_ds_particle, R_ds_particle)
+
+        M_diff_particle = np.matmul(M_ds_particle, M_inv_sam_particle)
+
+        # 2. Difference between relative pose particle and relative pose perception
+        # By definition of the particle filter, we want x - my, where x is the particle
+        # and my the mean. In our case, my is the perception measurement.
+        t_perception = [docking_station_pose.pose.pose.position.x,
+                        docking_station_pose.pose.pose.position.y,
+                        docking_station_pose.pose.pose.position.z]
+        quat_perception = [docking_station_pose.pose.pose.orientation.x,
+                           docking_station_pose.pose.pose.orientation.y,
+                           docking_station_pose.pose.pose.orientation.z,
+                           docking_station_pose.pose.pose.orientation.w]
+        R_perception = quaternion_matrix(quat_perception)
+
+        t_inv_perception = -np.matmul(R_perception[0:3,0:3], t_perception)
+        T_inv_perception = translation_matrix(t_inv_perception)
+
+        M_inv_perception = np.matmul(T_inv_perception, R_perception)
+
+        M_diff = np.matmul(M_diff_particle, M_inv_perception)
+
+        # 3. Recover states and angles for mahalanobis distance
+        diff = np.zeros(6)
+
+        t_diff = M_diff[0:3,3]
+        quat_diff = quaternion_from_matrix(M_diff)
+        rpy_diff = euler_from_quaternion(quat_diff)
+
+        diff[0:3] = t_diff
+        diff[3:6] = rpy_diff
+
+        # 4. For debugging purposes, the various states
+        pose_sam = np.zeros(6)
+        pose_sam[0:3] = self.p_pose[0:3]
+        pose_sam[3:6] = np.rad2deg(self.p_pose[3:6])
+
+        pose_ds = np.zeros(6)
+        pose_ds[0:3] = self.p_pose[6:9]
+        pose_ds[3:6] = np.rad2deg(self.p_pose[9:12])
+
+        diff_particle = np.zeros(6)
+        quat_particle_diff = quaternion_from_matrix(M_diff_particle)
+        rpy_particle_diff = euler_from_quaternion(quat_particle_diff)
+        diff_particle[0:3] = M_diff_particle[0:3, 3]
+        diff_particle[3:6] = np.rad2deg(rpy_particle_diff)
+
+        diff_perception = np.zeros(6)
+        rpy_perception_diff = euler_from_quaternion(quat_perception)
+        diff_perception[0:3] = t_perception
+        diff_perception[3:6] = np.rad2deg(rpy_perception_diff)
+
+        # print('[------]')
+        # print("SAM : {}".format(np.array2string(pose_sam,
+        #                                             suppress_small = True, precision = 4)))
+        # print("DS  : {}".format(np.array2string(pose_ds,
+        #                                             suppress_small = True, precision = 4)))
+        # print("Part: {}".format(np.array2string(diff_particle,
+        #                                             suppress_small = True, precision = 4)))
+        # print("Perc: {}".format(np.array2string(diff_perception,
+        #                                             suppress_small = True, precision = 4)))
+        # print("Diff: {}".format(np.array2string(diff, suppress_small = True, precision = 4)))
+
+        meas_cov_tmp = np.array([0.0]*36)
+
+        for i, value in enumerate(docking_station_pose.pose.covariance):
+            meas_cov_tmp[i] = value
+
+        meas_cov = np.reshape(meas_cov_tmp,(6,6))
         inv_cov = np.linalg.inv(meas_cov)
 
         mahal_dist = np.sqrt(np.matmul(diff, np.matmul(inv_cov, diff)))
