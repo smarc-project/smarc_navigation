@@ -570,8 +570,8 @@ class SlamParticleFilter(object):
         """
         Bunch of print statements to check for things.
         """
-        print("SAM: {}".format(self.sam_map_pose.pose.pose.position))
-        print("DS: {}".format(self.ds_map_pose.pose.pose.position))
+        # print("SAM: {}".format(self.sam_map_pose.pose.pose.position))
+        # print("DS: {}".format(self.ds_map_pose.pose.pose.position))
 
 
 if __name__ == '__main__':
