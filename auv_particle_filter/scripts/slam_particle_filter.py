@@ -14,6 +14,8 @@ from geometry_msgs.msg import Quaternion, Point
 from nav_msgs.msg import Odometry
 
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
+from tf.transformations import translation_matrix
+from tf.transformations import quaternion_matrix, quaternion_from_matrix
 
 from slam_particle import Particle, matrix_from_tf
 from resampling import residual_resample
@@ -79,7 +81,7 @@ class SlamParticleFilter(object):
         self.sam_pose_array_pub = rospy.Publisher(sam_pose_array_topic, PoseArray, queue_size=10)
 
         self.ds_poses = PoseArray()
-        self.ds_poses.header.frame_id = self.base_frame
+        self.ds_poses.header.frame_id = self.odom_frame
         self.ds_pose_array_pub = rospy.Publisher(ds_pose_array_top, PoseArray, queue_size=10)
 
         # Initialize localization odom publisher
@@ -95,27 +97,27 @@ class SlamParticleFilter(object):
 
         # Docking Station in sam/base_link
         self.ds_localization_pose = Odometry()
-        self.ds_localization_pose.header.frame_id = self.base_frame
+        self.ds_localization_pose.header.frame_id = self.odom_frame
         self.ds_localization_pose.child_frame_id = self.ds_base_frame
         self.ds_localization_pub = rospy.Publisher(ds_localization_topic, Odometry, queue_size=100)
 
         self.ds_localization_tf = tf.TransformBroadcaster()
 
-        # Docking Station in odom
-        self.ds_odom_pose = Odometry()
-        self.ds_odom_pose.header.frame_id = self.odom_frame
-        self.ds_odom_pose.child_frame_id = "ds_odom_frame"
-        self.ds_odom_tf = tf.TransformBroadcaster()
+        # # Docking Station in odom
+        # self.ds_odom_pose = Odometry()
+        # self.ds_odom_pose.header.frame_id = self.odom_frame
+        # self.ds_odom_pose.child_frame_id = "ds_odom_frame"
+        # self.ds_odom_tf = tf.TransformBroadcaster()
 
-        # SAM in map
-        self.sam_map_pose = PoseWithCovarianceStamped()
-        # self.sam_map_pose.header.frame_id = self.map_frame
-        self.sam_map_pub = rospy.Publisher(sam_map_topic, PoseWithCovarianceStamped, queue_size=1)
+        # # SAM in map
+        # self.sam_map_pose = PoseWithCovarianceStamped()
+        # # self.sam_map_pose.header.frame_id = self.map_frame
+        # self.sam_map_pub = rospy.Publisher(sam_map_topic, PoseWithCovarianceStamped, queue_size=1)
 
-        # Docking Station in map
-        self.ds_map_pose = PoseWithCovarianceStamped()
-        self.ds_map_pose.header.frame_id = self.map_frame
-        self.ds_map_pub = rospy.Publisher(ds_map_topic, PoseWithCovarianceStamped, queue_size=1)
+        # # Docking Station in map
+        # self.ds_map_pose = PoseWithCovarianceStamped()
+        # self.ds_map_pose.header.frame_id = self.map_frame
+        # self.ds_map_pub = rospy.Publisher(ds_map_topic, PoseWithCovarianceStamped, queue_size=1)
 
         self.docking_station_pose_perception = PoseWithCovarianceStamped()
 
@@ -123,9 +125,9 @@ class SlamParticleFilter(object):
         # This is actually map --> odom! The documentation is weird.
         try:
             rospy.loginfo("Waiting for transforms")
-            odom_to_map_tf = self.tf_buffer.lookup_transform(self.map_frame, self.odom_frame,
+            map_to_odom_tf = self.tf_buffer.lookup_transform(self.map_frame, self.odom_frame,
                                                rospy.Time(0), rospy.Duration(60))
-            self.odom_to_map_mat = matrix_from_tf(odom_to_map_tf)
+            self.map_to_odom_mat = matrix_from_tf(map_to_odom_tf)
             rospy.loginfo("PF: got transform %s to %s" % (self.map_frame, self.odom_frame))
 
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
@@ -136,6 +138,13 @@ class SlamParticleFilter(object):
         # Initialize list of particles
         self.particles = np.empty(self.particle_count, dtype=object)
         self.particles_initialised = False
+
+        # First initialization to get odom->sam tf. Then particles will be reinitialized
+        for i in range(self.particle_count):
+            self.particles[i] = Particle(self.particle_count, i, self.map_to_odom_mat,
+                                        init_ds = [0.0]*6,
+                                        init_cov=self.init_cov, meas_std=self.meas_std,
+                                        process_cov=self.motion_cov)
 
         # Start timing now
         self.time = rospy.Time.now().to_sec()
@@ -163,14 +172,40 @@ class SlamParticleFilter(object):
         Resample particles based on new weights.
         """
         if not self.particles_initialised:
+            # try:
+            #     rospy.loginfo("Waiting for odom to sam")
+            #     odom_to_sam_tf = self.tf_buffer.lookup_transform(self.odom_frame, self.base_frame,
+            #                                     rospy.Time(0), rospy.Duration(1))
+            #     self.odom_to_sam_mat = matrix_from_tf(odom_to_sam_tf)
+            #     rospy.loginfo("PF: got transform %s to %s" % (self.odom_frame, self.base_frame))
+
+            # except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            #     rospy.logerr("PF: Could not lookup transform %s to %s" 
+            #                 % (self.odom_frame, self.base_frame))
+            #     pass
+            # finally:
+            #     print("[PF]: Reinitializing particles with measurement")
             init_ds = np.zeros(6)
             t_docking_station = [docking_station_pose.pose.pose.position.x,
-                                 docking_station_pose.pose.pose.position.y,
-                                 docking_station_pose.pose.pose.position.z]
+                                docking_station_pose.pose.pose.position.y,
+                                docking_station_pose.pose.pose.position.z]
             quat_docking_station = [docking_station_pose.pose.pose.orientation.x,
-                                 docking_station_pose.pose.pose.orientation.y,
-                                 docking_station_pose.pose.pose.orientation.z,
-                                 docking_station_pose.pose.pose.orientation.w]
+                                docking_station_pose.pose.pose.orientation.y,
+                                docking_station_pose.pose.pose.orientation.z,
+                                docking_station_pose.pose.pose.orientation.w]
+            
+            # T_docking_station_perception = translation_matrix(t_docking_station)
+            # R_docking_station_perception = quaternion_matrix(quat_docking_station)
+
+            # M_docking_station_perception = np.matmul(T_docking_station_perception,R_docking_station_perception)
+
+            # M_odom_ds_perception = np.matmul(self.odom_to_sam_mat, M_docking_station_perception)
+
+            # quat_odom_ds = quaternion_from_matrix(M_odom_ds_perception)
+
+            # rpy_docking_station = euler_from_quaternion(quat_odom_ds)
+            # init_ds[0:3] = M_odom_ds_perception[0:3,3]
+
             rpy_docking_station = euler_from_quaternion(quat_docking_station)
             init_ds[0:3] = t_docking_station
             init_ds[3:6] = rpy_docking_station
@@ -178,7 +213,7 @@ class SlamParticleFilter(object):
             print("Init Particles: {}".format(init_ds))
 
             for i in range(self.particle_count):
-                self.particles[i] = Particle(self.particle_count, i, self.odom_to_map_mat,
+                self.particles[i] = Particle(self.particle_count, i, self.map_to_odom_mat,
                                             init_ds = init_ds,
                                             init_cov=self.init_cov, meas_std=self.meas_std,
                                             process_cov=self.motion_cov)
@@ -255,7 +290,7 @@ class SlamParticleFilter(object):
                 # Motion prediction
                 self.predict(odom_msg)
 
-            self.old_time = self.time
+        self.old_time = self.time
 
 
     def predict(self, odom_t):
@@ -422,7 +457,6 @@ class SlamParticleFilter(object):
         ds_ave_pose = [self.ds_localization_pose.pose.pose.position.x,
                         self.ds_localization_pose.pose.pose.position.y,
                         self.ds_localization_pose.pose.pose.position.z]
-        ds_ave_pose[2] = 0
         ds_l_v = [self.ds_localization_pose.pose.pose.orientation.x,
                    self.ds_localization_pose.pose.pose.orientation.y,
                    self.ds_localization_pose.pose.pose.orientation.z,
@@ -450,32 +484,32 @@ class SlamParticleFilter(object):
                                               ds_l_v,
                                               rospy.Time.now(),
                                               self.ds_base_frame,
-                                              self.base_frame)
+                                              self.odom_frame)
 
         # Transform into odom frame for the TF odom --> docking station
-        # FIXME: Check that you did the TFs right, with the inversion of the tf matrix.
-        # See obsidian for the way to do it.
-        R_sam_odom = transformations.quaternion_matrix(sam_l_v)
-        R_ds_base = transformations.quaternion_matrix(ds_l_v)
+        # # FIXME: Check that you did the TFs right, with the inversion of the tf matrix.
+        # # See obsidian for the way to do it.
+        # R_sam_odom = transformations.quaternion_matrix(sam_l_v)
+        # R_ds_base = transformations.quaternion_matrix(ds_l_v)
 
-        R_ds_odom = np.matmul(R_sam_odom,R_ds_base)
+        # R_ds_odom = np.matmul(R_sam_odom,R_ds_base)
 
-        quat_ds_odom = transformations.quaternion_from_matrix(R_ds_odom)
+        # quat_ds_odom = transformations.quaternion_from_matrix(R_ds_odom)
 
-        t_ds_odom = [0.]*3
-        t_ds_odom[0] = sam_ave_pose[0] + ds_ave_pose[0]
-        t_ds_odom[1] = sam_ave_pose[1] + ds_ave_pose[1]
-        t_ds_odom[2] = sam_ave_pose[2] + ds_ave_pose[2]
+        # t_ds_odom = [0.]*3
+        # t_ds_odom[0] = sam_ave_pose[0] + ds_ave_pose[0]
+        # t_ds_odom[1] = sam_ave_pose[1] + ds_ave_pose[1]
+        # t_ds_odom[2] = sam_ave_pose[2] + ds_ave_pose[2]
 
-        t_ds_odom_mat = transformations.translation_matrix(t_ds_odom)
+        # t_ds_odom_mat = transformations.translation_matrix(t_ds_odom)
 
-        odom_to_ds_mat = np.matmul(t_ds_odom_mat,R_ds_odom)     # Note the order of the arguments!
+        # odom_to_ds_mat = np.matmul(t_ds_odom_mat,R_ds_odom)     # Note the order of the arguments!
 
-        self.ds_odom_tf.sendTransform(t_ds_odom,
-                                    quat_ds_odom,
-                                    rospy.Time.now(),
-                                    self.ds_odom_pose.child_frame_id,
-                                    self.odom_frame)
+        # self.ds_odom_tf.sendTransform(t_ds_odom,
+        #                             quat_ds_odom,
+        #                             rospy.Time.now(),
+        #                             self.ds_odom_pose.child_frame_id,
+        #                             self.odom_frame)
 
         #FIXME: # Transform map --> docking station
         # odom_to_map_inv = self.odom_to_map_mat.T
@@ -529,8 +563,8 @@ class SlamParticleFilter(object):
         # Publish average estimated pose
         self.sam_localization_pub.publish(self.sam_localization_pose)
         self.ds_localization_pub.publish(self.ds_localization_pose)
-        self.ds_map_pub.publish(self.ds_map_pose)
-        self.sam_map_pub.publish(self.sam_map_pose)
+        # self.ds_map_pub.publish(self.ds_map_pose)
+        # self.sam_map_pub.publish(self.sam_map_pose)
 
     def print_states(self):
         """

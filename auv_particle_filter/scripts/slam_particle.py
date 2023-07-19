@@ -213,13 +213,13 @@ class Particle(object):
         R_sam_particle = quaternion_matrix(quat_sam_particle)
         R_ds_particle = quaternion_matrix(quat_ds_particle)
 
-        t_inv_sam_particle = -np.dot(R_sam_particle[0:3,0:3], t_sam_particle)
+        t_inv_sam_particle = -np.dot(R_sam_particle[0:3,0:3].T, t_sam_particle)
         T_inv_sam_particle = translation_matrix(t_inv_sam_particle)
 
         M_inv_sam_particle = np.matmul(T_inv_sam_particle, R_sam_particle.T)
         M_ds_particle = np.matmul(T_ds_particle, R_ds_particle)
 
-        M_diff_particle = np.matmul(M_ds_particle, M_inv_sam_particle)
+        M_diff_particle = np.matmul(M_inv_sam_particle, M_ds_particle)
 
         # 2. Difference between relative pose particle and relative pose perception
         # By definition of the particle filter, we want x - my, where x is the particle
@@ -233,7 +233,7 @@ class Particle(object):
                            docking_station_pose.pose.pose.orientation.w]
         R_perception = quaternion_matrix(quat_perception)
 
-        t_inv_perception = -np.matmul(R_perception[0:3,0:3], t_perception)
+        t_inv_perception = -np.matmul(R_perception[0:3,0:3].T, t_perception)
         T_inv_perception = translation_matrix(t_inv_perception)
 
         M_inv_perception = np.matmul(T_inv_perception, R_perception)
@@ -270,16 +270,16 @@ class Particle(object):
         diff_perception[0:3] = t_perception
         diff_perception[3:6] = np.rad2deg(rpy_perception_diff)
 
-        # print('[------]')
-        # print("SAM : {}".format(np.array2string(pose_sam,
-        #                                             suppress_small = True, precision = 4)))
-        # print("DS  : {}".format(np.array2string(pose_ds,
-        #                                             suppress_small = True, precision = 4)))
-        # print("Part: {}".format(np.array2string(diff_particle,
-        #                                             suppress_small = True, precision = 4)))
-        # print("Perc: {}".format(np.array2string(diff_perception,
-        #                                             suppress_small = True, precision = 4)))
-        # print("Diff: {}".format(np.array2string(diff, suppress_small = True, precision = 4)))
+        print('[------]')
+        print("SAM : {}".format(np.array2string(pose_sam,
+                                                    suppress_small = True, precision = 4)))
+        print("DS  : {}".format(np.array2string(pose_ds,
+                                                    suppress_small = True, precision = 4)))
+        print("Part: {}".format(np.array2string(diff_particle,
+                                                    suppress_small = True, precision = 4)))
+        print("Perc: {}".format(np.array2string(diff_perception,
+                                                    suppress_small = True, precision = 4)))
+        print("Diff: {}".format(np.array2string(diff, suppress_small = True, precision = 4)))
 
         meas_cov_tmp = np.array([0.0]*36)
 
