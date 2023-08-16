@@ -380,7 +380,8 @@ class SlamParticleFilter(object):
         ds_poses_array = np.array(ds_pose_list)
 
         self.ds_localization_pose.pose.pose.position = self.average_pose_position(ds_poses_array)
-        self.ds_localization_pose.pose.pose.orientation = self.docking_station_pose_perception.pose.pose.orientation #self.average_pose_orientation(ds_poses_array)
+        # self.ds_localization_pose.pose.pose.orientation = self.docking_station_pose_perception.pose.pose.orientation #self.average_pose_orientation(ds_poses_array)
+        self.ds_localization_pose.pose.pose.orientation = self.average_pose_orientation(ds_poses_array)
         self.ds_localization_pose.header.stamp = rospy.Time.now()
         self.ds_localization_pose.pose.covariance = self.calculate_covariance(ds_poses_array,
                                                                                 self.ds_localization_pose.pose.pose.position)
