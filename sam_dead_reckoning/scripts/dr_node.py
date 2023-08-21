@@ -131,6 +131,8 @@ class VehicleDR(object):
 
     def gps_cb(self, gps_msg):
 
+        print("GPS CP")
+
         try:
 
             # goal_point_local = self.listener.transformPoint("map", goal_point)
@@ -149,6 +151,7 @@ class VehicleDR(object):
 
                 gps_map = self.listener.transformPoint(self.map_frame, goal_point)
 
+                print("init_heading: {}".format(self.init_heading))
 
                 if self.init_heading:
                     rospy.loginfo("DR node: broadcasting transform %s to %s" % (self.map_frame, self.odom_frame))            
@@ -180,9 +183,15 @@ class VehicleDR(object):
 
 
     def dr_timer(self, event):
+
+        # print("init_m2o: {}".format(self.init_m2o))
+        # print("init_stim: {}".format(self.init_stim))
         
         if self.init_m2o and self.init_stim:
         # if True
+
+
+
 
             pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
             rot_vel_t = self.vel_rot    # TODO: rn this keeps the last vels even if the IMU dies
@@ -192,14 +201,16 @@ class VehicleDR(object):
             if True:
             # if self.dvl_on:
                 rot_mat_t = self.fullRotation(pose_t[3], pose_t[4], pose_t[5])
-
                 # Integrate linear velocities from DVL
                 # If last DVL msg isn't too old
+                # print("self.t_now : {}".format(self.t_now))
+                # print("self.t_dvl_prev: {}".format(self.t_dvl_prev))
+                # print("self.dvl_period: {}".format(self.dvl_period))
                 if self.t_now - self.t_dvl_prev < self.dvl_period and \
                         abs(self.dvl_latest.velocity.y) < 0.2 and \
                         abs(self.dvl_latest.velocity.x) < 1.5 and \
-                        self.dvl_latest.velocity.x > -0.1:
-                    
+                        self.dvl_latest.velocity.x > -0.1:      # FIXME: Why is this only -0.1
+                                        
                     lin_vel_t = np.array([self.dvl_latest.velocity.x,
                                             self.dvl_latest.velocity.y,
                                             self.dvl_latest.velocity.z])    
@@ -208,7 +219,6 @@ class VehicleDR(object):
                                 
                 # # Otherwise, integrate motion model estimate
                 else:
-
                     # Input x, y, yaw, x_vel, y_vel, yaw_vel
                     # Output x_vel, y_vel, yaw_vel, x_acc, y_acc, yaw_acc
                     self.lin_acc_t = self.sam.motion(self.u)[0:3]
@@ -359,7 +369,9 @@ class VehicleDR(object):
         
         if self.dvl_on:
             dt = dvl_msg.header.stamp.to_sec() - self.t_dvl_prev
+            # dt = rospy.Time.now().to_sec() - self.t_dvl_prev
             self.t_dvl_prev = dvl_msg.header.stamp.to_sec()
+            # self.t_dvl_prev = rospy.Time.now().to_sec()
 
             # if dt > self.dvl_period:
             #     print("Missed DVL meas")            

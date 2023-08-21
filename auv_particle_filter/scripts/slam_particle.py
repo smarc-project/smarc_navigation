@@ -270,7 +270,7 @@ class Particle(object):
         diff_perception[0:3] = t_perception
         diff_perception[3:6] = np.rad2deg(rpy_perception_diff)
 
-        print('[------]')
+        # print('[------]')
         # print("SAM : {}".format(np.array2string(pose_sam,
         #                                             suppress_small = True, precision = 4)))
         # print("DS  : {}".format(np.array2string(pose_ds,

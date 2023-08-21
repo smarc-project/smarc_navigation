@@ -21,6 +21,8 @@ from slam_particle import Particle, matrix_from_tf
 from resampling import residual_resample
 from numpy import linalg as LA
 
+import time
+
 
 class SlamParticleFilter(object):
     """
@@ -155,7 +157,7 @@ class SlamParticleFilter(object):
                          self.perception_cb, queue_size=100)
 
         # Establish subscription to odometry message (intentionally last)
-        rospy.Subscriber(odom_top, Odometry, self.odom_cb, queue_size=100)
+        rospy.Subscriber(odom_top, Odometry, self.odom_cb, queue_size=1)
 
         # PF pub and broadcaster loop
         rospy.Timer(rospy.Duration(0.1), self.localization_loop)
@@ -284,6 +286,7 @@ class SlamParticleFilter(object):
         Odometry message callback to invoke the prediction step
         """
         self.time = odom_msg.header.stamp.to_sec()
+        print("Odom CB xvel: {}".format(odom_msg.twist.twist.linear.x))
 
         if self.particles_initialised:
             if self.old_time and self.time > self.old_time:
@@ -291,6 +294,7 @@ class SlamParticleFilter(object):
                 self.predict(odom_msg)
 
         self.old_time = self.time
+
 
 
     def predict(self, odom_t):
