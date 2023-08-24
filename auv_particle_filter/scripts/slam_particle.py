@@ -220,7 +220,7 @@ class Particle(object):
         M_diff_particle = np.matmul(M_inv_sam_particle, M_ds_particle)
 
         # 2. Difference between relative pose particle and relative pose perception
-        # By definition of the particle filter, we want x - my, where x is the particle
+        # By definition of the particle filter, we want (x - my), where x is the particle
         # and my the mean. In our case, my is the perception measurement.
         t_perception = [docking_station_pose.pose.pose.position.x,
                         docking_station_pose.pose.pose.position.y,
@@ -234,7 +234,7 @@ class Particle(object):
         t_inv_perception = -np.matmul(R_perception[0:3,0:3].T, t_perception)
         T_inv_perception = translation_matrix(t_inv_perception)
 
-        M_inv_perception = np.matmul(T_inv_perception, R_perception)
+        M_inv_perception = np.matmul(T_inv_perception, R_perception.T)
 
         M_diff = np.matmul(M_diff_particle, M_inv_perception)
 
@@ -286,6 +286,8 @@ class Particle(object):
 
         meas_cov = np.reshape(meas_cov_tmp,(6,6))
         inv_cov = np.linalg.inv(meas_cov)
+
+        # print("Measurement Covariance : {}".format(np.array2string(meas_cov)))
 
         mahal_dist = np.sqrt(np.matmul(diff, np.matmul(inv_cov, diff)))
 

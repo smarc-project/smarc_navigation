@@ -21,6 +21,8 @@ from slam_particle import Particle, matrix_from_tf
 from resampling import residual_resample
 from numpy import linalg as LA
 
+import time
+
 
 class SlamParticleFilter(object):
     """
@@ -294,6 +296,7 @@ class SlamParticleFilter(object):
         Odometry message callback to invoke the prediction step
         """
         self.time = odom_msg.header.stamp.to_sec()
+        print("Odom CB xvel: {}".format(odom_msg.twist.twist.linear.x))
 
         if self.particles_initialised:
             if self.old_time and self.time > self.old_time:
@@ -301,6 +304,7 @@ class SlamParticleFilter(object):
                 self.predict(odom_msg)
 
         self.old_time = self.time
+
 
 
     def predict(self, odom_t):
