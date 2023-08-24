@@ -105,7 +105,7 @@ class VehicleDR(object):
             return
         
         # Connect
-        self.pub_odom = rospy.Publisher(self.odom_top, Odometry, queue_size=100)
+        self.pub_odom = rospy.Publisher(self.odom_top, Odometry, queue_size=10)
         #self.sbg_sub = rospy.Subscriber(self.sbg_topic, SbgEkfQuat, self.sbg_cb)
         self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb,  queue_size=10)
         self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
@@ -195,14 +195,16 @@ class VehicleDR(object):
 
                 # Integrate linear velocities from DVL
                 # If last DVL msg isn't too old
+                # FIXME: Get a better condition for this.
                 if self.t_now - self.t_dvl_prev < self.dvl_period and \
                         abs(self.dvl_latest.velocity.y) < 0.2 and \
                         abs(self.dvl_latest.velocity.x) < 1.5 and \
-                        self.dvl_latest.velocity.x > -0.1:
+                        self.dvl_latest.velocity.x > -1:
+                        # self.dvl_latest.velocity.x > -0.1:
                     
                     lin_vel_t = np.array([self.dvl_latest.velocity.x,
                                             self.dvl_latest.velocity.y,
-                                            self.dvl_latest.velocity.z])    
+                                            self.dvl_latest.velocity.z])
 
                     print("DVL vel ", lin_vel_t)
                                 
@@ -218,7 +220,7 @@ class VehicleDR(object):
                     
                     lin_vel_t = self.lin_acc_t * self.dr_period
                     # print("MM vel ", lin_vel_t)
-                    
+
                 # Integrate linear vels                    
                 step_t = np.matmul(rot_mat_t, lin_vel_t * self.dr_period)
                 pose_t[0:2] += step_t[0:2]
