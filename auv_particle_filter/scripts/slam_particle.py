@@ -84,13 +84,11 @@ class Particle(object):
         ## Docking Station motion model
         # Assume the docking station doesn't move.
         # Angular motion
-        # print("DS rot: {}".format(self.p_pose[9:12]))
 
         ds_rot_vel = np.array([0., 0., 0.])
         ds_rot_t = np.array(self.p_pose[9:12]) + ds_rot_vel * dt + noise_vec[9:12]
 
         self.p_pose[9:12] = ds_rot_t
-
 
         # Linear motion
         ds_lin_vel = np.array([0., 0., 0.])

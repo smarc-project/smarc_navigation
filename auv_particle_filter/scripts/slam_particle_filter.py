@@ -90,7 +90,7 @@ class SlamParticleFilter(object):
         self.sam_localization_pose.header.frame_id = self.odom_frame
         self.sam_localization_pose.child_frame_id = self.base_frame
         self.sam_localization_pub = rospy.Publisher(sam_localization_topic,
-                                                    Odometry, queue_size=100)
+                                                    Odometry, queue_size=10)
 
         # FIXME: Update that to TF2
         self.sam_localization_tf = tf.TransformBroadcaster()
@@ -99,7 +99,7 @@ class SlamParticleFilter(object):
         self.ds_localization_pose = Odometry()
         self.ds_localization_pose.header.frame_id = self.odom_frame
         self.ds_localization_pose.child_frame_id = self.ds_base_frame
-        self.ds_localization_pub = rospy.Publisher(ds_localization_topic, Odometry, queue_size=100)
+        self.ds_localization_pub = rospy.Publisher(ds_localization_topic, Odometry, queue_size=10)
 
         self.ds_localization_tf = tf.TransformBroadcaster()
 
@@ -149,13 +149,14 @@ class SlamParticleFilter(object):
         # Start timing now
         self.time = rospy.Time.now().to_sec()
         self.old_time = rospy.Time.now().to_sec()
+        self.last_cb_time = rospy.Time.now().to_sec
 
         # Perception topic
         rospy.Subscriber(perception_topic, PoseWithCovarianceStamped,
-                         self.perception_cb, queue_size=100)
+                         self.perception_cb, queue_size=5)
 
         # Establish subscription to odometry message (intentionally last)
-        rospy.Subscriber(odom_top, Odometry, self.odom_cb, queue_size=100)
+        rospy.Subscriber(odom_top, Odometry, self.odom_cb, queue_size=5)
 
         # PF pub and broadcaster loop
         rospy.Timer(rospy.Duration(0.1), self.localization_loop)
@@ -170,8 +171,15 @@ class SlamParticleFilter(object):
         """
         Compute new particle weights based on perception input
         Resample particles based on new weights.
+        TODO: Once we see the docking station again after loosing it, 
+        reinitialize the particles based on the new position.
+        This is a reasonable assumption when we only care about the
+        relative position and not the absolute one. For the later we
+        could do localization and then update SAM's position instead.
+        But that's a different problem.
         """
-        if not self.particles_initialised:
+        self.current_cb_time = rospy.Time.now().to_sec()
+        if not self.particles_initialised or self.current_cb_time - self.last_cb_time > 1:
             # try:
             #     rospy.loginfo("Waiting for odom to sam")
             #     odom_to_sam_tf = self.tf_buffer.lookup_transform(self.odom_frame, self.base_frame,
@@ -180,7 +188,7 @@ class SlamParticleFilter(object):
             #     rospy.loginfo("PF: got transform %s to %s" % (self.odom_frame, self.base_frame))
 
             # except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            #     rospy.logerr("PF: Could not lookup transform %s to %s" 
+            #     rospy.logerr("PF: Could not lookup transform %s to %s"
             #                 % (self.odom_frame, self.base_frame))
             #     pass
             # finally:
@@ -193,11 +201,12 @@ class SlamParticleFilter(object):
                                 docking_station_pose.pose.pose.orientation.y,
                                 docking_station_pose.pose.pose.orientation.z,
                                 docking_station_pose.pose.pose.orientation.w]
-            
+
             # T_docking_station_perception = translation_matrix(t_docking_station)
             # R_docking_station_perception = quaternion_matrix(quat_docking_station)
 
-            # M_docking_station_perception = np.matmul(T_docking_station_perception,R_docking_station_perception)
+            # M_docking_station_perception = np.matmul(T_docking_station_perception,
+            # R_docking_station_perception)
 
             # M_odom_ds_perception = np.matmul(self.odom_to_sam_mat, M_docking_station_perception)
 
@@ -217,7 +226,7 @@ class SlamParticleFilter(object):
                                             init_ds = init_ds,
                                             init_cov=self.init_cov, meas_std=self.meas_std,
                                             process_cov=self.motion_cov)
-            
+
             self.particles_initialised = True
         else:
             # Meas update
@@ -227,6 +236,8 @@ class SlamParticleFilter(object):
             self.resample(weights)
 
             self.docking_station_pose_perception = docking_station_pose
+
+        self.last_cb_time = self.current_cb_time
 
 
     def update(self, docking_station_pose):
@@ -272,10 +283,9 @@ class SlamParticleFilter(object):
 
     def reassign_poses(self, lost, dupes):
         """
-        Reasign the poses, faster than deepcopy()
+        Reasign the poses, separately faster than deepcopy()
         """
         for l, d in zip(lost, dupes):
-            # Faster to do separately than using deepcopy()
             self.particles[l].p_pose = self.particles[d].p_pose
 
 
@@ -368,8 +378,6 @@ class SlamParticleFilter(object):
         # Update SAM pose based on particles
         sam_poses_array = np.array(sam_pose_list)
 
-        
-
         self.sam_localization_pose.pose.pose.position = self.average_pose_position(sam_poses_array)
         self.sam_localization_pose.pose.pose.orientation = self.average_pose_orientation(sam_poses_array)
         self.sam_localization_pose.header.stamp = rospy.Time.now()
@@ -380,7 +388,8 @@ class SlamParticleFilter(object):
         ds_poses_array = np.array(ds_pose_list)
 
         self.ds_localization_pose.pose.pose.position = self.average_pose_position(ds_poses_array)
-        self.ds_localization_pose.pose.pose.orientation = self.docking_station_pose_perception.pose.pose.orientation #self.average_pose_orientation(ds_poses_array)
+        # self.ds_localization_pose.pose.pose.orientation = self.docking_station_pose_perception.pose.pose.orientation #self.average_pose_orientation(ds_poses_array)
+        self.ds_localization_pose.pose.pose.orientation = self.average_pose_orientation(ds_poses_array)
         self.ds_localization_pose.header.stamp = rospy.Time.now()
         self.ds_localization_pose.pose.covariance = self.calculate_covariance(ds_poses_array,
                                                                                 self.ds_localization_pose.pose.pose.position)
