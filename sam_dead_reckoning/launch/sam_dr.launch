@@ -33,17 +33,28 @@
           <remap from="tf_lat_lon" to="lat_lon"/>
         </node>
 
+        <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg robot_name)/odom 100" unless="$(arg map_odom_tf_ekf)"/> -->
+        <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 1.571 0 3.1416 map $(arg namespace)/odom 100"/> -->
+
+
         <!-- Depth from pressure sensor converter -->
-        <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
+        <!-- <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
           <param name="odom_frame" value="$(arg namespace)/odom" />
           <param name="pressure_topic" value="/$(arg namespace)/core/depth20_pressure" />
-          <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                               <!---->
+          <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                             
           <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
           <param name="base_frame" value="$(arg namespace)/base_link_DR" />
+        </node> -->
+
+        <!-- Use this when using data from Stonefish -->
+        <node pkg="sam_dead_reckoning" name="odom_sim_to_depth" type="odom_sim_to_depth.py" output="screen">
+          <param name="odom_frame" value="$(arg namespace)/odom" />
+          <param name="odom_sim_topic" value="/$(arg namespace)/sim/odom" />
+          <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                               
         </node>
 
         <!-- Required to reply filtered rosbags offline -->
-        <!-- <param name="robot_description"
+        <param name="robot_description"
            command="$(find xacro)/xacro '$(find sam_description)/robots/sam_auv_$(arg mode).urdf.xacro' debug:=$(arg debug) namespace:=$(arg namespace)" />
 
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen">
@@ -53,7 +64,7 @@
         <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" respawn="true" output="screen">
           <param name="use_gui" value="false"/>
           <rosparam param="source_list">["/sam/command_states"]</rosparam>
-        </node> -->
+        </node>
         <!-- until here -->
 
         <node name="gps_pose_pub" pkg="sam_dead_reckoning" type="gps_node.py" respawn="true" output="screen">
@@ -108,10 +119,10 @@
     	  </node>
 
         <!-- Temp: provides heading for nodered -->
-        <node pkg="sam_dead_reckoning" name="yaw_2_heading" type="yaw_2_heading.py" output="screen"/>
+        <!-- <node pkg="sam_dead_reckoning" name="yaw_2_heading" type="yaw_2_heading.py" output="screen"/> -->
 
         <!-- Rviz vis of latest WP from nodered -->
-        <node pkg="sam_dead_reckoning" name="wp_vis_node" type="wp_vis_node.py" output="screen"/>
+        <!-- <node pkg="sam_dead_reckoning" name="wp_vis_node" type="wp_vis_node.py" output="screen"/> -->
 
       </group>
     </group>

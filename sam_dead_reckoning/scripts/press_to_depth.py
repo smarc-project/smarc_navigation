@@ -50,6 +50,7 @@ class Press2Depth(object):
 			if press_msg.fluid_pressure > 90000. and press_msg.fluid_pressure < 500000.:
 				self.depth_msg.header.stamp = rospy.Time.now()
 				self.depth_msg.pose.pose.position.z = depth_abs # = [0., 0., 2.]
+
 				self.pub.publish(self.depth_msg)
 		
 		except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):

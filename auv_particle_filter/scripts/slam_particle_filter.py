@@ -151,7 +151,7 @@ class SlamParticleFilter(object):
         # Start timing now
         self.time = rospy.Time.now().to_sec()
         self.old_time = rospy.Time.now().to_sec()
-        self.last_cb_time = rospy.Time.now().to_sec
+        self.last_cb_time = rospy.Time.now().to_sec()
 
         # Perception topic
         rospy.Subscriber(perception_topic, PoseWithCovarianceStamped,
@@ -181,7 +181,11 @@ class SlamParticleFilter(object):
         But that's a different problem.
         """
         self.current_cb_time = rospy.Time.now().to_sec()
-        if not self.particles_initialised or self.current_cb_time - self.last_cb_time > 1:
+        if not self.particles_initialised: # or self.current_cb_time - self.last_cb_time > 4:
+
+            cb_time = self.current_cb_time - self.last_cb_time
+            print("Reinitialize")
+            print("Flag: {}, time diff: {}".format(self.particles_initialised, cb_time))
             # try:
             #     rospy.loginfo("Waiting for odom to sam")
             #     odom_to_sam_tf = self.tf_buffer.lookup_transform(self.odom_frame, self.base_frame,
@@ -296,7 +300,6 @@ class SlamParticleFilter(object):
         Odometry message callback to invoke the prediction step
         """
         self.time = odom_msg.header.stamp.to_sec()
-        print("Odom CB xvel: {}".format(odom_msg.twist.twist.linear.x))
 
         if self.particles_initialised:
             if self.old_time and self.time > self.old_time:
