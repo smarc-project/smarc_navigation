@@ -4,7 +4,11 @@ SLAM-based particle filter for underwater docking.
 """
 
 import rospy
+from rospy.numpy_msg import numpy_msg
+from rospy_tutorials.msg import Floats
+
 import numpy as np
+
 import tf2_ros
 import tf
 
@@ -19,8 +23,6 @@ from tf.transformations import quaternion_matrix, quaternion_from_matrix
 from slam_particle import Particle, matrix_from_tf
 from resampling import residual_resample
 from numpy import linalg as LA
-
-import time
 
 
 class SlamParticleFilter(object):
@@ -79,15 +81,17 @@ class SlamParticleFilter(object):
         perception_topic = rospy.get_param('~perception_topic', '/perception')
         odom_top = rospy.get_param("~odom_topic", 'odom')
         ds_init_topic = rospy.get_param('~ds_init_estimate')
+        weight_topic = rospy.get_param('~particle_weight_topic')
+        sam_particle_topic = rospy.get_param('~sam_particle_topic')
 
         # Initialize particle poses publisher
         self.sam_poses = PoseArray()
         self.sam_poses.header.frame_id = self.odom_frame
-        self.sam_pose_array_pub = rospy.Publisher(sam_pose_array_topic, PoseArray, queue_size=100)
+        self.sam_pose_array_pub = rospy.Publisher(sam_pose_array_topic, PoseArray, queue_size=10)
 
         self.ds_poses = PoseArray()
         self.ds_poses.header.frame_id = self.odom_frame
-        self.ds_pose_array_pub = rospy.Publisher(ds_pose_array_top, PoseArray, queue_size=100)
+        self.ds_pose_array_pub = rospy.Publisher(ds_pose_array_top, PoseArray, queue_size=10)
 
         # Initialize localization odom publisher
         # SAM Odom
@@ -95,7 +99,7 @@ class SlamParticleFilter(object):
         self.sam_localization_pose.header.frame_id = self.odom_frame
         self.sam_localization_pose.child_frame_id = self.base_frame
         self.sam_localization_pub = rospy.Publisher(sam_localization_topic,
-                                                    Odometry, queue_size=100)
+                                                    Odometry, queue_size=10)
 
         # FIXME: Update that to TF2
         self.sam_localization_tf = tf.TransformBroadcaster()
@@ -110,6 +114,15 @@ class SlamParticleFilter(object):
 
         self.docking_station_pose_perception = PoseWithCovarianceStamped()
         self.ds_init_prior = np.zeros(6)
+
+        # Weight publisher
+        self.particle_weights = np.empty(self.particle_count)
+        self.particle_weight_pub = rospy.Publisher(weight_topic, numpy_msg(Floats), queue_size=10)
+
+        # Particle pose array pubplisher
+        self.sam_poses_array = np.empty((self.particle_count, 6))
+        self.sam_particle_pub = rospy.Publisher(sam_particle_topic, numpy_msg(Floats), queue_size=10)
+
 
         # Transforms from auv_2_ros
         # This is actually map --> odom! The documentation is weird.
@@ -148,8 +161,8 @@ class SlamParticleFilter(object):
         self.last_cb_time = rospy.Time.now().to_sec()
 
         # Perception topic
-        # rospy.Subscriber(perception_topic, PoseWithCovarianceStamped,
-        #                  self.perception_cb, queue_size=5)
+        rospy.Subscriber(perception_topic, PoseWithCovarianceStamped,
+                         self.perception_cb, queue_size=5)
 
         # Establish subscription to odometry message (intentionally last)
         rospy.Subscriber(odom_top, Odometry, self.odom_cb, queue_size=100)
@@ -279,6 +292,7 @@ class SlamParticleFilter(object):
         else:
             # Meas update
             weights = self.update(docking_station_pose)
+            self.particle_weights = np.array(weights, dtype=np.float32)
 
             # Particle resampling
             self.resample(weights)
@@ -378,7 +392,7 @@ class SlamParticleFilter(object):
         Predict motion based on motion model
         """
         dt = self.time - self.old_time
-        print("PF Motion prediction dt = {}".format(dt))
+
         for i in range(0, self.particle_count):
             self.particles[i].motion_pred(odom_t, dt)
 
@@ -447,12 +461,12 @@ class SlamParticleFilter(object):
         Update poses based on the average of the respective particles.
         """
         # Update SAM pose based on particles
-        sam_poses_array = np.array(sam_pose_list)
+        self.sam_poses_array = np.array(sam_pose_list, dtype=np.float32)
 
-        self.sam_localization_pose.pose.pose.position = self.average_pose_position(sam_poses_array)
-        self.sam_localization_pose.pose.pose.orientation = self.average_pose_orientation(sam_poses_array)
+        self.sam_localization_pose.pose.pose.position = self.average_pose_position(self.sam_poses_array)
+        self.sam_localization_pose.pose.pose.orientation = self.average_pose_orientation(self.sam_poses_array)
         self.sam_localization_pose.header.stamp = rospy.Time.now()
-        self.sam_localization_pose.pose.covariance = self.calculate_covariance(sam_poses_array,
+        self.sam_localization_pose.pose.covariance = self.calculate_covariance(self.sam_poses_array,
                                                                                self.sam_localization_pose.pose.pose)
 
         # Update docking station pose based on particles
@@ -553,11 +567,11 @@ class SlamParticleFilter(object):
         ds_l_v /= np.linalg.norm(ds_l_v)
 
         # check if you normalize the quaternions. That could lead to the error
-        if np.linalg.norm(sam_l_v) > 1:
-            print("Norm sam_l_v: {}".format(np.linalg.norm(sam_l_v)))
+        # if np.linalg.norm(sam_l_v) > 1:
+        #     print("Norm sam_l_v: {}".format(np.linalg.norm(sam_l_v)))
 
-        if np.linalg.norm(ds_l_v) > 1:
-            print("Norm ds_l_v: {}".format(np.linalg.norm(ds_l_v)))
+        # if np.linalg.norm(ds_l_v) > 1:
+        #     print("Norm ds_l_v: {}".format(np.linalg.norm(ds_l_v)))
 
 
         # Broadcast TFs
@@ -663,6 +677,11 @@ class SlamParticleFilter(object):
         self.ds_localization_pub.publish(self.ds_localization_pose)
         # self.ds_map_pub.publish(self.ds_map_pose)
         # self.sam_map_pub.publish(self.sam_map_pose)
+
+        # print(self.sam_poses_array)
+
+        self.particle_weight_pub.publish(self.particle_weights)
+        self.sam_particle_pub.publish(self.sam_poses_array)
 
     def print_states(self):
         """

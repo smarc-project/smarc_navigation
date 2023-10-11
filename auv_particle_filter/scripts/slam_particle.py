@@ -9,6 +9,7 @@ import numpy as np
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 from tf.transformations import translation_matrix
 from tf.transformations import quaternion_matrix, quaternion_from_matrix
+from tf.transformations import euler_matrix, euler_from_matrix
 
 
 class Particle(object):
@@ -49,6 +50,8 @@ class Particle(object):
         """
         Predict where the particle will be based on SAM's and the docking stations'
         motion model.
+        TODO: Remove sensor readings here and place them in the update step. Then you 
+        actually do filtering and not only observation.
         """
         # Generate noise
         noise_vec = (np.sqrt(self.process_cov)*np.random.randn(1, 12)).flatten()
@@ -57,13 +60,22 @@ class Particle(object):
         # Angular motion: integrate yaw, read roll and pitch directly
         # FIXME: Had to negate the angular.z velocity now. Because I changed odom to NED?
         # That at least improves the performance.
-        vel_rot = np.array([0.,
-                            0.,
-                            -odom_t.twist.twist.angular.z])
+        vel_rot = np.array([odom_t.twist.twist.angular.x,
+                            odom_t.twist.twist.angular.y,
+                            odom_t.twist.twist.angular.z])
 
-        rot_t = np.array(self.p_pose[3:6]) + vel_rot * dt + noise_vec[3:6]
+        rot_step_t = vel_rot * dt + noise_vec[3:6]
+
+        R_rot_step_t = euler_matrix(*rot_step_t)
+        R_sam_t = euler_matrix(*self.p_pose[3:6])
+
+        R_sam_update = np.matmul(R_sam_t, R_rot_step_t)
+
+        rot_step_t_transformed = euler_from_matrix(R_sam_update)
+
+        rot_t = np.array(self.p_pose[3:6]) + rot_step_t_transformed
         # yaw_t = (rot_t[2] + np.pi) % (2 * np.pi) - np.pi
-        yaw_t = rot_t[2]
+        yaw_t = rot_step_t_transformed[2]
 
         euler_t = euler_from_quaternion(np.array([odom_t.pose.pose.orientation.x,
                                                   odom_t.pose.pose.orientation.y,
@@ -75,7 +87,7 @@ class Particle(object):
 
         # debug only!
         # yaw_t = euler_t[2]
-        print("Yaw diff: {}".format(yaw_t-euler_t[2]))
+        # print("Yaw diff: {}".format(yaw_t-euler_t[2]))
 
         self.p_pose[3:6] = [roll_t, pitch_t, yaw_t]
 
