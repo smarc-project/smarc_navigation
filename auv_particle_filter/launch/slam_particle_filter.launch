@@ -6,21 +6,33 @@
   <arg name="map_frame" default="map"/>
   <arg name="camera_frame" default="$(arg namespace)/camera_front_link"/>
   <arg name="odom_frame"  default="$(arg namespace)/odom"/>
-  <arg name="base_frame"  default="$(arg namespace)/base_link"/>
+  <arg name="base_frame"  default="$(arg namespace)/base_link/pf"/>
   <arg name="ds_base_frame"  default="ds_base_link"/>
   <arg name="ds_range"  default="3"/>
-
-  <arg name="odom_topic" default="/$(arg namespace)/dr/odom" />
-  <arg name="perception_topic" default="/sam/perception/estimated_pose" />
   <arg name="base_frame_2d" default="$(arg namespace)/base_link_2d" />
 
+  <!-- Topics -->
+  <arg name="odom_topic" default="/$(arg namespace)/dr/odom" />
+  <arg name="perception_topic" default="/sam/perception/estimated_pose" />
+  <arg name="ds_init_topic" default="/target/initial_estimate" />
+  
+
+
+
+  <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100"/> -->
+  <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 1.571 0 3.1416 map $(arg namespace)/odom 100"/>
+
+
   <!-- PF args -->
-  <arg name="particle_count"  default="100"/>
+  <arg name="particle_count"  default="1"/>
   <!-- Order [x, y, z, roll, pitch, yaw] -->
   <arg name="init_covariance" default="[1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4, 1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4]"/>
-  <arg name="motion_covariance" default="[1e-6, 1e-6, 1e-6, 1e-5, 1e-5, 1e-5, 1e-6, 1e-6, 1e-6, 1e-5, 1e-5, 1e-5]"/>
+  <!-- <arg name="motion_covariance" default="[1e-6, 1e-6, 1e-6, 1e-5, 1e-5, 1e-5, 1e-6, 1e-6, 1e-6, 1e-5, 1e-5, 1e-5]"/> -->
+  <!-- <arg name="motion_covariance" default="[1e-6, 1e-8, 1e-6, 1e-6, 1e-6, 1e-8, 1e-6, 1e-6, 1e-6, 1e-5, 1e-5, 1e-5]"/> -->
+  <!-- <arg name="motion_covariance" default="[1e-6, 1e-5, 1e-6, 1e-6, 1e-6, 1e-5, 1e-6, 1e-6, 1e-6, 1e-5, 1e-5, 1e-5]"/> -->
+  <arg name="motion_covariance" default="[1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10]"/>
   <!-- <arg name="resampling_noise_covariance" default="[1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4, 1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4]"/> -->
-  <arg name="resampling_noise_covariance" default="[1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4]"/>
+  <arg name="resampling_noise_covariance" default="[1e-2, 1e-2, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4]"/>
   <arg name="measurement_std"  default="2."/>
 
   <group ns="$(arg namespace)">
@@ -41,6 +53,7 @@
         <param name="ds_map_topic" value="/$(arg namespace)/dr/ds_map"/>
         <param name="sam_particle_poses_topic" value="/$(arg namespace)/dr/sam_particle_poses"/>
         <param name="ds_particle_poses_topic" value="/$(arg namespace)/dr/ds_particle_poses"/>
+        <param name="ds_init_estimate" value="$(arg ds_init_topic)"/>
 	      
         <param name="map_frame" value="$(arg map_frame)" />
         <param name="odom_frame" value="$(arg odom_frame)" />

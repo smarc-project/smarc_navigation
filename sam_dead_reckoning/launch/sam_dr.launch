@@ -80,7 +80,8 @@
           <param name="odom_topic" value="$(arg odom_topic)" />
           <param name="stim_imu" value="/$(arg namespace)/core/imu" />
           <!--<param name="sbg_topic" value="/$(arg namespace)/sbg/ekf_quat" />-->
-          <param name="sbg_topic" value="/$(arg namespace)/core/sbg_imu" />
+          <!-- <param name="sbg_topic" value="/$(arg namespace)/core/sbg_imu" /> -->
+          <param name="sbg_topic" value="/$(arg namespace)/core/imu" />
           <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                               <!---->
           <param name="thrust1_fb" value="/$(arg namespace)/core/thruster1_fb" />
           <param name="thrust2_fb" value="/$(arg namespace)/core/thruster2_fb" />

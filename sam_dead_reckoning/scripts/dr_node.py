@@ -77,7 +77,7 @@ class VehicleDR(object):
         self.base_depth = 0. # abs depth of base frame
 
         # Motion model
-        self.sam = SAM() 
+        self.sam = SAM()
         self.mm_on = False
         self.mm_linear_vel = [0.] * 3
         dr = np.clip(0., -7 * np.pi / 180, 7 * np.pi / 180)
