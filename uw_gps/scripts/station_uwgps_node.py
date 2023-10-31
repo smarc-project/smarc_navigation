@@ -14,7 +14,7 @@ import tf2_ros
 
 from uwgps_interface import UWGPSInterface
 
-class UWGPSStation(object):
+class UWGPSStation:
 
     def gps_cb(self, gps_msg):
          
@@ -22,21 +22,22 @@ class UWGPSStation(object):
 
             gps_utm = utm.fromLatLong(gps_msg.latitude, gps_msg.longitude)
 
-            if self.init_heading:
-                rospy.loginfo("Station node: broadcasting transform %s to %s" % (self.utm_frame, self.gps_frame))            
-                
-                # euler = euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
-                # quat = quaternion_from_euler(euler) # -0.3 for feb_24 with floatsam
-                               
-                transformStamped = TransformStamped()
-                transformStamped.transform.translation.x = gps_utm.easting
-                transformStamped.transform.translation.y = gps_utm.northing
-                transformStamped.transform.translation.z = 0.
-                transformStamped.transform.rotation = Quaternion(*self.init_quat)
-                transformStamped.header.frame_id = self.utm_frame
-                transformStamped.child_frame_id = self.gps_frame
-                transformStamped.header.stamp = rospy.Time.now()
-                self.br.sendTransform(transformStamped)
+            # if self.init_heading:
+            rospy.loginfo("Station node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
+            
+            # euler = euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
+            # quat = quaternion_from_euler(euler) # -0.3 for feb_24 with floatsam
+                            
+            rot = [0., 0., 0., 1.]
+            transform_stamped = TransformStamped()
+            transform_stamped.transform.translation.x = gps_utm.easting
+            transform_stamped.transform.translation.y = gps_utm.northing
+            transform_stamped.transform.translation.z = 0.
+            transform_stamped.transform.rotation = Quaternion(*rot)
+            transform_stamped.header.frame_id = self.utm_frame
+            transform_stamped.child_frame_id = self.map_frame
+            transform_stamped.header.stamp = rospy.Time.now()
+            self.br.sendTransform(transform_stamped)
         
         else:
 
@@ -45,12 +46,28 @@ class UWGPSStation(object):
 
     def sbg_cb(self, sbg_msg):
 
-        self.init_quat = sbg_msg.orientation
-        self.init_heading = True
+        # self.init_quat = sbg_msg.orientation
+        # self.init_heading = True
+
+        if not self.map2base:
+
+            transform_stamped = TransformStamped()
+            transform_stamped.transform.translation.x = 0.
+            transform_stamped.transform.translation.y = 0.
+            transform_stamped.transform.translation.z = 0.
+            transform_stamped.transform.rotation = Quaternion(
+                *sbg_msg.orientation)
+            transform_stamped.header.frame_id = self.map_frame
+            transform_stamped.child_frame_id = self.base_frame
+            transform_stamped.header.stamp = rospy.Time.now()
+            self.static_tf_bc.sendTransform(transform_stamped)
+            self.map2base = True
+
 
     def __init__(self):
 
         self.base_frame = rospy.get_param('~base_frame', "base_link")
+        self.map_frame = rospy.get_param('~map_frame', "map")
         self.gps_frame = rospy.get_param('~gps_frame', "gps_link")
         self.utm_frame = rospy.get_param('~utm_frame', "utm")
         uwgps_frame = rospy.get_param('~uwgps_frame', 'uwgps_link')
@@ -61,7 +78,7 @@ class UWGPSStation(object):
         payload_gps = rospy.get_param('~station_gps', '/sam/external/uw_gps_latlon')
         self.wl_gps_sub = rospy.Subscriber(payload_gps, NavSatFix, self.gps_cb)
 
-        self.init_heading = False
+        # self.init_heading = False
         # self.init_m2o = False
         self.sbg_topic = rospy.get_param('~sbg_topic', '/sam/core/imu')
         self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb,  queue_size=10)
@@ -74,6 +91,7 @@ class UWGPSStation(object):
         goal_point_prev = PointStamped()
         self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
         self.br = tf.TransformBroadcaster()
+        self.map2base = False
 
         r = rospy.Rate(self.node_freq)
         while not rospy.is_shutdown():
@@ -100,11 +118,11 @@ class UWGPSStation(object):
                     goal_point_prev = goal_point
 
                     try:
-                        goal_base = self.listener.transformPoint(self.base_frame, goal_point)
+                        goal_base = self.listener.transformPoint(self.map_frame, goal_point)
                         # For visualization
                         self.point_pub.publish(goal_base)
                         
-                        print("Goal in command station base frame")
+                        print("Goal in command station map frame")
                         print(goal_base.point)
 
                     except(tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
