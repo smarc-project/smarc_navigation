@@ -21,18 +21,22 @@ class UWGPSStation(object):
         if gps_msg.status.status != -1:
 
             gps_utm = utm.fromLatLong(gps_msg.latitude, gps_msg.longitude)
+            self.gps_msgs.append(gps_utm)
 
             if self.init_heading:
                 rospy.loginfo("Station node: broadcasting transform %s to %s" % (self.utm_frame, self.gps_frame))            
+
+                easting_avg = np.sum([msg.easting for msg in self.gps_msgs])/len(self.gps_msgs)                
+                northing_avg = np.sum([msg.northing for msg in self.gps_msgs])/len(self.gps_msgs)                
                 
                 # euler = euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
                 # quat = quaternion_from_euler(euler) # -0.3 for feb_24 with floatsam
                                
                 transformStamped = TransformStamped()
-                transformStamped.transform.translation.x = gps_utm.easting
-                transformStamped.transform.translation.y = gps_utm.northing
+                transformStamped.transform.translation.x = easting_avg
+                transformStamped.transform.translation.y = northing_avg
                 transformStamped.transform.translation.z = 0.
-                transformStamped.transform.rotation = Quaternion(*self.init_quat)
+                transformStamped.transform.rotation = Quaternion(*self.sbg_quat)
                 transformStamped.header.frame_id = self.utm_frame
                 transformStamped.child_frame_id = self.gps_frame
                 transformStamped.header.stamp = rospy.Time.now()
@@ -45,7 +49,7 @@ class UWGPSStation(object):
 
     def sbg_cb(self, sbg_msg):
 
-        self.init_quat = sbg_msg.orientation
+        self.sbg_quat = sbg_msg.orientation
         self.init_heading = True
 
     def __init__(self):
@@ -59,6 +63,7 @@ class UWGPSStation(object):
         self.node_freq = rospy.get_param('~node_freq', 1.)
 
         payload_gps = rospy.get_param('~station_gps', '/sam/external/uw_gps_latlon')
+        self.gps_msgs = []
         self.wl_gps_sub = rospy.Subscriber(payload_gps, NavSatFix, self.gps_cb)
 
         self.init_heading = False
