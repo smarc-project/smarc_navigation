@@ -39,6 +39,7 @@ class VehicleDR(object):
         self.rpm2_topic = rospy.get_param('~thrust2_fb', '/sam/core/rpm_fb2')
         self.thrust_topic = rospy.get_param('~thrust_vec_cmd', '/sam/core/thrust')
         self.gps_topic = rospy.get_param('~gps_odom_topic', '/sam/core/gps')
+        self.uw_gps_topic = rospy.get_param('~uwgps_odom_topic', '/sam/core/gps')
         # self.dr_pub_period = rospy.get_param('~dr_pub_period', 0.1)
 
         self.listener = tf.TransformListener()
@@ -112,6 +113,7 @@ class VehicleDR(object):
         self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb, queue_size=10)
         self.depth_sub = rospy.Subscriber(self.depth_top, PoseWithCovarianceStamped, self.depth_cb)
         self.gps_sub = rospy.Subscriber(self.gps_topic, Odometry, self.gps_cb)
+        self.uw_gps_sub = rospy.Subscriber(self.uw_gps_topic, Odometry, self.uw_gps_cb)
 
         self.thrust_cmd_sub = rospy.Subscriber(self.thrust_topic, ThrusterAngles, self.thrust_cmd_cb)
         self.thrust1_sub = message_filters.Subscriber(self.rpm1_topic, ThrusterFeedback)
@@ -130,6 +132,7 @@ class VehicleDR(object):
 
 
     def gps_cb(self, gps_msg):
+
         try:
             # goal_point_local = self.listener.transformPoint("map", goal_point)
             (world_trans, world_rot) = self.listener.lookupTransform(self.map_frame, self.odom_frame, rospy.Time(0))
@@ -167,6 +170,46 @@ class VehicleDR(object):
                     self.static_tf_bc.sendTransform(self.transformStamped)
                     self.init_m2o = True
                     self.gps_sub.unregister()
+
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                rospy.logwarn("DR: Transform to utm-->map not available yet")
+            pass
+
+
+    def uw_gps_cb(self, uw_gps_msg):
+
+        try:
+            # goal_point_local = self.listener.transformPoint("map", goal_point)
+            (world_trans, world_rot) = self.listener.lookupTransform(
+                self.map_frame, self.odom_frame, rospy.Time(0))
+
+        except (tf.LookupException, tf.ConnectivityException):
+
+            try:
+
+                if self.init_heading:
+                    rospy.loginfo("DR node: broadcasting transform %s to %s" % (
+                        self.map_frame, self.odom_frame))
+
+                    euler = euler_from_quaternion(
+                        [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
+                    # -0.3 for feb_24 with floatsam
+                    quat = quaternion_from_euler(0., 0., euler[2])
+
+                    # -0.3 for feb_24 with floatsam
+                    # quat = quaternion_from_euler(0., 0., self.init_yaw + np.pi/2)
+
+                    self.transformStamped.transform.translation.x = uw_gps_msg.pose.pose.position.x
+                    self.transformStamped.transform.translation.y = uw_gps_msg.pose.pose.position.y
+                    self.transformStamped.transform.translation.z = uw_gps_msg.pose.pose.position.z
+                    self.transformStamped.transform.rotation = Quaternion(
+                        *quat)
+                    self.transformStamped.header.frame_id = self.map_frame
+                    self.transformStamped.child_frame_id = self.odom_frame
+                    self.transformStamped.header.stamp = rospy.Time.now()
+                    self.static_tf_bc.sendTransform(self.transformStamped)
+                    self.init_m2o = True
+                    # self.gps_sub.unregister()
 
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 rospy.logwarn("DR: Transform to utm-->map not available yet")
