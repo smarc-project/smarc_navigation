@@ -71,8 +71,8 @@ class UWGPSStation:
         transform_stamped.header.stamp = sbg_msg.header.stamp
         self.static_tf_bc.sendTransform(transform_stamped)
 
-    def gui_cb(self, send_uwgps_msg):
-        self.send_uwgps = True
+    # def gui_cb(self, send_uwgps_msg):
+    #     self.send_uwgps = True
 
     def __init__(self):
 
@@ -108,9 +108,9 @@ class UWGPSStation:
         uwgps_topic = rospy.get_param('~uwgps_topic', '/station/uwgps')
         self.point_pub = rospy.Publisher(uwgps_topic, PointStamped, queue_size=100)
 
-        self.send_uwgps = False
-        send_uwgps_top = rospy.get_param('~send_uwgps_top', '/sam/core/imu')
-        self.gui_sub = rospy.Subscriber(send_uwgps_top, Bool, self.gui_cb,  queue_size=1)
+        # self.send_uwgps = False
+        # send_uwgps_top = rospy.get_param('~send_uwgps_top', '/sam/core/imu')
+        # self.gui_sub = rospy.Subscriber(send_uwgps_top, Bool, self.gui_cb,  queue_size=1)
         
         self.uwgps_int = UWGPSInterface()
 
@@ -155,11 +155,8 @@ class UWGPSStation:
                             goal_base.point.z))
                     # print("Goal in command station map frame")
                     # print(goal_base.point)
-                    
-                    # Publish to the UW comms when requested from the GUI
-                    if self.send_uwgps:
-                        self.send_uwgps = False
-                        self.point_pub.publish(goal_base)
+
+                    self.point_pub.publish(goal_base)
 
                 except(tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     rospy.logwarn("UWGPS module: Could not transform UGWPS WP to {}".format(self.utm_frame))
