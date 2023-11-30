@@ -23,48 +23,46 @@ class UWGPSStation:
             gps_utm = utm.fromLatLong(gps_msg.latitude, gps_msg.longitude)
             self.gps_msgs.append(gps_utm)
 
-            if self.init_heading:
-                rospy.loginfo("Station node: broadcasting transform %s to %s" % (self.utm_frame, self.gps_frame))            
+            # if self.init_heading:
+            rospy.loginfo_once("Station node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
 
-                easting_avg = np.sum([msg.easting for msg in self.gps_msgs])/len(self.gps_msgs)                
-                northing_avg = np.sum([msg.northing for msg in self.gps_msgs])/len(self.gps_msgs)                
-                
-                # euler = euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
-                # quat = quaternion_from_euler(euler) # -0.3 for feb_24 with floatsam
-                               
-                transformStamped = TransformStamped()
-                transformStamped.transform.translation.x = easting_avg
-                transformStamped.transform.translation.y = northing_avg
-                transformStamped.transform.translation.z = 0.
-                transformStamped.transform.rotation = Quaternion(*self.sbg_quat)
-                transformStamped.header.frame_id = self.utm_frame
-                transformStamped.child_frame_id = self.gps_frame
-                transformStamped.header.stamp = rospy.Time.now()
-                self.br.sendTransform(transformStamped)
+            easting_avg = np.sum([msg.easting for msg in self.gps_msgs])/len(self.gps_msgs)                
+            northing_avg = np.sum([msg.northing for msg in self.gps_msgs])/len(self.gps_msgs)                
+            rot = [0.,0.,0.,1.]
+            # euler = euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
+            # quat = quaternion_from_euler(euler) # -0.3 for feb_24 with floatsam
+                            
+            transformStamped = TransformStamped()
+            transformStamped.transform.translation.x = easting_avg
+            transformStamped.transform.translation.y = northing_avg
+            transformStamped.transform.translation.z = 0.
+            transformStamped.transform.rotation = Quaternion(*rot)
+            transformStamped.header.frame_id = self.utm_frame
+            transformStamped.child_frame_id = self.map_frame
+            transformStamped.header.stamp = rospy.Time.now()
+            self.static_tf_bc.sendTransform(transformStamped)
        
         else:
-
             rospy.logwarn("Station GPS msg invalid")
+            rospy.logwarn("")
 
 
     def sbg_cb(self, sbg_msg):
 
-        # self.init_quat = sbg_msg.orientation
-        # self.init_heading = True
+        rospy.loginfo_once("Station node: broadcasting transform %s to %s" % (self.map_frame, self.base_frame))            
 
-        if not self.map2base:
-
-            transform_stamped = TransformStamped()
-            transform_stamped.transform.translation.x = 0.
-            transform_stamped.transform.translation.y = 0.
-            transform_stamped.transform.translation.z = 0.
-            transform_stamped.transform.rotation = Quaternion(
-                *sbg_msg.orientation)
-            transform_stamped.header.frame_id = self.map_frame
-            transform_stamped.child_frame_id = self.base_frame
-            transform_stamped.header.stamp = rospy.Time.now()
-            self.static_tf_bc.sendTransform(transform_stamped)
-            self.map2base = True
+        self.sbg_init = True
+        self.sbg_t = rospy.get_time()
+        
+        transform_stamped = TransformStamped()
+        transform_stamped.transform.translation.x = 0.
+        transform_stamped.transform.translation.y = 0.
+        transform_stamped.transform.translation.z = 0.
+        transform_stamped.transform.rotation = sbg_msg.orientation
+        transform_stamped.header.frame_id = self.map_frame
+        transform_stamped.child_frame_id = self.base_frame
+        transform_stamped.header.stamp = sbg_msg.header.stamp
+        self.static_tf_bc.sendTransform(transform_stamped)
 
 
     def __init__(self):
@@ -78,38 +76,47 @@ class UWGPSStation:
         self.base_url = rospy.get_param('~uwgps_server_ip', "https://demo.waterlinked.com")
         self.node_freq = rospy.get_param('~node_freq', 1.)
 
-        payload_gps = rospy.get_param('~station_gps', '/sam/external/uw_gps_latlon')
+        payload_gps = rospy.get_param('~station_gps_top', '/sam/external/gps')
         self.gps_msgs = []
         self.wl_gps_sub = rospy.Subscriber(payload_gps, NavSatFix, self.gps_cb)
 
         # self.init_heading = False
-        # self.init_m2o = False
-        self.sbg_topic = rospy.get_param('~sbg_topic', '/sam/core/imu')
-        self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb,  queue_size=10)
-        
-        uwgps_topic = rospy.get_param('~uwgps_topic', '/station/uwgps')
-        self.point_pub = rospy.Publisher(uwgps_topic, PointStamped, queue_size=10)
-        
-        self.uwgps_int = UWGPSInterface()
+        self.sbg_init = False
+        self.sbg_t = 0.
+        self.sbg_prev_t = 0.
         self.listener = tf.TransformListener()
         goal_point_prev = PointStamped()
         self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
         self.br = tf.TransformBroadcaster()
-        self.map2base = False
+
+        self.sbg_topic = rospy.get_param('~sbg_topic', '/sam/core/imu')
+        self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb,  queue_size=100)
+        
+        uwgps_topic = rospy.get_param('~uwgps_topic', '/station/uwgps')
+        self.point_pub = rospy.Publisher(uwgps_topic, PointStamped, queue_size=100)
+        
+        self.uwgps_int = UWGPSInterface()
 
         r = rospy.Rate(self.node_freq)
         while not rospy.is_shutdown():
 
             print("------------------------")
+            
+            # Check rate of incoming data from SBG
+            if self.sbg_init:
+                if (abs(self.sbg_t - self.sbg_prev_t) > (1./self.node_freq) + 0.5):
+                    rospy.logwarn("SBG data not coming in ")
+                    rospy.logwarn("")
+            else:
+                rospy.logwarn("SBG has not started ")
+                rospy.logwarn("")
+            self.sbg_prev_t = self.sbg_t    
+
+            # Leave this here to allow logwarn to work in every iteration of the loop
 
             # Acoustic position: x,y,z wrt to antenna
             acoustic_position = self.uwgps_int.get_acoustic_position(self.base_url)
-
             if acoustic_position:
-                print("Current acoustic position. X: {}, Y: {}, Z: {}".format(
-                    acoustic_position["x"],
-                    acoustic_position["y"],
-                    acoustic_position["z"]))
 
                 goal_point = PointStamped()
                 goal_point.header.frame_id = uwgps_frame
@@ -118,20 +125,28 @@ class UWGPSStation:
                 goal_point.point.y = acoustic_position["y"] 
                 goal_point.point.z = acoustic_position["z"] 
 
-                if goal_point.point != goal_point_prev.point:
-                    goal_point_prev = goal_point
+                if True:
+                #if goal_point.point != goal_point_prev.point:
+                #    goal_point_prev = goal_point
 
                     try:
-                        goal_base = self.listener.transformPoint(self.map_frame, goal_point)
-                        # For visualization
+                        goal_base = self.listener.transformPoint(self.utm_frame, goal_point)
                         self.point_pub.publish(goal_base)
-                        
-                        print("Goal in command station map frame")
-                        print(goal_base.point)
+                        print("Current acoustic position in {} frame X: {}, Y: {}, Z: {}".format(
+                                self.utm_frame,
+                                goal_base.point.x,
+                                goal_base.point.y,
+                                goal_base.point.z))
+                        # print("Goal in command station map frame")
+                        # print(goal_base.point)
 
                     except(tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                        print("UWGPS module: Could not transform UGWPS WP to base_link")
+                        rospy.logwarn("UWGPS module: Could not transform UGWPS WP to {}".format(self.utm_frame))
+                        rospy.logwarn("")
                         pass
+            else:
+                rospy.logwarn("No acoustic position received")
+                rospy.logwarn("")
 
             r.sleep()
 
