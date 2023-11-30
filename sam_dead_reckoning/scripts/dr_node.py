@@ -168,7 +168,6 @@ class VehicleDR(object):
                     self.transformStamped.child_frame_id = self.odom_frame
                     self.transformStamped.header.stamp = rospy.Time.now()
                     self.static_tf_bc.sendTransform(self.transformStamped)
-                    self.init_m2o = True
                     self.gps_sub.unregister()
 
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
@@ -179,46 +178,62 @@ class VehicleDR(object):
     def uw_gps_cb(self, uw_gps_msg):
 
         try:
-            # goal_point_local = self.listener.transformPoint("map", goal_point)
+            # The first UW GPS fix is used to set up utm-->map tf
+            (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
+                                                                    self.map_frame,
+                                                                    rospy.Time(0))
+
+        except (tf.LookupException, tf.ConnectivityException):
+
+            rot = [0., 0., 0., 1.]
+            rospy.loginfo("GPS node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
+            transformStamped = TransformStamped()
+            transformStamped.transform.translation.x = uw_gps_msg.pose.pose.position.x
+            transformStamped.transform.translation.y = uw_gps_msg.pose.pose.position.y
+            transformStamped.transform.translation.z = 0.
+            transformStamped.transform.rotation = Quaternion(*rot)               
+            transformStamped.header.frame_id = self.utm_frame
+            transformStamped.child_frame_id = self.map_frame
+            transformStamped.header.stamp = rospy.Time.now()
+            self.static_tf_bc.sendTransform(transformStamped)
+
+
+        try:
+            # The first UW GPS fix is also used together with the current vehicle orientation and depth to set up map-->odom tf
             (world_trans, world_rot) = self.listener.lookupTransform(
                 self.map_frame, self.odom_frame, rospy.Time(0))
 
         except (tf.LookupException, tf.ConnectivityException):
 
-            try:
+            if self.init_heading:
+                rospy.loginfo("DR node: broadcasting transform %s to %s" % (
+                    self.map_frame, self.odom_frame))
 
-                if self.init_heading:
-                    rospy.loginfo("DR node: broadcasting transform %s to %s" % (
-                        self.map_frame, self.odom_frame))
+                euler = euler_from_quaternion(
+                    [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
+                # -0.3 for feb_24 with floatsam
+                quat = quaternion_from_euler(euler[0], euler[1], euler[2])
 
-                    euler = euler_from_quaternion(
-                        [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
-                    # -0.3 for feb_24 with floatsam
-                    quat = quaternion_from_euler(0., 0., euler[2])
+                # -0.3 for feb_24 with floatsam
+                # quat = quaternion_from_euler(0., 0., self.init_yaw + np.pi/2)
 
-                    # -0.3 for feb_24 with floatsam
-                    # quat = quaternion_from_euler(0., 0., self.init_yaw + np.pi/2)
-
-                    self.transformStamped.transform.translation.x = uw_gps_msg.pose.pose.position.x
-                    self.transformStamped.transform.translation.y = uw_gps_msg.pose.pose.position.y
-                    self.transformStamped.transform.translation.z = uw_gps_msg.pose.pose.position.z
-                    self.transformStamped.transform.rotation = Quaternion(
-                        *quat)
-                    self.transformStamped.header.frame_id = self.map_frame
-                    self.transformStamped.child_frame_id = self.odom_frame
-                    self.transformStamped.header.stamp = rospy.Time.now()
-                    self.static_tf_bc.sendTransform(self.transformStamped)
-                    self.init_m2o = True
-                    # self.gps_sub.unregister()
-
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                rospy.logwarn("DR: Transform to utm-->map not available yet")
-            pass
+                self.transformStamped.transform.translation.x = 0.
+                self.transformStamped.transform.translation.y = 0.
+                self.transformStamped.transform.translation.z = uw_gps_msg.pose.pose.position.z
+                self.transformStamped.transform.rotation = Quaternion(
+                    *quat)
+                self.transformStamped.header.frame_id = self.map_frame
+                self.transformStamped.child_frame_id = self.odom_frame
+                self.transformStamped.header.stamp = rospy.Time.now()
+                self.static_tf_bc.sendTransform(self.transformStamped)
+                # self.gps_sub.unregister()
 
 
     def dr_timer(self, event):
         
-        if self.init_m2o and self.init_stim:
+        if self.init_stim:
+            rospy.loginfo_once("DR node: broadcasting transform %s to %s" % (
+                    self.odom_frame, self.base_frame))
 
             pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
             rot_vel_t = self.vel_rot    # TODO: rn this keeps the last vels even if the IMU dies
@@ -288,10 +303,10 @@ class VehicleDR(object):
                         #"base_test",
                         self.odom_frame)
             
-            # Base link frame 
-            quat_t = tf.transformations.quaternion_from_euler(0., 0., pose_t[5])
+            # 2D base link frame 
+            quat_euler_t = tf.transformations.quaternion_from_euler(0., 0., pose_t[5])
             self.br.sendTransform([pose_t[0], pose_t[1], pose_t[2]],
-                        quat_t,
+                        quat_euler_t,
                         rospy.Time.now(),
                         self.base_frame_2d,
                         self.odom_frame)
@@ -348,7 +363,8 @@ class VehicleDR(object):
 
 
     def stim_cb(self, imu_msg):
-        if self.init_stim and self.init_m2o:
+        
+        if self.init_stim:
             self.rot_stim = np.array([imu_msg.orientation.x,
                                     imu_msg.orientation.y,
                                     imu_msg.orientation.z,
