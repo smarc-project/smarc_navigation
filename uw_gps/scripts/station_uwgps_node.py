@@ -8,7 +8,8 @@ from geodesy import utm
 from sensor_msgs.msg import NavSatFix, Imu
 # from tf.transformations import euler_from_quaternion, quaternion_from_euler, quaternion_multiply
 from geometry_msgs.msg import PointStamped, TransformStamped, Quaternion, PoseWithCovarianceStamped
-
+from geographic_msgs.msg import GeoPoint
+from std_msgs.msg import Bool
 import tf
 import tf2_ros
 
@@ -41,6 +42,12 @@ class UWGPSStation:
             transformStamped.child_frame_id = self.map_frame
             transformStamped.header.stamp = rospy.Time.now()
             self.static_tf_bc.sendTransform(transformStamped)
+
+            # Republish to visualize in GUI
+            gps_geo = GeoPoint()
+            gps_geo.latitude = gps_msg.latitude
+            gps_geo.longitude = gps_msg.longitude
+            self.gps_geo_pub.publish(gps_geo)
        
         else:
             rospy.logwarn("Station GPS msg invalid")
@@ -64,6 +71,8 @@ class UWGPSStation:
         transform_stamped.header.stamp = sbg_msg.header.stamp
         self.static_tf_bc.sendTransform(transform_stamped)
 
+    def gui_cb(self, send_uwgps_msg):
+        self.send_uwgps = True
 
     def __init__(self):
 
@@ -76,8 +85,11 @@ class UWGPSStation:
         self.base_url = rospy.get_param('~uwgps_server_ip', "https://demo.waterlinked.com")
         self.node_freq = rospy.get_param('~node_freq', 1.)
 
-        payload_gps = rospy.get_param('~station_gps_top', '/sam/external/gps')
         self.gps_msgs = []
+        gps_geo_top = rospy.get_param('~gps_geo_top', '/station/uwgps')
+        self.gps_geo_pub = rospy.Publisher(gps_geo_top, GeoPoint, queue_size=100)
+        
+        payload_gps = rospy.get_param('~station_gps_top', '/sam/external/gps')
         self.wl_gps_sub = rospy.Subscriber(payload_gps, NavSatFix, self.gps_cb)
 
         # self.init_heading = False
@@ -89,11 +101,16 @@ class UWGPSStation:
         self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
         self.br = tf.TransformBroadcaster()
 
+
         self.sbg_topic = rospy.get_param('~sbg_topic', '/sam/core/imu')
         self.sbg_sub = rospy.Subscriber(self.sbg_topic, Imu, self.sbg_cb,  queue_size=100)
         
         uwgps_topic = rospy.get_param('~uwgps_topic', '/station/uwgps')
         self.point_pub = rospy.Publisher(uwgps_topic, PointStamped, queue_size=100)
+
+        self.send_uwgps = False
+        send_uwgps_top = rospy.get_param('~send_uwgps_top', '/sam/core/imu')
+        self.gui_sub = rospy.Subscriber(send_uwgps_top, Bool, self.gui_cb,  queue_size=1)
         
         self.uwgps_int = UWGPSInterface()
 
@@ -125,25 +142,29 @@ class UWGPSStation:
                 goal_point.point.y = acoustic_position["y"] 
                 goal_point.point.z = acoustic_position["z"] 
 
-                if True:
-                #if goal_point.point != goal_point_prev.point:
-                #    goal_point_prev = goal_point
 
-                    try:
-                        goal_base = self.listener.transformPoint(self.utm_frame, goal_point)
+            #if goal_point.point != goal_point_prev.point:
+            #    goal_point_prev = goal_point
+
+                try:
+                    goal_base = self.listener.transformPoint(self.utm_frame, goal_point)
+                    print("Current acoustic position in {} frame X: {}, Y: {}, Z: {}".format(
+                            self.utm_frame,
+                            goal_base.point.x,
+                            goal_base.point.y,
+                            goal_base.point.z))
+                    # print("Goal in command station map frame")
+                    # print(goal_base.point)
+                    
+                    # Publish to the UW comms when requested from the GUI
+                    if self.send_uwgps:
+                        self.send_uwgps = False
                         self.point_pub.publish(goal_base)
-                        print("Current acoustic position in {} frame X: {}, Y: {}, Z: {}".format(
-                                self.utm_frame,
-                                goal_base.point.x,
-                                goal_base.point.y,
-                                goal_base.point.z))
-                        # print("Goal in command station map frame")
-                        # print(goal_base.point)
 
-                    except(tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                        rospy.logwarn("UWGPS module: Could not transform UGWPS WP to {}".format(self.utm_frame))
-                        rospy.logwarn("")
-                        pass
+                except(tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                    rospy.logwarn("UWGPS module: Could not transform UGWPS WP to {}".format(self.utm_frame))
+                    rospy.logwarn("")
+                    pass
             else:
                 rospy.logwarn("No acoustic position received")
                 rospy.logwarn("")

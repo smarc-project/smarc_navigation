@@ -1,0 +1,57 @@
+# this file is given to both mqtt_bridge and waraps_bridge.py as rosparams
+serializer: json:dumps
+deserializer: json:loads
+waraps_tickrate: 2
+mqtt:
+  client:
+    protocol: 4      # MQTTv311
+  connection:
+    # host: localhost # these are set in the launch file, so we could have args from outside
+    # port: 1883
+    keepalive: 60
+bridge:
+    # dont forget to add the ".msg" part!
+    #  the ~ in front will fill with smarc/<robot_name>/ for mqtt
+    #  and this node is run under /<robot_name>/ in ROS, relative topics etc.
+
+  - factory: mqtt_bridge.bridge:RosToMqttBridge
+    msg_type: geographic_msgs.msg:GeoPoint
+    topic_from: uwgps/locator
+    topic_to: ~/uwgps/locator
+  
+  # - factory: mqtt_bridge.bridge:RosToMqttBridge
+  #   msg_type: geographic_msgs.msg:GeoPoint
+  #   topic_from: uwgps/lat_lon
+  #   topic_to: ~/uwgps/lat_lon
+
+
+# MQTT to ROS
+  # - factory: mqtt_bridge.bridge:MqttToRosBridge
+  #   msg_type: sam_msgs.msg:PercentStamped
+  #   topic_from: ~/core/vbs_cmd
+  #   topic_to: core/vbs_cmd
+
+  # - factory: mqtt_bridge.bridge:MqttToRosBridge
+  #   msg_type: std_msgs.msg:Bool
+  #   topic_from: ~/bt_cmd/gui_wp/enable
+  #   topic_to: smarc_bt/gui_wp/enable
+
+  # - factory: mqtt_bridge.bridge:MqttToRosBridge
+  #   msg_type: smarc_bt.msg:GotoWaypoint
+  #   topic_from: ~/bt_cmd/gui_wp/wp
+  #   topic_to: smarc_bt/gui_wp/wp
+
+  # - factory: mqtt_bridge.bridge:MqttToRosBridge
+  #   msg_type: smarc_bt.msg:MissionControl
+  #   topic_from: ~/bt_cmd/mission_control
+  #   topic_to: smarc_bt/mission_control
+
+  # - factory: mqtt_bridge.bridge:MqttToRosBridge
+  #   msg_type: smarc_bt.msg:BTCommand
+  #   topic_from: ~/bt_cmd/bt_cmd
+  #   topic_to: smarc_bt/bt_command
+
+
+
+
+
