@@ -17,7 +17,7 @@ bridge:
   - factory: mqtt_bridge.bridge:RosToMqttBridge
     msg_type: geographic_msgs.msg:GeoPoint
     topic_from: /cm_station/uwgps/lat_lon
-    topic_to: ~/uwgps/locator
+    topic_to: ~/dr/lat_lon
   
   # - factory: mqtt_bridge.bridge:RosToMqttBridge
   #   msg_type: geographic_msgs.msg:GeoPoint
