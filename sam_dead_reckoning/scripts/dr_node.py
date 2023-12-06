@@ -43,9 +43,11 @@ class VehicleDR(object):
         # self.dr_pub_period = rospy.get_param('~dr_pub_period', 0.1)
 
         self.listener = tf.TransformListener()
-        self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
+        self.static_tf_bc_utmmap = tf2_ros.StaticTransformBroadcaster()
+        self.static_tf_bc_mapodom = tf2_ros.StaticTransformBroadcaster()
         self.br = tf.TransformBroadcaster()
-        self.transformStamped = TransformStamped()
+        self.tfUTMMap = TransformStamped()
+        self.tfMapOdom = TransformStamped()
 
         self.t_prev = rospy.Time.now()
         self.pose_prev = [0.] * 6
@@ -177,25 +179,26 @@ class VehicleDR(object):
 
     def uw_gps_cb(self, uw_gps_msg):
 
+        print("Received UW GPS ")
+
         try:
             # The first UW GPS fix is used to set up utm-->map tf
             (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
                                                                     self.map_frame,
                                                                     rospy.Time(0))
-
         except (tf.LookupException, tf.ConnectivityException):
 
             rot = [0., 0., 0., 1.]
-            rospy.loginfo("GPS node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
-            transformStamped = TransformStamped()
-            transformStamped.transform.translation.x = uw_gps_msg.pose.pose.position.x
-            transformStamped.transform.translation.y = uw_gps_msg.pose.pose.position.y
-            transformStamped.transform.translation.z = 0.
-            transformStamped.transform.rotation = Quaternion(*rot)               
-            transformStamped.header.frame_id = self.utm_frame
-            transformStamped.child_frame_id = self.map_frame
-            transformStamped.header.stamp = rospy.Time.now()
-            self.static_tf_bc.sendTransform(transformStamped)
+            rospy.loginfo("DR node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
+            #self.transformStamped = TransformStamped()
+            self.tfUTMMap.transform.translation.x = uw_gps_msg.pose.pose.position.x
+            self.tfUTMMap.transform.translation.y = uw_gps_msg.pose.pose.position.y
+            self.tfUTMMap.transform.translation.z = 0.
+            self.tfUTMMap.transform.rotation = Quaternion(*rot)               
+            self.tfUTMMap.header.frame_id = self.utm_frame
+            self.tfUTMMap.child_frame_id = self.map_frame
+            self.tfUTMMap.header.stamp = rospy.Time.now()
+            self.static_tf_bc_utmmap.sendTransform(self.tfUTMMap)
 
 
         try:
@@ -217,20 +220,19 @@ class VehicleDR(object):
                 # -0.3 for feb_24 with floatsam
                 # quat = quaternion_from_euler(0., 0., self.init_yaw + np.pi/2)
 
-                self.transformStamped.transform.translation.x = 0.
-                self.transformStamped.transform.translation.y = 0.
-                self.transformStamped.transform.translation.z = uw_gps_msg.pose.pose.position.z
-                self.transformStamped.transform.rotation = Quaternion(
-                    *quat)
-                self.transformStamped.header.frame_id = self.map_frame
-                self.transformStamped.child_frame_id = self.odom_frame
-                self.transformStamped.header.stamp = rospy.Time.now()
-                self.static_tf_bc.sendTransform(self.transformStamped)
+                self.tfMapOdom.transform.translation.x = 0.
+                self.tfMapOdom.transform.translation.y = 0.
+                self.tfMapOdom.transform.translation.z = uw_gps_msg.pose.pose.position.z
+                self.tfMapOdom.transform.rotation = Quaternion(*quat)
+                self.tfMapOdom.header.frame_id = self.map_frame
+                self.tfMapOdom.child_frame_id = self.odom_frame
+                self.tfMapOdom.header.stamp = rospy.Time.now()
+                self.static_tf_bc_mapodom.sendTransform(self.tfMapOdom)
                 # self.gps_sub.unregister()
 
 
     def dr_timer(self, event):
-        
+
         if self.init_stim:
             rospy.loginfo_once("DR node: broadcasting transform %s to %s" % (
                     self.odom_frame, self.base_frame))
