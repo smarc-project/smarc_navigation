@@ -12,15 +12,15 @@
   <arg name="base_frame_2d" default="$(arg namespace)/base_link_2d" />
 
   <!-- Topics -->
-  <arg name="odom_topic" default="/$(arg namespace)/dr/odom" />
+  <arg name="odom_topic" default="/$(arg namespace)/enu/odom" />
   <arg name="perception_topic" default="/sam/perception/estimated_pose" />
   <arg name="ds_init_topic" default="/target/initial_estimate" />
   
 
 
 
-  <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100"/> -->
-  <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 1.571 0 3.1416 map $(arg namespace)/odom 100"/>
+  <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100"/>
+  <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 1.571 0 3.1416 map $(arg namespace)/odom 100"/> -->
 
 
   <!-- PF args -->

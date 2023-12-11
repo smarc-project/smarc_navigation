@@ -58,11 +58,14 @@ class Particle(object):
 
         ## SAM's motion model
         # Angular motion: integrate yaw, read roll and pitch directly
-        # FIXME: Had to negate the angular.z velocity now. Because I changed odom to NED?
-        # That at least improves the performance.
+        # FIXME: There is still sketchy stuff going on. Check that you use an ENU odom message and adjust
+        #       all transformations accordingly. Could be somewhere before. The motion model shouldn't
+        #       have any changes in signs or flipping x and y. It's a very quick fix for now, but not
+        #       proper.
+        # Also, how does that work on SAM then? Make sure to check that as well.
         vel_rot = np.array([odom_t.twist.twist.angular.x,
                             odom_t.twist.twist.angular.y,
-                            odom_t.twist.twist.angular.z])
+                            -odom_t.twist.twist.angular.z])
 
         rot_step_t = vel_rot * dt + noise_vec[3:6]
 
@@ -92,9 +95,9 @@ class Particle(object):
         self.p_pose[3:6] = [roll_t, pitch_t, yaw_t]
 
         # Linear motion
-        vel_p = np.array([odom_t.twist.twist.linear.x,
-                         odom_t.twist.twist.linear.y,
-                         odom_t.twist.twist.linear.z])
+        vel_p = np.array([odom_t.twist.twist.linear.y,
+                         odom_t.twist.twist.linear.x,
+                         -odom_t.twist.twist.linear.z])
 
         rot_mat_t = self.full_rotation(roll_t, pitch_t, yaw_t)
         step_t = np.matmul(rot_mat_t, vel_p * dt) + noise_vec[0:3]
@@ -104,20 +107,21 @@ class Particle(object):
         self.p_pose[2] = odom_t.pose.pose.position.z    # Depth can be read directly
 
         ## Docking Station motion model
-        # Assume the docking station doesn't move.
+        # Assume the docking station doesn't move. For a dynamic motion model, fill
+        # in the lines. 
         # Angular motion
-        ds_rot_vel = np.array([0., 0., 0.])
-        ds_rot_t = np.array(self.p_pose[9:12]) + ds_rot_vel * dt + noise_vec[9:12]
+        # ds_rot_vel = np.array([0., 0., 0.])
+        # ds_rot_t = np.array(self.p_pose[9:12]) + ds_rot_vel * dt + noise_vec[9:12]
 
-        self.p_pose[9:12] = ds_rot_t
+        # self.p_pose[9:12] = ds_rot_t
 
-        # Linear motion
-        ds_lin_vel = np.array([0., 0., 0.])
+        # # Linear motion
+        # ds_lin_vel = np.array([0., 0., 0.])
 
-        ds_rot_mat_t = self.full_rotation(*ds_rot_t)
-        ds_lin_t = np.matmul(ds_rot_mat_t, ds_lin_vel * dt) + noise_vec[6:9]
+        # ds_rot_mat_t = self.full_rotation(*ds_rot_t)
+        # ds_lin_t = np.matmul(ds_rot_mat_t, ds_lin_vel * dt) + noise_vec[6:9]
 
-        self.p_pose[6:9] += ds_lin_t
+        # self.p_pose[6:9] += ds_lin_t
 
 
     def full_rotation(self, roll, pitch, yaw):
