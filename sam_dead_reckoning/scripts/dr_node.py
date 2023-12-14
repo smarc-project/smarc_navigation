@@ -152,25 +152,29 @@ class VehicleDR(object):
                 gps_map = self.listener.transformPoint(self.map_frame, goal_point)
 
                 if self.init_heading:
-                    rospy.loginfo("DR node: broadcasting transform %s to %s" % (self.map_frame, self.odom_frame))            
-                    
-                    euler = euler_from_quaternion([self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
-                    quat = quaternion_from_euler(0.,0., euler[2]) # -0.3 for feb_24 with floatsam
-                    
+                    rospy.loginfo("DR node: broadcasting transform %s to %s" % (
+                        self.map_frame, self.odom_frame))
+
+                    euler = euler_from_quaternion(
+                        # [self.init_quat.y, self.init_quat.x, -self.init_quat.z, self.init_quat.w])
+                        [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
+                    # # -0.3 for feb_24 with floatsam
+                    quat = quaternion_from_euler(euler[0],euler[1],euler[2]- np.pi/2)
+                    # quat = [0., 0., 0., 1.]
+
                     # -0.3 for feb_24 with floatsam
-                    #quat = quaternion_from_euler(0., 0., self.init_yaw + np.pi/2)
-                    
-                    self.transformStamped.transform.translation.x = gps_map.point.x
-                    #self.transformStamped.transform.translation.x = 0.
-                    self.transformStamped.transform.translation.y = gps_map.point.y
-                    #self.transformStamped.transform.translation.y = 0.
-                    self.transformStamped.transform.translation.z = 0.
-                    self.transformStamped.transform.rotation = Quaternion(*quat)
-                    self.transformStamped.header.frame_id = self.map_frame
-                    self.transformStamped.child_frame_id = self.odom_frame
-                    self.transformStamped.header.stamp = rospy.Time.now()
-                    self.static_tf_bc.sendTransform(self.transformStamped)
-                    self.gps_sub.unregister()
+                    # quat = quaternion_from_euler(0., 0., self.init_yaw + np.pi/2)
+
+                    self.tfMapOdom.transform.translation.x = 0.
+                    self.tfMapOdom.transform.translation.y = 0.
+                    self.tfMapOdom.transform.translation.z = self.base_depth #self.depth_base
+                    # self.tfMapOdom.transform.rotation = self.init_quat
+                    self.tfMapOdom.transform.rotation = Quaternion(*quat)
+                    self.tfMapOdom.header.frame_id = self.map_frame
+                    self.tfMapOdom.child_frame_id = self.odom_frame
+                    self.tfMapOdom.header.stamp = rospy.Time.now()
+                    self.static_tf_bc_mapodom.sendTransform(self.tfMapOdom)
+                    # self.gps_sub.unregister()
 
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 rospy.logwarn("DR: Transform to utm-->map not available yet")
@@ -181,57 +185,76 @@ class VehicleDR(object):
 
         print("Received UW GPS ")
 
-        try:
-            # The first UW GPS fix is used to set up utm-->map tf
-            (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
-                                                                    self.map_frame,
-                                                                    rospy.Time(0))
-        except (tf.LookupException, tf.ConnectivityException):
+        rot = [0., 0., 0., 1.]
+        rospy.loginfo("DR node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
+        #self.transformStamped = TransformStamped()
+        self.tfUTMMap.transform.translation.x = uw_gps_msg.pose.pose.position.x
+        self.tfUTMMap.transform.translation.y = uw_gps_msg.pose.pose.position.y
+        self.tfUTMMap.transform.translation.z = 0.
+        self.tfUTMMap.transform.rotation = Quaternion(*rot)               
+        self.tfUTMMap.header.frame_id = self.utm_frame
+        self.tfUTMMap.child_frame_id = self.map_frame
+        self.tfUTMMap.header.stamp = rospy.Time.now()
+        self.static_tf_bc_utmmap.sendTransform(self.tfUTMMap)
 
-            rot = [0., 0., 0., 1.]
-            rospy.loginfo("DR node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
-            #self.transformStamped = TransformStamped()
-            self.tfUTMMap.transform.translation.x = uw_gps_msg.pose.pose.position.x
-            self.tfUTMMap.transform.translation.y = uw_gps_msg.pose.pose.position.y
-            self.tfUTMMap.transform.translation.z = 0.
-            self.tfUTMMap.transform.rotation = Quaternion(*rot)               
-            self.tfUTMMap.header.frame_id = self.utm_frame
-            self.tfUTMMap.child_frame_id = self.map_frame
-            self.tfUTMMap.header.stamp = rospy.Time.now()
-            self.static_tf_bc_utmmap.sendTransform(self.tfUTMMap)
+        if self.init_heading:
+            rospy.loginfo("DR node: broadcasting transform %s to %s" % (
+                self.map_frame, self.odom_frame))
 
+            # euler = euler_from_quaternion(
+            #     [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
+                # [self.init_quat.y, self.init_quat.x, -self.init_quat.z, self.init_quat.w])
+            # -0.3 for feb_24 with floatsam
+            # quat = quaternion_from_euler(euler[0], euler[1], euler[2])
 
-        try:
-            # The first UW GPS fix is also used together with the current vehicle orientation and depth to set up map-->odom tf
-            (world_trans, world_rot) = self.listener.lookupTransform(
-                self.map_frame, self.odom_frame, rospy.Time(0))
+            euler = euler_from_quaternion(
+                # [self.init_quat.y, self.init_quat.x, -self.init_quat.z, self.init_quat.w])
+                [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
+            # # -0.3 for feb_24 with floatsam
+            quat = quaternion_from_euler(euler[0],euler[1],euler[2]- np.pi/2)
 
-        except (tf.LookupException, tf.ConnectivityException):
+            self.tfMapOdom.transform.translation.x = 0.
+            self.tfMapOdom.transform.translation.y = 0.
+            self.tfMapOdom.transform.translation.z = self.base_depth #self.depth_base
+            # self.tfMapOdom.transform.rotation = self.init_quat
+            self.tfMapOdom.transform.rotation = Quaternion(*quat)
+            self.tfMapOdom.header.frame_id = self.map_frame
+            self.tfMapOdom.child_frame_id = self.odom_frame
+            self.tfMapOdom.header.stamp = rospy.Time.now()
+            self.static_tf_bc_mapodom.sendTransform(self.tfMapOdom)
+            # self.gps_sub.unregister()
+        else:
+            rospy.logwarn("DR node: SBG data not received yet")
 
-            if self.init_heading:
-                rospy.loginfo("DR node: broadcasting transform %s to %s" % (
-                    self.map_frame, self.odom_frame))
+        self.reset_dr()
 
-                euler = euler_from_quaternion(
-                    [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
-                # -0.3 for feb_24 with floatsam
-                quat = quaternion_from_euler(euler[0], euler[1], euler[2])
+    def reset_dr(self):
 
-                # -0.3 for feb_24 with floatsam
-                # quat = quaternion_from_euler(0., 0., self.init_yaw + np.pi/2)
-
-                self.tfMapOdom.transform.translation.x = 0.
-                self.tfMapOdom.transform.translation.y = 0.
-                self.tfMapOdom.transform.translation.z = uw_gps_msg.pose.pose.position.z
-                self.tfMapOdom.transform.rotation = Quaternion(*quat)
-                self.tfMapOdom.header.frame_id = self.map_frame
-                self.tfMapOdom.child_frame_id = self.odom_frame
-                self.tfMapOdom.header.stamp = rospy.Time.now()
-                self.static_tf_bc_mapodom.sendTransform(self.tfMapOdom)
-                # self.gps_sub.unregister()
-
+        rospy.loginfo("Reseting DR")
+        self.pos_t = [0.] * 3
+        # self.rot_t = [0.] * 3
+ 
 
     def dr_timer(self, event):
+
+        # Uncomment to use UW GPS 
+        try:
+            (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
+                                                                    self.map_frame,
+                                                                    rospy.Time(0))            
+            self.static_tf_bc_utmmap.sendTransform(self.tfUTMMap)
+
+        except (tf.LookupException, tf.ConnectivityException):
+            pass
+        
+        try:
+            (world_trans, world_rot) = self.listener.lookupTransform(
+                self.map_frame, self.odom_frame, rospy.Time(0))
+            
+            self.static_tf_bc_mapodom.sendTransform(self.tfMapOdom)
+
+        except (tf.LookupException, tf.ConnectivityException):
+            pass
 
         if self.init_stim:
             rospy.loginfo_once("DR node: broadcasting transform %s to %s" % (
@@ -256,7 +279,7 @@ class VehicleDR(object):
                                             self.dvl_latest.velocity.y,
                                             self.dvl_latest.velocity.z])    
 
-                    print("DVL vel ", lin_vel_t)
+                    # print("DVL vel ", lin_vel_t)
                                 
                 # # Otherwise, integrate motion model estimate
                 else:
