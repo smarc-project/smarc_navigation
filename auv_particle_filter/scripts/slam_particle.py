@@ -95,9 +95,12 @@ class Particle(object):
         self.p_pose[3:6] = [roll_t, pitch_t, yaw_t]
 
         # Linear motion
-        vel_p = np.array([odom_t.twist.twist.linear.y,
-                         odom_t.twist.twist.linear.x,
-                         -odom_t.twist.twist.linear.z])
+        # vel_p = np.array([odom_t.twist.twist.linear.y,
+        #                  odom_t.twist.twist.linear.x,
+        #                  -odom_t.twist.twist.linear.z])
+        vel_p = np.array([odom_t.twist.twist.linear.x,
+                    odom_t.twist.twist.linear.y,
+                    odom_t.twist.twist.linear.z])
 
         rot_mat_t = self.full_rotation(roll_t, pitch_t, yaw_t)
         step_t = np.matmul(rot_mat_t, vel_p * dt) + noise_vec[0:3]

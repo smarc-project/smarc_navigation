@@ -1,26 +1,36 @@
 <?xml version="1.0" ?>
 <launch>
 	<arg name="namespace" default="sam"/>
+  <arg name="real_robot" default="true"/>
 
   <!-- Frames -->
   <arg name="map_frame" default="map"/>
-  <arg name="camera_frame" default="$(arg namespace)/camera_front_link"/>
   <arg name="odom_frame"  default="$(arg namespace)/odom"/>
-  <arg name="base_frame"  default="$(arg namespace)/base_link/pf"/>
+  <arg name="base_frame"  default="$(arg namespace)/base_link_pf"/>
+  <!-- <arg name="base_frame_pf"  default="$(arg namespace)/base_link_pf"/> -->
   <arg name="ds_base_frame"  default="ds_base_link"/>
   <arg name="ds_range"  default="3"/>
   <arg name="base_frame_2d" default="$(arg namespace)/base_link_2d" />
 
   <!-- Topics -->
-  <arg name="odom_topic" default="/$(arg namespace)/enu/odom" />
-  <arg name="perception_topic" default="/sam/perception/estimated_pose" />
+  <arg name="odom_topic" default="/$(arg namespace)/dr/odom" />
+  <arg name="perception_topic" default="/sam/perception/estimated_pose_dropped" if="$(arg real_robot)"/>
+  <arg name="perception_topic" default="/sam/perception/estimated_pose" unless="$(arg real_robot)"/>
   <arg name="ds_init_topic" default="/target/initial_estimate" />
+
   
+  <!-- Different map_2_odom tfs depending on if we're using real SAM or 
+  a Stonefish bag. -->
+  <!-- REAL -->
+  <group if="$(arg real_robot)">
+    <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100"/>
+    <node name="drop_pose_estim" pkg="topic_tools" type="drop" args="/sam/perception/estimated_pose 9 10 $(arg perception_topic)"/>
+  </group>
 
-
-
-  <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100"/>
-  <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 1.571 0 3.1416 map $(arg namespace)/odom 100"/> -->
+  <!-- SIM -->
+  <group unless="$(arg real_robot)">
+    <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 1.571 0 3.1416 map $(arg namespace)/odom 100"/>
+  </group>
 
 
   <!-- PF args -->
@@ -47,7 +57,7 @@
 
         <param name="odom_topic" value="$(arg odom_topic)"/>
         <param name="perception_topic" value="$(arg perception_topic)"/>
-        <param name="odom_corrected_topic" value="/$(arg namespace)/slam/odom"/>
+        <param name="odom_corrected_topic" value="/$(arg namespace)/pf/odom"/>
         <param name="ds_corrected_topic" value="/$(arg namespace)/dr/ds_odom"/>
         <param name="sam_map_topic" value="/$(arg namespace)/dr/sam_map"/>
         <param name="ds_map_topic" value="/$(arg namespace)/dr/ds_map"/>
@@ -60,6 +70,7 @@
         <param name="map_frame" value="$(arg map_frame)" />
         <param name="odom_frame" value="$(arg odom_frame)" />
         <param name="base_frame" value="$(arg base_frame)" />
+        <!-- <param name="base_frame_pf" value="$(arg base_frame_pf)" /> -->
         <param name="ds_base_frame" value="$(arg ds_base_frame)" />
         <param name="base_frame_2d" value="$(arg base_frame_2d)"/>
       </node>
