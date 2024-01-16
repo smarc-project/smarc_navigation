@@ -24,7 +24,7 @@
   <!-- REAL -->
   <group if="$(arg real_robot)">
     <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100"/>
-    <node name="drop_pose_estim" pkg="topic_tools" type="drop" args="/sam/perception/estimated_pose 9 10 $(arg perception_topic)"/>
+    <node name="drop_pose_estim" pkg="topic_tools" type="drop" args="/sam/perception/estimated_pose 14 15 $(arg perception_topic)"/>
   </group>
 
   <!-- SIM -->
