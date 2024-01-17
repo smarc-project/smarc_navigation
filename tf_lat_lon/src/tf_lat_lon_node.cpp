@@ -195,9 +195,10 @@ public:
         geometry_msgs::TransformStamped transformStamped;
         try {
             transformStamped = tfBuffer.lookupTransform("utm", frame, ros::Time(0));
+            ROS_INFO_ONCE("Got transform utm to base link");
         }
         catch (tf2::TransformException &ex) {
-            // ROS_WARN("Could not get lat/lon: %s", ex.what());
+            ROS_WARN_THROTTLE(5., "Could not get lat/lon: %s", ex.what());
             return;
         }
 

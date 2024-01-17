@@ -63,6 +63,7 @@ class PublishGPSPose(object):
                 transformStamped.header.stamp = rospy.Time.now()
                 self.static_tf_bc.sendTransform(transformStamped)
 
+                # return
 
             # For SAM GPS
             odom_msg = Odometry()
