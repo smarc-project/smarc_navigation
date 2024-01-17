@@ -191,10 +191,11 @@ class SlamParticleFilter(object):
                 process_cov=self.motion_cov,
             )
 
-        # Start timing now
-        self.time = rospy.Time.now().to_sec()
-        self.old_time = rospy.Time.now().to_sec()
-        self.last_cb_time = rospy.Time.now().to_sec()
+        # Start timing now depending on the callbacks.
+        self.current_odom_cb_time = rospy.Time.now().to_sec()
+        self.prev_odom_cb_time = rospy.Time.now().to_sec()
+        self.last_perception_cb_time = rospy.Time.now().to_sec()
+        self.current_perception_cb_time = rospy.Time.now().to_sec()
 
         # Perception topic
         rospy.Subscriber(
@@ -273,14 +274,12 @@ class SlamParticleFilter(object):
         But that's a different problem.
         """
 
-        self.current_cb_time = rospy.Time.now().to_sec()
-
-        print("Perception CB, dt: {}".format(self.current_cb_time - self.last_cb_time))
+        self.current_perception_cb_time = rospy.Time.now().to_sec()
 
         if (
             not self.particles_initialised
         ):  # or self.current_cb_time - self.last_cb_time > 4:
-            cb_time = self.current_cb_time - self.last_cb_time
+            cb_time = self.current_perception_cb_time - self.last_perception_cb_time
             print("Reinitialize")
             print("Flag: {}, time diff: {}".format(self.particles_initialised, cb_time))
 
@@ -366,7 +365,7 @@ class SlamParticleFilter(object):
 
             # self.docking_station_pose_perception = docking_station_pose
 
-        self.last_cb_time = self.current_cb_time
+        self.last_perception_cb_time = self.current_perception_cb_time
 
     def update(self, docking_station_pose):
         """
@@ -417,7 +416,7 @@ class SlamParticleFilter(object):
         """
         self.sam_odom = odom_msg
 
-        self.time = odom_msg.header.stamp.to_sec()
+        self.current_odom_cb_time = odom_msg.header.stamp.to_sec()
         # print("Odom cb, dt: {}".format(self.time - self.old_time))
 
         if not self.sam_initialised:
@@ -452,17 +451,20 @@ class SlamParticleFilter(object):
             self.sam_initialised = True
 
         # if self.particles_initialised:
-        if self.old_time and self.time > self.old_time:
+        if (
+            self.prev_odom_cb_time
+            and self.current_odom_cb_time > self.prev_odom_cb_time
+        ):
             # Motion prediction
             self.predict(odom_msg)
 
-        self.old_time = self.time
+        self.prev_odom_cb_time = self.current_odom_cb_time
 
     def predict(self, odom_t):
         """
         Predict motion based on motion model
         """
-        dt = self.time - self.old_time
+        dt = self.current_odom_cb_time - self.prev_odom_cb_time
 
         for i in range(0, self.particle_count):
             self.particles[i].motion_pred(odom_t, dt)
