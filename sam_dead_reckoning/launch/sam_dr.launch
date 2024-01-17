@@ -12,50 +12,53 @@
   <arg name="gps_port" value="/dev/ttyACM0"/>
   <arg name="gps_baud" value="115200"/>
 
-    <group ns="$(arg namespace)">
+  <arg name="replay" default="false"/>
+  <arg name="stonefish" default="false"/>
+  <arg name="algae_replay" default="false"/>
 
-      <!-- Only to reply data from algae farm May  -->
-      <!-- <node pkg="sbg_driver" name="sbg_2_ros" type="sbg_to_ros.py" output="screen">
+  <group ns="$(arg namespace)">
+    <!-- Only to reply data from algae farm May  -->
+    <group if="$(arg algae_replay)">
+      <node pkg="sbg_driver" name="sbg_2_ros" type="sbg_to_ros.py" output="screen">
         <param name="sbg_imu_data" value="/$(arg namespace)/sbg/imu_data"/>
         <param name="sbg_ekf_quat" value="/$(arg namespace)/sbg/ekf_quat"/>
         <param name="sbg_mag" value="/$(arg namespace)/sbg/mag"/>
         <param name="sbg_utc_time" value="/$(arg namespace)/sbg/utc_time"/>
         <param name="sbg_frame" value="$(arg namespace)/sbg_link"/>
         <param name="sbg_imu_out" value="/$(arg namespace)/core/sbg_imu"/>
-      </node> -->
+      </node>
+    </group>
 
-      <group ns="dr">
+    <group ns="dr">
+      <node pkg="tf_lat_lon" type="tf_lat_lon_node" name="tf_lat_lon_node" output="screen">
+        <param name="frame" value="$(arg namespace)/base_link"/>
+        <param name="utm_zone" value="$(arg utm_zone)"/>
+        <param name="utm_band" value="$(arg utm_band)"/>
+        <remap from="tf_lat_lon" to="lat_lon"/>
+      </node>
 
-        <node pkg="tf_lat_lon" type="tf_lat_lon_node" name="tf_lat_lon_node" output="screen">
-          <param name="frame" value="$(arg namespace)/base_link"/>
-          <param name="utm_zone" value="$(arg utm_zone)"/>
-          <param name="utm_band" value="$(arg utm_band)"/>
-          <remap from="tf_lat_lon" to="lat_lon"/>
-        </node>
+      <!-- Depth from pressure sensor converter -->
+      <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
+        <param name="odom_frame" value="$(arg namespace)/odom" />
+        <param name="pressure_topic" value="/$(arg namespace)/core/depth20_pressure" />
+        <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                             
+        <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
+        <param name="base_frame" value="$(arg namespace)/base_link_DR" />
+      </node>
 
-        <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg robot_name)/odom 100" unless="$(arg map_odom_tf_ekf)"/> -->
-        <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 1.571 0 3.1416 map $(arg namespace)/odom 100"/> -->
-
-
-        <!-- Depth from pressure sensor converter -->
-        <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
-          <param name="odom_frame" value="$(arg namespace)/odom" />
-          <param name="pressure_topic" value="/$(arg namespace)/core/depth20_pressure" />
-          <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                             
-          <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
-          <param name="base_frame" value="$(arg namespace)/base_link_DR" />
-        </node>
-
-        <!-- Use this when using data from Stonefish -->
-        <!-- <node pkg="sam_dead_reckoning" name="odom_sim_to_depth" type="odom_sim_to_depth.py" output="screen">
+      <!-- Use this when using data from Stonefish -->
+      <group if="$(arg stonefish)">
+        <node pkg="sam_dead_reckoning" name="odom_sim_to_depth" type="odom_sim_to_depth.py" output="screen">
           <param name="odom_frame" value="$(arg namespace)/odom" />
           <param name="odom_sim_topic" value="/$(arg namespace)/sim/odom" />
           <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                               
-        </node> -->
+        </node>
+      </group>
 
-        <!-- Required to reply filtered rosbags offline -->
+      <!-- Required to reply filtered rosbags offline -->
+      <group if="$(arg replay)">
         <param name="robot_description"
-           command="$(find xacro)/xacro '$(find sam_description)/robots/sam_auv_$(arg mode).urdf.xacro' debug:=$(arg debug) namespace:=$(arg namespace)" />
+          command="$(find xacro)/xacro '$(find sam_description)/robots/sam_auv_$(arg mode).urdf.xacro' debug:=$(arg debug) namespace:=$(arg namespace)" />
 
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen">
           <param name="robot_description" value="/$(arg namespace)/robot_description" />
@@ -65,66 +68,45 @@
           <param name="use_gui" value="false"/>
           <rosparam param="source_list">["/sam/command_states"]</rosparam>
         </node>
-        <!-- until here -->
-
-        <!-- <node name="gps_pose_pub" pkg="sam_dead_reckoning" type="gps_node.py" respawn="true" output="screen">
-            <param name="gps_topic" value="/$(arg namespace)/external/gps" />
-            <param name="map_frame" value="map" />
-            <param name="utm_frame" value="utm" />
-            <param name="gps_frame" value="$(arg namespace)/gps_link" />
-            <param name="gps_odom_topic" value="$(arg gps_odom_topic)" />
-        </node>  -->
-        
-        <node pkg="sam_dead_reckoning" name="dr_node" type="dr_node.py" output="screen">
-          <param name="dvl_topic" value="/$(arg namespace)/core/dvl" />
-          <param name="odom_topic" value="$(arg odom_topic)" />
-          <param name="stim_imu" value="/$(arg namespace)/core/imu" />
-          <param name="sbg_topic" value="/$(arg namespace)/core/sbg_imu" />
-          <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                               
-          <param name="thrust1_fb" value="/$(arg namespace)/core/thruster1_fb" />
-          <param name="thrust2_fb" value="/$(arg namespace)/core/thruster2_fb" />
-          <param name="thrust_vec_cmd" value="/$(arg namespace)/core/thrust_vector_cmd" />
-          <param name="gps_odom_topic" value="$(arg gps_odom_topic)" />
-          <param name="uwgps_odom_topic" value="/$(arg namespace)/uwgps/odom" />
-          <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
-          <param name="odom_frame" value="$(arg namespace)/odom" />
-          <param name="utm_frame" value="utm" />
-          <param name="base_frame" value="$(arg namespace)/base_link_DR" />
-          <param name="base_frame_2d" value="$(arg namespace)/base_link_2d" />
-          <param name="map_frame" value="map" />
-          <param name="dvl_frame" value="$(arg namespace)/dvl_link" />
-          <param name="dvl_period" value="0.1" />
-          <param name="dr_period" value="0.01" />
-        </node>
-     
-        <!--<include file="$(find auv_particle_filter)/launch/auv_pf.launch">
-            <arg name="map_frame" value="map"/>
-            <arg name="utm_frame" value="utm"/>
-            <arg name="odom_frame" value="$(arg namespace)/odom"/>
-            <arg name="base_frame" value="$(arg namespace)/base_link" />
-            <arg name="odom_topic" value="$(arg odom_topic)" />
-            <arg name="gps_odom_topic" value="$(arg gps_odom_topic)" />
-        </include>-->
-
-        <!-- <node pkg="auv_particle_filter" name="visual_tools" type="visual_tools.py" output="screen">
-          <param name="odom_topic" value="$(arg odom_topic)" />
-          <param name="odom_corrected_topic" value="/$(arg namespace)/dr/odom_corrected"/>
-          <param name="gps_odom_topic" value="$(arg gps_odom_topic)" />
-        </node> -->
-
-        <!--Including tf_convenience topics-->
-    	  <node name="odom_listener" pkg="tf_convenience_topics" type="odom_listener" output="screen" >
-	    	  <param name="odom_topic" value="$(arg odom_topic)"/>
-	    	  <param name="topic_from_dvl" value="$/(arg namespace)/core/dvl"/>
-    	  </node>
-
-        <!-- Temp: provides heading for nodered -->
-        <!-- <node pkg="sam_dead_reckoning" name="yaw_2_heading" type="yaw_2_heading.py" output="screen"/> -->
-
-        <!-- Rviz vis of latest WP from nodered -->
-        <!-- <node pkg="sam_dead_reckoning" name="wp_vis_node" type="wp_vis_node.py" output="screen"/> -->
-
       </group>
+
+      <!-- <node name="gps_pose_pub" pkg="sam_dead_reckoning" type="gps_node.py" respawn="true" output="screen">
+          <param name="gps_topic" value="/$(arg namespace)/external/gps" />
+          <param name="map_frame" value="map" />
+          <param name="utm_frame" value="utm" />
+          <param name="gps_frame" value="$(arg namespace)/gps_link" />
+          <param name="gps_odom_topic" value="$(arg gps_odom_topic)" />
+      </node>  -->
+      
+      <node pkg="sam_dead_reckoning" name="dr_node" type="dr_node.py" output="screen">
+        <param name="dvl_topic" value="/$(arg namespace)/core/dvl" />
+        <param name="odom_topic" value="$(arg odom_topic)" />
+        <param name="stim_imu" value="/$(arg namespace)/core/imu" />
+        <param name="sbg_topic" value="/$(arg namespace)/core/sbg_imu" />
+        <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                               
+        <param name="thrust1_fb" value="/$(arg namespace)/core/thruster1_fb" />
+        <param name="thrust2_fb" value="/$(arg namespace)/core/thruster2_fb" />
+        <param name="thrust_vec_cmd" value="/$(arg namespace)/core/thrust_vector_cmd" />
+        <param name="gps_odom_topic" value="$(arg gps_odom_topic)" />
+        <param name="uwgps_odom_topic" value="/$(arg namespace)/uwgps/odom" />
+        <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
+        <param name="odom_frame" value="$(arg namespace)/odom" />
+        <param name="utm_frame" value="utm" />
+        <param name="base_frame" value="$(arg namespace)/base_link_DR" />
+        <param name="base_frame_2d" value="$(arg namespace)/base_link_2d" />
+        <param name="map_frame" value="map" />
+        <param name="dvl_frame" value="$(arg namespace)/dvl_link" />
+        <param name="dvl_period" value="0.1" />
+        <param name="dr_period" value="0.01" />
+      </node>
+
+      <!--Including tf_convenience topics-->
+      <node name="odom_listener" pkg="tf_convenience_topics" type="odom_listener" output="screen" >
+        <param name="odom_topic" value="$(arg odom_topic)"/>
+        <param name="topic_from_dvl" value="$/(arg namespace)/core/dvl"/>
+      </node>
+
     </group>
+  </group>
 
 </launch>
