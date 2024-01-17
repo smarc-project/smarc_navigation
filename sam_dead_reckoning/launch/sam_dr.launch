@@ -38,20 +38,20 @@
 
 
         <!-- Depth from pressure sensor converter -->
-        <!-- <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
+        <node pkg="sam_dead_reckoning" name="press_to_depth" type="press_to_depth.py" output="screen">
           <param name="odom_frame" value="$(arg namespace)/odom" />
           <param name="pressure_topic" value="/$(arg namespace)/core/depth20_pressure" />
           <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                             
           <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
           <param name="base_frame" value="$(arg namespace)/base_link_DR" />
-        </node> -->
+        </node>
 
         <!-- Use this when using data from Stonefish -->
-        <node pkg="sam_dead_reckoning" name="odom_sim_to_depth" type="odom_sim_to_depth.py" output="screen">
+        <!-- <node pkg="sam_dead_reckoning" name="odom_sim_to_depth" type="odom_sim_to_depth.py" output="screen">
           <param name="odom_frame" value="$(arg namespace)/odom" />
           <param name="odom_sim_topic" value="/$(arg namespace)/sim/odom" />
           <param name="depth_topic" value="/$(arg namespace)/dr/depth_raw"/>                               
-        </node>
+        </node> -->
 
         <!-- Required to reply filtered rosbags offline -->
         <param name="robot_description"
