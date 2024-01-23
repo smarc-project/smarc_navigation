@@ -1,4 +1,5 @@
 <launch>
+  <env name="ROSCONSOLE_FORMAT" value="[${severity}] [${time}] [${node}]: ${message}"/>
 
   <arg name="debug" default="0"/>
   <arg name="mode" default="default"/>
@@ -30,6 +31,9 @@
     </group>
 
     <group ns="dr">
+      <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100"/> -->
+      <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 1.571 0 3.1416 map $(arg namespace)/odom 100"/>
+
       <node pkg="tf_lat_lon" type="tf_lat_lon_node" name="tf_lat_lon_node" output="screen">
         <param name="frame" value="$(arg namespace)/base_link"/>
         <param name="utm_zone" value="$(arg utm_zone)"/>
@@ -70,6 +74,7 @@
         </node>
       </group>
 
+
       <!-- <node name="gps_pose_pub" pkg="sam_dead_reckoning" type="gps_node.py" respawn="true" output="screen">
           <param name="gps_topic" value="/$(arg namespace)/external/gps" />
           <param name="map_frame" value="map" />
@@ -92,7 +97,7 @@
         <param name="pressure_frame" value="$(arg namespace)/pressure_link" />
         <param name="odom_frame" value="$(arg namespace)/odom" />
         <param name="utm_frame" value="utm" />
-        <param name="base_frame" value="$(arg namespace)/base_link" />
+        <param name="base_frame" value="$(arg namespace)/base_link_dr" />
         <param name="base_frame_2d" value="$(arg namespace)/base_link_2d" />
         <param name="map_frame" value="map" />
         <param name="dvl_frame" value="$(arg namespace)/dvl_link" />

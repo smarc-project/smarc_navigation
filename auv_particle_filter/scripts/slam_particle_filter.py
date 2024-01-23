@@ -21,7 +21,7 @@ from tf.transformations import translation_matrix, translation_from_matrix
 from tf.transformations import quaternion_matrix, quaternion_from_matrix
 
 from slam_particle import Particle, matrix_from_tf
-from resampling import residual_resample
+from resampling import residual_resample, stratified_resample
 from numpy import linalg as LA
 
 
@@ -89,6 +89,7 @@ class SlamParticleFilter(object):
         perception_topic = rospy.get_param("~perception_topic", "/perception")
         odom_top = rospy.get_param("~odom_topic", "odom")
         ds_init_topic = rospy.get_param("~ds_init_estimate")
+        sam_init_topic = rospy.get_param("~sam_init_estimate")
         weight_topic = rospy.get_param("~particle_weight_topic")
         sam_particle_topic = rospy.get_param("~sam_particle_topic")
 
@@ -129,6 +130,7 @@ class SlamParticleFilter(object):
 
         # self.docking_station_pose_perception = PoseWithCovarianceStamped()
         self.ds_init_prior = np.zeros(6)
+        self.sam_init_prior = np.zeros(6)
 
         # Weight publisher
         self.particle_weights = np.empty(self.particle_count)
@@ -173,6 +175,14 @@ class SlamParticleFilter(object):
             queue_size=1,
         )
 
+        # Sam station prior topic
+        rospy.Subscriber(
+            sam_init_topic,
+            PoseWithCovarianceStamped,
+            self.sam_prior_cb,
+            queue_size=1,
+        )
+
         # Initialize list of particles
         self.particles = np.empty(self.particle_count, dtype=object)
         self.particles_initialised = False
@@ -184,7 +194,7 @@ class SlamParticleFilter(object):
                 self.particle_count,
                 i,
                 self.map_to_odom_mat,
-                init_sam=[0.0] * 6,
+                init_sam=self.sam_init_prior,
                 init_ds=self.ds_init_prior,
                 init_cov=self.init_cov,
                 meas_std=self.meas_std,
@@ -254,13 +264,59 @@ class SlamParticleFilter(object):
                 self.particle_count,
                 i,
                 self.map_to_odom_mat,
-                init_sam=[0.0] * 6,
+                init_sam=self.sam_init_prior,
                 init_ds=self.ds_init_prior,
                 init_cov=self.init_cov,
                 meas_std=self.meas_std,
                 process_cov=self.motion_cov,
             )
         print("DS Estimate initialized with prior: {}".format(self.ds_init_prior))
+
+    def sam_prior_cb(self, sam_prior):
+        """
+        Getting the initial prior esitmate of the SAM.
+        Due to some some frame issue when developing the PF, we
+        need to convert the initial estimate the same way we have
+        to transform the map to odom frame in the launch file.
+        """
+        t_sam_prior = [
+            sam_prior.pose.pose.position.x,
+            sam_prior.pose.pose.position.y,
+            sam_prior.pose.pose.position.z,
+        ]
+        quat_sam_prior = [
+            sam_prior.pose.pose.orientation.x,
+            sam_prior.pose.pose.orientation.y,
+            sam_prior.pose.pose.orientation.z,
+            sam_prior.pose.pose.orientation.w,
+        ]
+
+        T_sam_prior = translation_matrix(t_sam_prior)
+        R_sam_prior = quaternion_matrix(quat_sam_prior)
+        M_sam_prior = np.matmul(T_sam_prior, R_sam_prior)
+
+        M_sam_prior_odom = np.matmul(self.map_to_odom_mat, M_sam_prior)
+
+        t_sam_prior_odom = M_sam_prior_odom[0:3, 3]
+        quat_sam_prior_odom = quaternion_from_matrix(M_sam_prior_odom)
+        rpy_sam_prior_odom = euler_from_quaternion(quat_sam_prior_odom)
+
+        self.sam_init_prior[0:3] = t_sam_prior_odom
+        self.sam_init_prior[3:6] = rpy_sam_prior_odom
+
+        # First initialization to get odom->sam tf. Then particles will be reinitialized
+        for i in range(self.particle_count):
+            self.particles[i] = Particle(
+                self.particle_count,
+                i,
+                self.map_to_odom_mat,
+                init_sam=self.sam_init_prior,
+                init_ds=self.ds_init_prior,
+                init_cov=self.init_cov,
+                meas_std=self.meas_std,
+                process_cov=self.motion_cov,
+            )
+        print("SAM Estimate initialized with prior: {}".format(self.sam_init_prior))
 
     def perception_cb(self, docking_station_pose):
         """
@@ -390,7 +446,8 @@ class SlamParticleFilter(object):
         # Normalize weights
         weights /= weights.sum()
 
-        indices = residual_resample(weights)
+        # indices = residual_resample(weights)
+        indices = stratified_resample(weights)
         keep = list(set(indices))
         lost = [i for i in range(self.particle_count) if i not in keep]
         dupes = indices[:].tolist()
@@ -549,6 +606,8 @@ class SlamParticleFilter(object):
         self.sam_localization_pose.pose.covariance = self.calculate_covariance(
             self.sam_poses_array, self.sam_localization_pose.pose.pose
         )
+
+        self.sam_localization_pose.twist = self.sam_odom.twist
 
         # Update docking station pose based on particles
         ds_poses_array = np.array(ds_pose_list)

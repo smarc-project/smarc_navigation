@@ -67,7 +67,7 @@ class Particle(object):
             [
                 0,
                 0,
-                odom_t.twist.twist.angular.z,
+                -odom_t.twist.twist.angular.z,
             ]
         )
 
@@ -75,7 +75,7 @@ class Particle(object):
         yaw_t = (rot_t[2] + np.pi) % (2 * np.pi) - np.pi
 
         # Integrating the velocities might not be necessary after all.
-        # Just use the measurements directly, as in the code above. 
+        # Just use the measurements directly, as in the code above.
         # vel_rot = np.array(
         #     [
         #         odom_t.twist.twist.angular.x,

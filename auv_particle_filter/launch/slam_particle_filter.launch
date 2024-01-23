@@ -1,22 +1,33 @@
 <?xml version="1.0" ?>
 <launch>
+
+  <env name="ROSCONSOLE_FORMAT" value="[${severity}] [${time}] [${node}]: ${message}"/>
+
 	<arg name="namespace" default="sam"/>
   <arg name="real_robot" default="true"/>
+  <arg name="mode" default="default"/>
+  <arg name="debug" default="0"/>
+  <arg name="replay" default="false"/>
+
+
 
   <!-- Frames -->
   <arg name="map_frame" default="map"/>
   <arg name="odom_frame"  default="$(arg namespace)/odom"/>
   <arg name="base_frame"  default="$(arg namespace)/base_link_pf"/>
   <!-- <arg name="base_frame_pf"  default="$(arg namespace)/base_link_pf"/> -->
-  <arg name="ds_base_frame"  default="ds_base_link"/>
+  <arg name="ds_base_frame"  default="ds_base_link_pf"/>
   <arg name="ds_range"  default="3"/>
   <arg name="base_frame_2d" default="$(arg namespace)/base_link_2d" />
 
   <!-- Topics -->
-  <arg name="odom_topic" default="/$(arg namespace)/dr/odom" />
+  <arg name="odom_topic" default="/$(arg namespace)/dr/odom"  if="$(arg real_robot)"/>
+  <arg name="odom_topic" default="/$(arg namespace)/dr/odom"  unless="$(arg real_robot)"/>
+  <!-- <arg name="odom_topic" default="/$(arg namespace)/dr/odom"/> -->
   <arg name="perception_topic" default="/sam/perception/estimated_pose_dropped" if="$(arg real_robot)"/>
   <arg name="perception_topic" default="/sam/perception/estimated_pose" unless="$(arg real_robot)"/>
   <arg name="ds_init_topic" default="/target/initial_estimate" />
+  <arg name="chaser_init_topic" default="/chaser/initial_estimate" />
 
   
   <!-- Different map_2_odom tfs depending on if we're using real SAM or 
@@ -30,16 +41,21 @@
   <!-- SIM -->
   <group unless="$(arg real_robot)">
     <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 1.571 0 3.1416 map $(arg namespace)/odom 100"/>
+    <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100"/> -->
   </group>
 
 
   <!-- PF args -->
   <arg name="particle_count"  default="100"/>
   <!-- Order [x, y, z, roll, pitch, yaw] -->
+  <!-- PF variances -->
   <!-- <arg name="init_covariance" default="[1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4, 1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4]"/>
   <arg name="motion_covariance" default="[1e-6, 1e-6, 1e-6, 1e-5, 1e-5, 1e-5, 1e-6, 1e-6, 1e-6, 1e-5, 1e-5, 1e-5]"/> -->
+
+  <!-- DR variances, to achieve similar performance as the DR which is tuned with the same variances. -->
   <arg name="init_covariance" default="[0.1, 0.1, 0.0, 0.0, 0.0, 0.0, 0.1, 0.1, 0.0, 0.0, 0.0, 0.0]"/>
   <arg name="motion_covariance" default="[0.0000, 0.0000, 0.0, 0.0, 0.0, 0.000000000001, 0.0000, 0.0000, 0.0, 0.0, 0.0, 0.000000000001]"/>
+
   <!-- <arg name="motion_covariance" default="[1e-6, 1e-8, 1e-6, 1e-6, 1e-6, 1e-8, 1e-6, 1e-6, 1e-6, 1e-5, 1e-5, 1e-5]"/> -->
   <!-- <arg name="motion_covariance" default="[1e-6, 1e-5, 1e-6, 1e-6, 1e-6, 1e-5, 1e-6, 1e-6, 1e-6, 1e-5, 1e-5, 1e-5]"/> -->
   <!-- <arg name="motion_covariance" default="[1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10]"/> -->
@@ -47,7 +63,52 @@
   <arg name="resampling_noise_covariance" default="[1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4]"/>
   <arg name="measurement_std"  default="2."/>
 
+
+
   <group ns="$(arg namespace)">
+      <!-- Required to reply filtered rosbags offline -->
+      <group if="$(arg replay)">
+        <param name="robot_description"
+          command="$(find xacro)/xacro '$(find sam_description)/robots/sam_auv_$(arg mode).urdf.xacro' debug:=$(arg debug) namespace:=$(arg namespace)" />
+
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen">
+          <param name="robot_description" value="/$(arg namespace)/robot_description" />
+        </node>
+
+        <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" respawn="false" output="screen">
+          <param name="use_gui" value="false"/>
+          <rosparam param="source_list">["/sam/command_states"]</rosparam>
+        </node>
+      </group>
+
+      <node name="target_initializer" pkg="auv_particle_filter" type="target_initializer.py" output="screen">
+        <!-- Ground truth values from the simulation -->
+        <param name="prior_tgt_x" value="0.0" />
+        <param name="prior_tgt_y" value="20.0" />
+        <param name="prior_tgt_z" value="-1.5" />
+        <param name="prior_tgt_yaw" value="0.0" />
+        <param name="prior_tgt_pitch" value="0.0" />
+        <param name="prior_tgt_roll" value="-1.571" />
+
+        <param name="prior_chaser_x" value="0.0" />
+        <param name="prior_chaser_y" value="0.0" />
+        <param name="prior_chaser_z" value="0.0" />
+        <param name="prior_chaser_yaw" value="0.0" />
+        <param name="prior_chaser_pitch" value="0.0" />
+        <param name="prior_chaser_roll" value="0.0" />
+
+
+        <param name="init_covariance" value="$(arg init_covariance)" />
+
+        <param name="target_link_id" value="station" />
+        <param name="chaser_link_id" value="sam" />
+
+        <param name="map_frame_id" value="sam/odom" />
+
+        <param name="target_initial_topic" value="$(arg ds_init_topic)" />
+        <param name="chaser_initial_topic" value="$(arg chaser_init_topic)" />
+      </node>
+
       <node type="slam_particle_filter.py" pkg="auv_particle_filter" name="slam_particle_filter" output="screen">
         <param name="particle_count" type= "int" value="$(arg particle_count)" />
         <param name="ds_range" value="$(arg ds_range)" />        
@@ -59,13 +120,16 @@
 
         <param name="odom_topic" value="$(arg odom_topic)"/>
         <param name="perception_topic" value="$(arg perception_topic)"/>
+
         <param name="odom_corrected_topic" value="/$(arg namespace)/pf/odom"/>
+
         <param name="ds_corrected_topic" value="/$(arg namespace)/dr/ds_odom"/>
         <param name="sam_map_topic" value="/$(arg namespace)/dr/sam_map"/>
         <param name="ds_map_topic" value="/$(arg namespace)/dr/ds_map"/>
         <param name="sam_particle_poses_topic" value="/$(arg namespace)/dr/sam_particle_poses"/>
         <param name="ds_particle_poses_topic" value="/$(arg namespace)/dr/ds_particle_poses"/>
         <param name="ds_init_estimate" value="$(arg ds_init_topic)"/>
+        <param name="sam_init_estimate" value="$(arg chaser_init_topic)"/>
         <param name="particle_weight_topic" value="/$(arg namespace)/dr/particle_weight"/>
         <param name="sam_particle_topic" value="/$(arg namespace)/dr/sam_particle"/>
 	      
@@ -76,6 +140,12 @@
         <param name="ds_base_frame" value="$(arg ds_base_frame)" />
         <param name="base_frame_2d" value="$(arg base_frame_2d)"/>
       </node>
+
+      <!--Including tf_convenience topics-->
+      <!-- <node name="odom_listener" pkg="tf_convenience_topics" type="odom_listener" output="screen" >
+        <param name="odom_topic" value="$(arg odom_topic)"/>
+        <param name="topic_from_dvl" value="$/(arg namespace)/core/dvl"/>
+      </node> -->
   </group>
 </launch>
 
