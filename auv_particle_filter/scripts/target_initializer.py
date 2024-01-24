@@ -115,9 +115,9 @@ class TargetInitializer:
         chaser_pose_msg = PoseWithCovarianceStamped()
         chaser_pose_msg.header.stamp = rospy.Time.now()
         chaser_pose_msg.header.frame_id = self.map_frame
-        chaser_pose_msg.pose.pose.position.x = self.tgt_prior_x + noise[0]
-        chaser_pose_msg.pose.pose.position.y = self.tgt_prior_y + noise[1]
-        chaser_pose_msg.pose.pose.position.z = self.tgt_prior_z + noise[2]
+        chaser_pose_msg.pose.pose.position.x = self.chaser_prior_x + noise[0]
+        chaser_pose_msg.pose.pose.position.y = self.chaser_prior_y + noise[1]
+        chaser_pose_msg.pose.pose.position.z = self.chaser_prior_z + noise[2]
         chaser_pose_msg.pose.pose.orientation.x = chaser_quat[0]
         chaser_pose_msg.pose.pose.orientation.y = chaser_quat[1]
         chaser_pose_msg.pose.pose.orientation.z = chaser_quat[2]
