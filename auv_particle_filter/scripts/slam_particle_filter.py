@@ -271,6 +271,8 @@ class SlamParticleFilter(object):
                 process_cov=self.motion_cov,
             )
         print("DS Estimate initialized with prior: {}".format(self.ds_init_prior))
+        self.particles_initialised = True
+        self.sam_initialised = True
 
     def sam_prior_cb(self, sam_prior):
         """
@@ -317,6 +319,8 @@ class SlamParticleFilter(object):
                 process_cov=self.motion_cov,
             )
         print("SAM Estimate initialized with prior: {}".format(self.sam_init_prior))
+        self.particles_initialised = True
+        self.sam_initialised = True
 
     def perception_cb(self, docking_station_pose):
         """
@@ -476,36 +480,36 @@ class SlamParticleFilter(object):
         self.current_odom_cb_time = odom_msg.header.stamp.to_sec()
         # print("Odom cb, dt: {}".format(self.time - self.old_time))
 
-        if not self.sam_initialised:
-            # SAM position in odom frame:
-            init_sam = np.zeros(6)
-            t_sam = [
-                self.sam_odom.pose.pose.position.x,
-                self.sam_odom.pose.pose.position.y,
-                self.sam_odom.pose.pose.position.z,
-            ]
-            quat_sam = [
-                self.sam_odom.pose.pose.orientation.x,
-                self.sam_odom.pose.pose.orientation.y,
-                self.sam_odom.pose.pose.orientation.z,
-                self.sam_odom.pose.pose.orientation.w,
-            ]
-            rpy_sam = euler_from_quaternion(quat_sam)
-            init_sam[0:3] = t_sam
-            init_sam[3:6] = rpy_sam
-            # First initialization to get odom->sam tf. Then particles will be reinitialized
-            for i in range(self.particle_count):
-                self.particles[i] = Particle(
-                    self.particle_count,
-                    i,
-                    self.map_to_odom_mat,
-                    init_sam=init_sam,
-                    init_ds=self.ds_init_prior,
-                    init_cov=self.init_cov,
-                    meas_std=self.meas_std,
-                    process_cov=self.motion_cov,
-                )
-            self.sam_initialised = True
+        # if not self.sam_initialised:
+        #     # SAM position in odom frame:
+        #     init_sam = np.zeros(6)
+        #     t_sam = [
+        #         self.sam_odom.pose.pose.position.x,
+        #         self.sam_odom.pose.pose.position.y,
+        #         self.sam_odom.pose.pose.position.z,
+        #     ]
+        #     quat_sam = [
+        #         self.sam_odom.pose.pose.orientation.x,
+        #         self.sam_odom.pose.pose.orientation.y,
+        #         self.sam_odom.pose.pose.orientation.z,
+        #         self.sam_odom.pose.pose.orientation.w,
+        #     ]
+        #     rpy_sam = euler_from_quaternion(quat_sam)
+        #     init_sam[0:3] = t_sam
+        #     init_sam[3:6] = rpy_sam
+        #     # First initialization to get odom->sam tf. Then particles will be reinitialized
+        #     for i in range(self.particle_count):
+        #         self.particles[i] = Particle(
+        #             self.particle_count,
+        #             i,
+        #             self.map_to_odom_mat,
+        #             init_sam=init_sam,
+        #             init_ds=self.ds_init_prior,
+        #             init_cov=self.init_cov,
+        #             meas_std=self.meas_std,
+        #             process_cov=self.motion_cov,
+        #         )
+        #     self.sam_initialised = True
 
         # if self.particles_initialised:
         if (
