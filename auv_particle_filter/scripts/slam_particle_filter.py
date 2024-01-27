@@ -168,20 +168,20 @@ class SlamParticleFilter(object):
             return
 
         # Docking station prior topic
-        rospy.Subscriber(
-            ds_init_topic,
-            PoseWithCovarianceStamped,
-            self.docking_station_prior_cb,
-            queue_size=1,
-        )
+        # rospy.Subscriber(
+        #     ds_init_topic,
+        #     PoseWithCovarianceStamped,
+        #     self.docking_station_prior_cb,
+        #     queue_size=1,
+        # )
 
         # Sam station prior topic
-        rospy.Subscriber(
-            sam_init_topic,
-            PoseWithCovarianceStamped,
-            self.sam_prior_cb,
-            queue_size=1,
-        )
+        # rospy.Subscriber(
+        #     sam_init_topic,
+        #     PoseWithCovarianceStamped,
+        #     self.sam_prior_cb,
+        #     queue_size=1,
+        # )
 
         # Initialize list of particles
         self.particles = np.empty(self.particle_count, dtype=object)

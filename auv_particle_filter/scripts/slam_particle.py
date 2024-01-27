@@ -67,7 +67,7 @@ class Particle(object):
             [
                 0,
                 0,
-                -odom_t.twist.twist.angular.z,
+                odom_t.twist.twist.angular.z,
             ]
         )
 
