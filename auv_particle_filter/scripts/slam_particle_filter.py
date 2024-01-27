@@ -333,7 +333,6 @@ class SlamParticleFilter(object):
         could do localization and then update SAM's position instead.
         But that's a different problem.
         """
-
         self.current_perception_cb_time = rospy.Time.now().to_sec()
 
         if (
