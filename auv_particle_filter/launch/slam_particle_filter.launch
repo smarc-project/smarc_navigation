@@ -35,7 +35,7 @@
   <!-- REAL -->
   <group if="$(arg real_robot)">
   <!-- See that you reduce the number of dropped messages a bit -->
-    <!-- <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100"/> -->
+    <node name="map_2_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg namespace)/odom 100"/>
     <node name="drop_pose_estim" pkg="topic_tools" type="drop" args="/sam/perception/estimated_pose 14 15 $(arg perception_topic)"/>
   </group>
 
@@ -47,7 +47,7 @@
 
 
   <!-- PF args -->
-  <arg name="particle_count"  default="100"/>
+  <arg name="particle_count"  default="50"/>
   <!-- Order [x, y, z, roll, pitch, yaw] -->
   <!-- PF variances -->
   <!-- <arg name="init_covariance" default="[1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4, 1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4]"/>
