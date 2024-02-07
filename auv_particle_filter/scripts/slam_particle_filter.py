@@ -39,7 +39,6 @@ class SlamParticleFilter(object):
         # Frames
         self.map_frame = rospy.get_param("~map_frame", "map")
         self.base_frame = rospy.get_param("~base_frame", "base_link")
-        # self.base_frame_pf = rospy.get_param('~base_frame_pf', 'base_link_pf')
         self.ds_base_frame = rospy.get_param("~ds_base_frame", "ds_base_link")
         self.camera_frame = rospy.get_param("~camera_frame", "camera")
         self.odom_frame = rospy.get_param("~odom_frame", "sam/odom")
@@ -48,7 +47,6 @@ class SlamParticleFilter(object):
         # Initialize tf listener
         self.tf_buffer = tf2_ros.Buffer()
         tf2_ros.TransformListener(self.tf_buffer)
-        # self.listener = tf.TransformListener()
 
         # Read covariance values
         self.meas_std = float(rospy.get_param("~measurement_std", 0.01))
@@ -84,8 +82,6 @@ class SlamParticleFilter(object):
             "~odom_corrected_topic", "/average_pose"
         )
         ds_localization_topic = rospy.get_param("~ds_corrected_topic", "/ds_pose")
-        sam_map_topic = rospy.get_param("~sam_map_topic", "/sam_map")
-        ds_map_topic = rospy.get_param("~ds_map_topic", "/ds_map")
         perception_topic = rospy.get_param("~perception_topic", "/perception")
         odom_top = rospy.get_param("~odom_topic", "odom")
         ds_init_topic = rospy.get_param("~ds_init_estimate")
@@ -128,7 +124,6 @@ class SlamParticleFilter(object):
 
         self.ds_localization_tf = tf.TransformBroadcaster()
 
-        # self.docking_station_pose_perception = PoseWithCovarianceStamped()
         self.ds_init_prior = np.zeros(6)
         self.sam_init_prior = np.zeros(6)
 
@@ -168,20 +163,20 @@ class SlamParticleFilter(object):
             return
 
         # Docking station prior topic
-        # rospy.Subscriber(
-        #     ds_init_topic,
-        #     PoseWithCovarianceStamped,
-        #     self.docking_station_prior_cb,
-        #     queue_size=1,
-        # )
+        rospy.Subscriber(
+            ds_init_topic,
+            PoseWithCovarianceStamped,
+            self.docking_station_prior_cb,
+            queue_size=1,
+        )
 
         # Sam station prior topic
-        # rospy.Subscriber(
-        #     sam_init_topic,
-        #     PoseWithCovarianceStamped,
-        #     self.sam_prior_cb,
-        #     queue_size=1,
-        # )
+        rospy.Subscriber(
+            sam_init_topic,
+            PoseWithCovarianceStamped,
+            self.sam_prior_cb,
+            queue_size=1,
+        )
 
         # Initialize list of particles
         self.particles = np.empty(self.particle_count, dtype=object)
@@ -337,7 +332,7 @@ class SlamParticleFilter(object):
 
         if (
             not self.particles_initialised
-        ):  # or self.current_cb_time - self.last_cb_time > 4:
+        ):
             cb_time = self.current_perception_cb_time - self.last_perception_cb_time
             print("Reinitialize")
             print("Flag: {}, time diff: {}".format(self.particles_initialised, cb_time))
@@ -422,8 +417,6 @@ class SlamParticleFilter(object):
             # Particle resampling
             self.resample(weights)
 
-            # self.docking_station_pose_perception = docking_station_pose
-
         self.last_perception_cb_time = self.current_perception_cb_time
 
     def update(self, docking_station_pose):
@@ -449,7 +442,6 @@ class SlamParticleFilter(object):
         # Normalize weights
         weights /= weights.sum()
 
-        # indices = residual_resample(weights)
         indices = stratified_resample(weights)
         keep = list(set(indices))
         lost = [i for i in range(self.particle_count) if i not in keep]
@@ -477,40 +469,7 @@ class SlamParticleFilter(object):
         self.sam_odom = odom_msg
 
         self.current_odom_cb_time = odom_msg.header.stamp.to_sec()
-        # print("Odom cb, dt: {}".format(self.time - self.old_time))
-
-#         if not self.sam_initialised:
-#             # SAM position in odom frame:
-#             init_sam = np.zeros(6)
-#             t_sam = [
-#                 self.sam_odom.pose.pose.position.x,
-#                 self.sam_odom.pose.pose.position.y,
-#                 self.sam_odom.pose.pose.position.z,
-#             ]
-#             quat_sam = [
-#                 self.sam_odom.pose.pose.orientation.x,
-#                 self.sam_odom.pose.pose.orientation.y,
-#                 self.sam_odom.pose.pose.orientation.z,
-#                 self.sam_odom.pose.pose.orientation.w,
-#             ]
-#             rpy_sam = euler_from_quaternion(quat_sam)
-#             init_sam[0:3] = t_sam
-#             init_sam[3:6] = rpy_sam
-#             # First initialization to get odom->sam tf. Then particles will be reinitialized
-#             for i in range(self.particle_count):
-#                 self.particles[i] = Particle(
-#                     self.particle_count,
-#                     i,
-#                     self.map_to_odom_mat,
-#                     init_sam=init_sam,
-#                     init_ds=self.ds_init_prior,
-#                     init_cov=self.init_cov,
-#                     meas_std=self.meas_std,
-#                     process_cov=self.motion_cov,
-#                 )
-#             self.sam_initialised = True
-#
-        # if self.particles_initialised:
+        
         if (
             self.prev_odom_cb_time
             and self.current_odom_cb_time > self.prev_odom_cb_time
@@ -542,8 +501,6 @@ class SlamParticleFilter(object):
         self.broadcast_transforms()
 
         self.publish_poses()
-
-        # self.print_states()
 
     def extract_poses(self):
         """
@@ -761,13 +718,6 @@ class SlamParticleFilter(object):
 
         self.particle_weight_pub.publish(self.particle_weights)
         self.sam_particle_pub.publish(self.sam_poses_array)
-
-    def print_states(self):
-        """
-        Bunch of print statements to check for things.
-        """
-        # print("SAM: {}".format(self.sam_map_pose.pose.pose.position))
-        # print("DS: {}".format(self.ds_map_pose.pose.pose.position))
 
 
 if __name__ == "__main__":

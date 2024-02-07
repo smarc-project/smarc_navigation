@@ -62,7 +62,6 @@ class Particle(object):
 
         ## SAM's motion model
         # Angular motion: integrate yaw, read roll and pitch directly
-
         vel_rot = np.array(
             [
                 0,
@@ -73,27 +72,6 @@ class Particle(object):
 
         rot_t = np.array(self.p_pose[3:6]) + vel_rot * dt + noise_vec[3:6]
         yaw_t = (rot_t[2] + np.pi) % (2 * np.pi) - np.pi
-
-        # Integrating the velocities might not be necessary after all.
-        # Just use the measurements directly, as in the code above.
-        # vel_rot = np.array(
-        #     [
-        #         odom_t.twist.twist.angular.x,
-        #         odom_t.twist.twist.angular.y,
-        #         odom_t.twist.twist.angular.z,
-        #     ]
-        # )
-        # rot_step_t = vel_rot * dt + noise_vec[3:6]
-
-        # R_rot_step_t = euler_matrix(*rot_step_t)
-        # R_sam_t = euler_matrix(*self.p_pose[3:6])
-
-        # R_sam_update = np.matmul(R_sam_t, R_rot_step_t)
-
-        # rot_step_t_transformed = euler_from_matrix(R_sam_update)
-
-        # rot_t = np.array(self.p_pose[3:6]) + rot_step_t_transformed
-        # yaw_t = rot_step_t_transformed[2]
 
         euler_t = euler_from_quaternion(
             np.array(
@@ -108,10 +86,6 @@ class Particle(object):
 
         roll_t = euler_t[0]
         pitch_t = euler_t[1]
-
-        # debug only!
-        # yaw_t = euler_t[2]
-        # print("Yaw diff: {}".format(yaw_t-euler_t[2]))
 
         self.p_pose[3:6] = [roll_t, pitch_t, yaw_t]
 
