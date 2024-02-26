@@ -29,7 +29,7 @@ using symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)
 
 int main()
 {
-    Rot3 odom_rotation = Rot3::Quaternion(1,0,0,0);
+    Rot3 odom_rotation = Rot3::Quaternion(0.8775826, 0, 0, 0.4794255);
     Point3 odom_point(10,0,0);
     Pose3 odom_pose(odom_rotation, odom_point);
 
@@ -40,4 +40,22 @@ int main()
     Pose3 odom_step = odom_pose.compose(odom_pose_prev.inverse());
     cout << "Odom step: " << odom_step.translation()[0] << ", " << odom_step.translation()[1] << ", " << odom_step.translation()[2] << "\t "
             << "\n";
+
+    // Rot3 odom_rotation = Rot3::Quaternion(1.,
+    //                                       0.,
+    //                                       0.,
+    //                                       0.);
+    Vector3 euler = odom_rotation.rpy();
+    cout << "Euler: " << euler[0] << ", " << euler[1] << ", " << euler[2] << "\t "
+         << "\n";
+
+    Pose2 now(17.5727, -8.32464, -1.46435);
+    Pose2 prev(17.4934, -7.51033, -1.38913);
+    Pose2 step(0.693182, 0.479094, -0.0752221);
+
+    // These two are different somehow
+    Pose2 odom = prev.inverse().compose(now);
+    odom.print();
+    odom = prev.between(now);
+    odom.print();
 }

@@ -49,6 +49,25 @@ using symbol_shorthand::B; // Bias  (ax,ay,az,gx,gy,gz)
 using symbol_shorthand::V; // Vel   (xdot,ydot,zdot)
 using symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)
 
+
+class UnaryFactor: public NoiseModelFactor1<Pose2> {
+  double mx_, my_; ///< X and Y measurements
+
+public:
+    UnaryFactor(Key j, double x, double y, const SharedNoiseModel& model):
+    NoiseModelFactor1<Pose2>(model, j), mx_(x), my_(y) {}
+
+    Vector evaluateError(const Pose2& q,
+                        boost::optional<Matrix&> H = boost::none) const
+    {
+        const Rot2& R = q.rotation();
+        if (H) (*H) = (gtsam::Matrix(2, 3) <<
+                R.c(), -R.s(), 0.0,
+                R.s(), R.c(), 0.0).finished();
+        return (Vector(2) << q.x() - mx_, q.y() - my_).finished();
+    }
+};
+
 class GraphLocalization
 {
 
@@ -77,7 +96,7 @@ public:
     NavState *prev_state_;
     imuBias::ConstantBias prev_bias_;
     SharedIsotropic bias_noise_model_;
-    Pose3 odom_pose_prev_;
+    Pose2 odom_pose_prev_;
     tf2_ros::Buffer tf_buffer_;
     geometry_msgs::TransformStamped utm_odom_tf_;
 

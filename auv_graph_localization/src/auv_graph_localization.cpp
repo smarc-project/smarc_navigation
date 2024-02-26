@@ -12,44 +12,45 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     node_cnt_ = 0;
     stim_cnt_ = 0;
     
-    Vector10 initial_state;
-    for (int i = 0; i < 9; i++)
-    {
-        initial_state(i) = 0.;
-    }
-    Rot3 prior_rotation = Rot3::Quaternion(1, 0,0,0);
-    Point3 prior_point(0,0,0);
-    Pose3 prior_pose(prior_rotation, prior_point);
-    odom_pose_prev_ = prior_pose;
-    Vector3 prior_velocity(initial_state.tail<3>());
-    imuBias::ConstantBias prior_imu_bias; // assume zero initial bias
+    // Vector10 initial_state;
+    // for (int i = 0; i < 9; i++)
+    // {
+    //     initial_state(i) = 0.;
+    // }
+    // Rot3 prior_rotation = Rot3::Quaternion(1, 0,0,0);
+    // Point3 prior_point(0,0,0);
+    // Pose3 prior_pose(prior_rotation, prior_point);
+    // odom_pose_prev_ = prior_pose;
+    // Vector3 prior_velocity(initial_state.tail<3>());
+    // imuBias::ConstantBias prior_imu_bias; // assume zero initial bias
 
     // Add all prior factors (pose, velocity, bias) to the graph.
-    initial_estimate_.insert(X(node_cnt_), prior_pose);
-    initial_estimate_.insert(V(node_cnt_), prior_velocity);
-    initial_estimate_.insert(B(node_cnt_), prior_imu_bias);
+    Pose2 priorMean(0.0, 0.0, 0.0); // prior at origin
+    initial_estimate_.insert(X(node_cnt_), priorMean);
+    // initial_estimate_.insert(V(node_cnt_), prior_velocity);
+    // initial_estimate_.insert(B(node_cnt_), prior_imu_bias);
 
     // Assemble prior noise model and add it the graph.`
     auto pose_noise_model = noiseModel::Diagonal::Sigmas(
-        (Vector(6) << 0.01, 0.01, 0.01, 0.5, 0.5, 0.5)
+        (Vector(3) << 0.01, 0.01, 0.01)
             .finished());                                             // rad,rad,rad,m, m, m
-    auto velocity_noise_model = noiseModel::Isotropic::Sigma(3, 0.1); // m/s
+    // auto velocity_noise_model = noiseModel::Isotropic::Sigma(3, 0.1); // m/s
 
-    bias_noise_model_ = noiseModel::Isotropic::Sigma(6, 1e-3);
+    // bias_noise_model_ = noiseModel::Isotropic::Sigma(6, 1e-3);
 
     // Add all prior factors (pose, velocity, bias) to the graph.
     graph_ = new NonlinearFactorGraph();
-    graph_->addPrior(X(node_cnt_), prior_pose, pose_noise_model);
-    graph_->addPrior(V(node_cnt_), prior_velocity, velocity_noise_model);
-    graph_->addPrior(B(node_cnt_), prior_imu_bias, bias_noise_model_);
+    graph_->add(PriorFactor<Pose2>(X(node_cnt_), priorMean, pose_noise_model));
+    // graph_->addPrior(V(node_cnt_), prior_velocity, velocity_noise_model);
+    // graph_->addPrior(B(node_cnt_), prior_imu_bias, bias_noise_model_);
 
     // STIM params and preintegrator
-    p_ = this->stimParams();
-    preintegrated_.reset(new PreintegratedImuMeasurements(p_, prior_imu_bias));
+    // p_ = this->stimParams();
+    // preintegrated_.reset(new PreintegratedImuMeasurements(p_, prior_imu_bias));
     
     // Store previous state for imu integration and latest predicted outcome.
-    prev_state_ = new NavState(prior_pose, prior_velocity);
-    prev_bias_ = prior_imu_bias;
+    // prev_state_ = new NavState(prior_pose, prior_velocity);
+    // prev_bias_ = prior_imu_bias;
 
     // STIM is not started
     stim_init_ = false;
@@ -87,7 +88,7 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     odom_sub_ = nh.subscribe(odom_top, 1, &GraphLocalization::OdomCb, this);
 
     nh.param<std::string>(("stim_top"), stim_top, "/sam/core/imu");
-    stim_sub_ = nh_stim.subscribe(stim_top, 1, &GraphLocalization::StimCb, this);
+    // stim_sub_ = nh_stim.subscribe(stim_top, 1, &GraphLocalization::StimCb, this);
 
     nh.param<std::string>(("gps_top"), gps_top, "/sam/dr/gps_odom_fake");
     gps_sub_ = nh.subscribe(gps_top, 1, &GraphLocalization::GpsCb, this);
@@ -101,62 +102,107 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     std::cout << "Graph node ready " << std::endl;
 }
 
+// void GraphLocalization::OdomCb(const nav_msgs::OdometryConstPtr &odom_msg)
+// {
+//     if (stim_init_)
+//     {
+//         node_cnt_ = node_cnt_ + 1;
+//         std::cout << "Odom cnt " << node_cnt_ << std::endl;
+        
+//         // Add odometry estimate
+//         Rot3 odom_rotation = Rot3::Quaternion(odom_msg->pose.pose.orientation.w,
+//                                               odom_msg->pose.pose.orientation.x,
+//                                               odom_msg->pose.pose.orientation.y,
+//                                               odom_msg->pose.pose.orientation.z);
+//         Point3 odom_point(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z);
+//         Pose3 odom_pose(odom_rotation, odom_point);
+//         Vector3 odom_velocity(odom_msg->twist.twist.angular.x, odom_msg->twist.twist.angular.y, odom_msg->twist.twist.angular.z);
+//         gtsam::NavState odom_estimate(odom_pose, odom_velocity);
+//         initial_estimate_.insert(X(node_cnt_), odom_estimate.pose());
+//         // initial_estimate_.insert(V(node_cnt_), odom_estimate.v());
+//         // initial_estimate_.insert(B(node_cnt_), prev_bias_);
+
+//         // Add odometry factors between consecutive poses
+//         Pose3 odom_step = odom_pose.compose(odom_pose_prev_.inverse());
+//         // TODO: extract noise from odom_msg
+//         noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Sigmas((Vector(6) << 0.1, 0.1, 0.1, 0.01, 0.01, 0.01).finished());
+//         graph_->add(BetweenFactor<Pose3>(X(node_cnt_ - 1), X(node_cnt_), odom_step, odometryNoise));
+
+//         // Add IMU factor factor
+//         // auto preint_imu = dynamic_cast<const PreintegratedImuMeasurements &>(*preintegrated_);
+//         // gtsam::ImuFactor imu_factor(X(node_cnt_ - 1), V(node_cnt_ - 1),
+//         //                             X(node_cnt_), V(node_cnt_),
+//         //                             B(node_cnt_ - 1), preint_imu);
+//         // graph_->add(imu_factor);
+//         // imuBias::ConstantBias zero_bias(Vector3(0, 0, 0), Vector3(0, 0, 0));
+//         // graph_->add(BetweenFactor<imuBias::ConstantBias>(
+//         //     B(node_cnt_ - 1), B(node_cnt_), zero_bias,
+//         //     bias_noise_model_));
+
+
+//         // Nacho: For testing only
+//         // NavState prop_state = preintegrated_->predict(*prev_state_, prev_bias_);
+
+//         odom_pose_prev_ = odom_pose;
+//     }
+// }
+
 void GraphLocalization::OdomCb(const nav_msgs::OdometryConstPtr &odom_msg)
 {
-    if (stim_init_)
-    {
-        node_cnt_ = node_cnt_ + 1;
-        std::cout << "Odom cnt " << node_cnt_ << std::endl;
-        
-        // Add odometry estimate
-        Rot3 odom_rotation = Rot3::Quaternion(odom_msg->pose.pose.orientation.w,
-                                              odom_msg->pose.pose.orientation.x,
-                                              odom_msg->pose.pose.orientation.y,
-                                              odom_msg->pose.pose.orientation.z);
-        Point3 odom_point(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z);
-        Pose3 odom_pose(odom_rotation, odom_point);
-        Vector3 odom_velocity(odom_msg->twist.twist.angular.x, odom_msg->twist.twist.angular.y, odom_msg->twist.twist.angular.z);
-        gtsam::NavState odom_estimate(odom_pose, odom_velocity);
-        initial_estimate_.insert(X(node_cnt_), odom_estimate.pose());
-        // initial_estimate_.insert(V(node_cnt_), odom_estimate.v());
-        // initial_estimate_.insert(B(node_cnt_), prev_bias_);
+    // if (stim_init_)
+    // {
+    node_cnt_ = node_cnt_ + 1;
+    std::cout << "Odom cnt " << node_cnt_ << std::endl;
 
-        // Add odometry factors between consecutive poses
-        Pose3 odom_step = odom_pose.compose(odom_pose_prev_.inverse());
-        // TODO: extract noise from odom_msg
-        noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Sigmas((Vector(6) << 0.1, 0.1, 0.1, 0.01, 0.01, 0.01).finished());
-        graph_->add(BetweenFactor<Pose3>(X(node_cnt_ - 1), X(node_cnt_), odom_step, odometryNoise));
+    // Add odometry estimate
+    Rot3 odom_rotation = Rot3::Quaternion(odom_msg->pose.pose.orientation.w,
+                                            odom_msg->pose.pose.orientation.x,
+                                            odom_msg->pose.pose.orientation.y,
+                                            odom_msg->pose.pose.orientation.z);
+    Vector3 euler = odom_rotation.rpy();
 
-        // Add IMU factor factor
-        // auto preint_imu = dynamic_cast<const PreintegratedImuMeasurements &>(*preintegrated_);
-        // gtsam::ImuFactor imu_factor(X(node_cnt_ - 1), V(node_cnt_ - 1),
-        //                             X(node_cnt_), V(node_cnt_),
-        //                             B(node_cnt_ - 1), preint_imu);
-        // graph_->add(imu_factor);
-        // imuBias::ConstantBias zero_bias(Vector3(0, 0, 0), Vector3(0, 0, 0));
-        // graph_->add(BetweenFactor<imuBias::ConstantBias>(
-        //     B(node_cnt_ - 1), B(node_cnt_), zero_bias,
-        //     bias_noise_model_));
+    Pose2 odom_pose(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, euler[2]);
+    odom_pose.print();
+    // Pose3 odom_pose(odom_rotation, odom_point);
+    // Vector3 odom_velocity(odom_msg->twist.twist.angular.x, odom_msg->twist.twist.angular.y, odom_msg->twist.twist.angular.z);
+    // gtsam::NavState odom_estimate(odom_pose, odom_velocity);
+    initial_estimate_.insert(X(node_cnt_), odom_pose);
+    // initial_estimate_.insert(V(node_cnt_), odom_estimate.v());
+    // initial_estimate_.insert(B(node_cnt_), prev_bias_);
 
+    // Add odometry factors between consecutive poses
+    // Below is equivalent to odom_pose_prev_.between(odom_pose)
+    // Pose2 odom_step = odom_pose_prev_.inverse().compose(odom_pose);
+    // TODO: extract noise from odom_msg
+    noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Sigmas((Vector(3) << 1., 1., 0.5).finished());
+    graph_->add(BetweenFactor<Pose2>(X(node_cnt_ - 1), X(node_cnt_), odom_pose_prev_.between(odom_pose), odometryNoise));
 
-        // Nacho: For testing only
-        // NavState prop_state = preintegrated_->predict(*prev_state_, prev_bias_);
-
-        odom_pose_prev_ = odom_pose;
-    }
+    odom_pose_prev_ = odom_pose;
+    // }
 }
 
 void GraphLocalization::Optimize()
 {
     // Optimize
-    isam2_->update(*graph_, initial_estimate_);
+
+    // iSAM2
+    std::cout << "----------------- Optimizing --------------------" << std::endl;
+    writeG2o(*graph_, initial_estimate_, "before.dot");
+    ISAM2Result update_info = isam2_->update(*graph_, initial_estimate_);
+    update_info.print();
     result_ = isam2_->calculateEstimate();
-    std::cout << " -----------------Result " << result_.size() << std::endl;
 
     // Reset the graph
     graph_->resize(0);
     initial_estimate_.clear();
     optimized_ = true;
+
+    // LM optimizer
+    // graph_->saveGraph("./before.dot", initial_estimate_);
+    // result_ = LevenbergMarquardtOptimizer(*graph_, initial_estimate_).optimize();
+    writeG2o(*graph_, result_, "after.dot");
+    // graph_->saveGraph("./after.dot", result_);
+    // result.print("Final Result:\n");
 
     // Overwrite the beginning of the preintegration for the next step.
     // prev_state_ = new NavState(result_.at<Pose3>(X(node_cnt_)),
@@ -172,7 +218,7 @@ void GraphLocalization::Optimize()
     //      << "\n";
 
     // Reset the preintegration object.
-    preintegrated_->resetIntegrationAndSetBias(prev_bias_);
+    // preintegrated_->resetIntegrationAndSetBias(prev_bias_);
 }
 
 void GraphLocalization::Visualize()
@@ -180,33 +226,36 @@ void GraphLocalization::Visualize()
     ros::Rate r(vis_rate_);
     while(ros::ok())
     {
-        std::cout << "Plotting " << std::endl;
-
-        nav_msgs::Path path;
-        path.header.frame_id = odom_frame_;
-        path.header.stamp = ros::Time::now();
-        geometry_msgs::PoseStamped pose_msg;
-        Pose3 pose_i;
-
-        for(int i = 0; i <= node_cnt_; i++)
+        if(node_cnt_ > 2)
         {
-            if (result_.exists(X(i)))
+            std::cout << "Plotting " << std::endl;
+
+            nav_msgs::Path path;
+            path.header.frame_id = odom_frame_;
+            path.header.stamp = ros::Time::now();
+            geometry_msgs::PoseStamped pose_msg;
+            Pose2 pose_i;
+
+            for(int i = 0; i <= node_cnt_; i++)
             {
-                pose_i = result_.at<Pose3>(X(i));
-            }
-            else if (initial_estimate_.exists(X(i)))
-            {
-                pose_i = initial_estimate_.at<Pose3>(X(i));
+                if (result_.exists(X(i)))
+                {
+                    pose_i = result_.at<Pose2>(X(i));
+                }
+                else if (initial_estimate_.exists(X(i)))
+                {
+                    pose_i = initial_estimate_.at<Pose2>(X(i));
+                }
+
+                pose_msg.pose.position.x = pose_i.translation()[0];
+                pose_msg.pose.position.y = pose_i.translation()[1];
+                pose_msg.pose.position.z = 0.;
+                pose_msg.pose.orientation.w = 1;
+                path.poses.push_back(pose_msg);
             }
 
-            pose_msg.pose.position.x = pose_i.translation()[0];
-            pose_msg.pose.position.y = pose_i.translation()[1];
-            pose_msg.pose.position.z = pose_i.translation()[2];
-            pose_msg.pose.orientation.w = 1;
-            path.poses.push_back(pose_msg);
+            path_pub_.publish(path);
         }
-
-        path_pub_.publish(path);
         r.sleep();
     }
 }
@@ -251,13 +300,16 @@ void GraphLocalization::GpsCb(const nav_msgs::OdometryConstPtr &gps_msg)
 
         std::cout << "GPS fix " << gps_odom.pose.position.x << ", " << gps_odom.pose.position.y << ", " << gps_odom.pose.position.z << std::endl;
 
-        auto correction_noise = noiseModel::Isotropic::Sigma(3, 1.0);
-        GPSFactor gps_factor(X(node_cnt_),
-                             Point3(gps_odom.pose.position.x,  // N,
-                                    gps_odom.pose.position.y,  // E,
-                                    gps_odom.pose.position.z), // D,
-                             correction_noise);
-        graph_->add(gps_factor);
+        // auto correction_noise = noiseModel::Isotropic::Sigma(3, 1.0);
+        // GPSFactor gps_factor(X(node_cnt_),
+        //                      Point3(gps_odom.pose.position.x,  // N,
+        //                             gps_odom.pose.position.y,  // E,
+        //                             0.), // D,
+        //                      correction_noise);
+        // graph_->add(gps_factor);
+        
+        auto unaryNoise = noiseModel::Isotropic::Sigma(2, 10.0);
+        graph_->add(boost::make_shared<UnaryFactor>(X(node_cnt_), gps_odom.pose.position.x, gps_odom.pose.position.y, unaryNoise));
 
         // Optimize here
         this->Optimize();
