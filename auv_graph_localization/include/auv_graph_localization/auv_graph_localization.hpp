@@ -50,6 +50,75 @@ using symbol_shorthand::B; // Bias  (ax,ay,az,gx,gy,gz)
 using symbol_shorthand::V; // Vel   (xdot,ydot,zdot)
 using symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)
 
+// #pragma once
+#include <gtsam/nonlinear/NonlinearFactor.h>
+#include <gtsam/base/Matrix.h>
+#include <gtsam/base/Vector.h>
+#include <gtsam/geometry/Pose3.h>
+
+namespace gtsam
+{
+
+    class Pose3DepthFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
+    {
+
+    private:
+        // measurement information
+        double mz_;
+
+    public:
+        Pose3DepthFactor(gtsam::Key poseKey, const double &m, gtsam::SharedNoiseModel model) : gtsam::NoiseModelFactor1<gtsam::Pose3>(model, poseKey), mz_(m) {}
+
+        gtsam::Vector evaluateError(const gtsam::Pose3 &X, boost::optional<gtsam::Matrix &> J1 = boost::none) const
+        {
+
+            if (J1)
+                *J1 = (gtsam::Matrix16() << 0.0, 0.0, 0.0, 0.0, 0.0, 1.0).finished();
+
+            return (gtsam::Vector1() << X.z() - mz_).finished();
+        }
+    };
+
+    class Pose3PitchFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
+    {
+
+    private:
+        // measurement information
+        double mpitch_;
+
+    public:
+        Pose3PitchFactor(gtsam::Key poseKey, const double &m, gtsam::SharedNoiseModel model) : gtsam::NoiseModelFactor1<gtsam::Pose3>(model, poseKey), mpitch_(m) {}
+
+        gtsam::Vector evaluateError(const gtsam::Pose3 &X, boost::optional<gtsam::Matrix &> J1 = boost::none) const
+        {
+
+            if (J1)
+                *J1 = (gtsam::Matrix16() << 0.0, 1.0, 0.0, 0.0, 0.0, 0.0).finished();
+
+            return (gtsam::Vector1() << X.rotation().rpy()[1] - mpitch_).finished();
+        }
+    };
+
+    class Pose3RollFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
+    {
+
+    private:
+        // measurement information
+        double mroll_;
+
+    public:
+        Pose3RollFactor(gtsam::Key poseKey, const double &m, gtsam::SharedNoiseModel model) : gtsam::NoiseModelFactor1<gtsam::Pose3>(model, poseKey), mroll_(m) {}
+
+        gtsam::Vector evaluateError(const gtsam::Pose3 &X, boost::optional<gtsam::Matrix &> J1 = boost::none) const
+        {
+
+            if (J1)
+                *J1 = (gtsam::Matrix16() << 0.0, 0.0, 1.0, 0.0, 0.0, 0.0).finished();
+
+            return (gtsam::Vector1() << X.rotation().rpy()[0] - mroll_).finished();
+        }
+    };
+}
 
 class UnaryFactor: public NoiseModelFactor1<Pose2> {
   double mx_, my_; ///< X and Y measurements
@@ -93,12 +162,13 @@ public:
     double stim_t_now_, odom_t_now_;
     double stim_t_prev_, odom_t_prev_;
     float vis_rate_;
+    double depth_t_;
 
     // NavState *prev_state_;
     NavState prop_state_;
     imuBias::ConstantBias prev_bias_;
     SharedIsotropic bias_noise_model_;
-    Pose2 odom_pose_prev_;
+    Pose3 odom_pose_prev_;
     tf2_ros::Buffer tf_buffer_;
     geometry_msgs::TransformStamped utm_odom_tf_;
 
@@ -112,7 +182,7 @@ public:
 
     void Visualize();
 
-    void Optimize();
+    void Optimize(int cnt);
 
     boost::shared_ptr<PreintegratedCombinedMeasurements::Params> stimParams();
 };
