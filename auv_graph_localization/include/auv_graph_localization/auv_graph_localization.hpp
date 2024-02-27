@@ -19,6 +19,7 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/dataset.h>
+#include <gtsam/navigation/MagFactor.h>
 
 #include <cstring>
 #include <fstream>
@@ -75,7 +76,7 @@ public:
     ros::NodeHandle *nh_;
     ros::NodeHandle *nh_stim_;
     ros::Subscriber odom_sub_, stim_sub_, gps_sub_;
-    ros::Publisher path_pub_;
+    ros::Publisher path_pub_, preint_pub_;
     std::string odom_frame_, map_frame_, utm_frame_;
     NonlinearFactorGraph *graph_;
     ISAM2 *isam2_;
@@ -87,13 +88,14 @@ public:
     int node_cnt_;
     int stim_cnt_;
 
-    bool stim_init_;
+    bool stim_init_, odom_init_;
     bool optimized_;
-    double stim_t_now_;
-    double stim_t_prev_;
+    double stim_t_now_, odom_t_now_;
+    double stim_t_prev_, odom_t_prev_;
     float vis_rate_;
 
-    NavState *prev_state_;
+    // NavState *prev_state_;
+    NavState prop_state_;
     imuBias::ConstantBias prev_bias_;
     SharedIsotropic bias_noise_model_;
     Pose2 odom_pose_prev_;

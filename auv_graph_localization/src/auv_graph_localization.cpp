@@ -12,6 +12,7 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     node_cnt_ = 0;
     stim_cnt_ = 0;
     
+    // STIM params and preintegrator ********
     // Vector10 initial_state;
     // for (int i = 0; i < 9; i++)
     // {
@@ -20,9 +21,12 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     // Rot3 prior_rotation = Rot3::Quaternion(1, 0,0,0);
     // Point3 prior_point(0,0,0);
     // Pose3 prior_pose(prior_rotation, prior_point);
-    // odom_pose_prev_ = prior_pose;
-    // Vector3 prior_velocity(initial_state.tail<3>());
+    // Vector3 prior_velocity(0,0,0);
     // imuBias::ConstantBias prior_imu_bias; // assume zero initial bias
+    // p_ = this->stimParams();
+    // preintegrated_.reset(new PreintegratedImuMeasurements(p_, prior_imu_bias));
+    // prop_state_ = NavState(prior_pose, prior_velocity);
+    // ******************
 
     // Add all prior factors (pose, velocity, bias) to the graph.
     Pose2 priorMean(0.0, 0.0, 0.0); // prior at origin
@@ -44,16 +48,31 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     // graph_->addPrior(V(node_cnt_), prior_velocity, velocity_noise_model);
     // graph_->addPrior(B(node_cnt_), prior_imu_bias, bias_noise_model_);
 
-    // STIM params and preintegrator
-    // p_ = this->stimParams();
-    // preintegrated_.reset(new PreintegratedImuMeasurements(p_, prior_imu_bias));
-    
-    // Store previous state for imu integration and latest predicted outcome.
-    // prev_state_ = new NavState(prior_pose, prior_velocity);
     // prev_bias_ = prior_imu_bias;
+
+    // // Mag prior
+    // // Point3 nM(22653.29982, -1956.83010, 44202.47862);
+    // Point3 nM(15137.8, 1974.4, 49490.6);
+    // // Let's assume scale factor,
+    // double scale = 255.0 / 50000.0;
+    // // ...ground truth orientation,
+    // Rot3 nRb = Rot3::Yaw(0.);
+    // // Rot2 theta = nRb.yaw();
+    // // ...and bias
+    // Point3 bias(10, -10, 50);
+    // // ... then we measure
+    // // Point3 scaled = scale * nM;
+    // Point3 measured = nRb.inverse() * (scale * nM) + bias;
+
+    // double s(scale * nM.norm());
+    // Unit3 dir(nM);
+    // SharedNoiseModel model = noiseModel::Isotropic::Sigma(3, 0.25);
+    // MagFactor mag_factor(node_cnt_, measured, s, dir, bias, model);
+    // graph_->add(mag_factor);
 
     // STIM is not started
     stim_init_ = false;
+    odom_init_ = false;
 
     // Optimization has not started
     optimized_ = false;
@@ -81,11 +100,10 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
         ROS_ERROR("ERROR: Could not lookup transform from utm to odom");
     }
 
-
-    std::string odom_top, stim_top, path_top, gps_top;
+    std::string odom_top, stim_top, path_top, gps_top, preint_top;
     nh.param<float>(("vis_rate"), vis_rate_, 1.);
     nh.param<std::string>(("odom_top"), odom_top, "/sam/dr/odom");
-    odom_sub_ = nh.subscribe(odom_top, 1, &GraphLocalization::OdomCb, this);
+    odom_sub_ = nh.subscribe(odom_top, 100, &GraphLocalization::OdomCb, this);
 
     nh.param<std::string>(("stim_top"), stim_top, "/sam/core/imu");
     // stim_sub_ = nh_stim.subscribe(stim_top, 1, &GraphLocalization::StimCb, this);
@@ -96,6 +114,8 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     nh.param<std::string>(("path_top"), path_top, "/sam/dr/path");
     path_pub_ = nh.advertise<nav_msgs::Path>(path_top, 1);
 
+    nh.param<std::string>(("preint_top"), preint_top, "/sam/dr/preint_pose");
+    preint_pub_ = nh.advertise<nav_msgs::Odometry>(preint_top, 1);
 
     std::thread(&GraphLocalization::Visualize, this).detach();
 
@@ -141,7 +161,7 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
 
 
 //         // Nacho: For testing only
-//         // NavState prop_state = preintegrated_->predict(*prev_state_, prev_bias_);
+        // NavState prop_state = preintegrated_->predict(*prev_state_, prev_bias_);
 
 //         odom_pose_prev_ = odom_pose;
 //     }
@@ -149,20 +169,36 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
 
 void GraphLocalization::OdomCb(const nav_msgs::OdometryConstPtr &odom_msg)
 {
+    odom_t_now_ = odom_msg->header.stamp.toSec();
+    if (!odom_init_)
+    {
+        odom_t_prev_ = odom_t_now_;
+        odom_init_ = true;
+        return;
+    }
+    double dt = odom_t_now_ - odom_t_prev_;
+
     // if (stim_init_)
     // {
     node_cnt_ = node_cnt_ + 1;
     std::cout << "Odom cnt " << node_cnt_ << std::endl;
 
-    // Add odometry estimate
     Rot3 odom_rotation = Rot3::Quaternion(odom_msg->pose.pose.orientation.w,
                                             odom_msg->pose.pose.orientation.x,
                                             odom_msg->pose.pose.orientation.y,
                                             odom_msg->pose.pose.orientation.z);
     Vector3 euler = odom_rotation.rpy();
 
-    Pose2 odom_pose(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, euler[2]);
-    odom_pose.print();
+    // Extract odom pose from msg
+    // Pose2 odom_pose2(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, euler[2]);
+    // odom_pose2.print();
+
+    // Or integrate odom pose from velocities and orientation
+    Vector3 lin_vel_t(odom_msg->twist.twist.linear.x, odom_msg->twist.twist.linear.y, odom_msg->twist.twist.linear.z);
+    Vector3 odom_step = odom_rotation.matrix() * lin_vel_t * dt;
+    Pose2 odom_pose(odom_pose_prev_.translation()[0] + odom_step[0], odom_pose_prev_.translation()[1] + odom_step[1], euler[2]);
+    // odom_pose.print();
+
     // Pose3 odom_pose(odom_rotation, odom_point);
     // Vector3 odom_velocity(odom_msg->twist.twist.angular.x, odom_msg->twist.twist.angular.y, odom_msg->twist.twist.angular.z);
     // gtsam::NavState odom_estimate(odom_pose, odom_velocity);
@@ -178,6 +214,10 @@ void GraphLocalization::OdomCb(const nav_msgs::OdometryConstPtr &odom_msg)
     graph_->add(BetweenFactor<Pose2>(X(node_cnt_ - 1), X(node_cnt_), odom_pose_prev_.between(odom_pose), odometryNoise));
 
     odom_pose_prev_ = odom_pose;
+    odom_t_prev_ = odom_t_now_;
+
+    // prop_state_ = preintegrated_->predict(prop_state_, prev_bias_);
+
     // }
 }
 
@@ -187,7 +227,7 @@ void GraphLocalization::Optimize()
 
     // iSAM2
     std::cout << "----------------- Optimizing --------------------" << std::endl;
-    writeG2o(*graph_, initial_estimate_, "before.dot");
+    // writeG2o(*graph_, initial_estimate_, "before.dot");
     ISAM2Result update_info = isam2_->update(*graph_, initial_estimate_);
     update_info.print();
     result_ = isam2_->calculateEstimate();
@@ -197,10 +237,13 @@ void GraphLocalization::Optimize()
     initial_estimate_.clear();
     optimized_ = true;
 
+    // Update odom estimate
+    odom_pose_prev_ = result_.at<Pose2>(X(node_cnt_));
+
     // LM optimizer
     // graph_->saveGraph("./before.dot", initial_estimate_);
     // result_ = LevenbergMarquardtOptimizer(*graph_, initial_estimate_).optimize();
-    writeG2o(*graph_, result_, "after.dot");
+    // writeG2o(*graph_, result_, "after.dot");
     // graph_->saveGraph("./after.dot", result_);
     // result.print("Final Result:\n");
 
@@ -256,6 +299,19 @@ void GraphLocalization::Visualize()
 
             path_pub_.publish(path);
         }
+
+        nav_msgs::Odometry preint_odom;
+        preint_odom.header.frame_id = odom_frame_;
+        preint_odom.header.stamp = ros::Time::now();
+        preint_odom.pose.pose.position.x = prop_state_.pose().translation()[0];
+        preint_odom.pose.pose.position.y = prop_state_.pose().translation()[1];
+        preint_odom.pose.pose.position.z = prop_state_.pose().translation()[2];
+        preint_odom.pose.pose.orientation.w = prop_state_.pose().rotation().quaternion()[0];
+        preint_odom.pose.pose.orientation.x = prop_state_.pose().rotation().quaternion()[1];
+        preint_odom.pose.pose.orientation.y = prop_state_.pose().rotation().quaternion()[2];
+        preint_odom.pose.pose.orientation.z = prop_state_.pose().rotation().quaternion()[3];
+        preint_pub_.publish(preint_odom);
+
         r.sleep();
     }
 }

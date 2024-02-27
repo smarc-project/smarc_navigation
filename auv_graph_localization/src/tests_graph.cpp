@@ -19,6 +19,7 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/dataset.h>
+#include <gtsam/navigation/MagFactor.h>
 
 using namespace std;
 using namespace gtsam;
@@ -58,4 +59,31 @@ int main()
     odom.print();
     odom = prev.between(now);
     odom.print();
+
+    // Magnetometer
+    Point3 nM(22653.29982, -1956.83010, 44202.47862);
+    // Let's assume scale factor,
+    double scale = 255.0 / 50000.0;
+    // ...ground truth orientation,
+    Rot3 nRb = Rot3::Yaw(-0.1);
+    Rot2 theta = nRb.yaw();
+    // ...and bias
+    Point3 bias(10, -10, 50);
+    // ... then we measure
+    Point3 scaled = scale * nM;
+    Point3 measured = nRb.inverse() * (scale * nM) + bias;
+
+    std::cout << measured << std::endl;
+
+    Point3 expected(22735.5, 314.502, 44202.5);
+    Matrix H;
+
+    std::cout << "Norm " <<  nM.norm() << std::endl;
+    double s(scale * nM.norm());
+    SharedNoiseModel model = noiseModel::Isotropic::Sigma(3, 0.25);
+    Unit3 dir(nM);
+
+    gtsam::MagFactor f(1, measured, s, dir, bias, model);
+
+    // Point3 mag = MagFactor::unrotate(theta, nM, H);
 }
