@@ -134,12 +134,22 @@ add_library(auv_graph_localization
   src/auv_graph_localization.cpp
 )
 
+add_library(graph
+  src/graph.cpp
+)
+
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
 add_dependencies(auv_graph_localization ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(graph ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(auv_graph_localization
+  ${catkin_LIBRARIES}
+  gtsam
+)
+
+target_link_libraries(graph
   ${catkin_LIBRARIES}
   gtsam
 )
@@ -163,7 +173,7 @@ add_dependencies(auv_graph_localization_node
     ${catkin_EXPORTED_TARGETS}
 )
 
-add_dependencies(auv_graph_localization_node
+add_dependencies(tests_graph
     ${${PROJECT_NAME}_EXPORTED_TARGETS} 
     ${catkin_EXPORTED_TARGETS}
 )
@@ -173,6 +183,7 @@ target_link_libraries(auv_graph_localization_node
   ${catkin_LIBRARIES}
   gtsam
   auv_graph_localization
+  graph
 )
 
 target_link_libraries(tests_graph
