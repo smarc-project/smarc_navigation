@@ -21,12 +21,13 @@ class PublishGPSPose(object):
         self.gps_odom_top = rospy.get_param('~gps_odom_topic', 'gps_odom_sam')
 
         # GPS odom in UTM frame
-        self.gps_sam_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.sam_gps_cb)
+        self.gps_sam_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.sam_gps_cb, queue_size=100)
         self.gps_sam_pub = rospy.Publisher(self.gps_odom_top, Odometry, queue_size=10)
         
         # Broadcast UTM to map frame
         self.listener = tf.TransformListener()        
         self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
+        self.utm_map_tf = TransformStamped()
         
         # Auxiliar ones for floatsam
         self.odom_pub = rospy.Publisher('gps_odom', Odometry, queue_size=10)
@@ -38,7 +39,21 @@ class PublishGPSPose(object):
                                                           20, slop=20.0, allow_headerless=False)
         self.ts.registerCallback(self.gps_callback)
 
+        rospy.Timer(rospy.Duration(1.), self.tf_timer)
 
+
+    def tf_timer(self, event):
+
+        try:
+            (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
+                                                                     self.map_frame,
+                                                                     rospy.Time(0))            
+            self.utm_map_tf.header.stamp = rospy.Time.now()
+            self.static_tf_bc.sendTransform(self.utm_map_tf)
+
+        except (tf.LookupException, tf.ConnectivityException):
+            pass
+        
     def sam_gps_cb(self, sam_gps):
 
         if sam_gps.status.status != -1:
@@ -53,15 +68,14 @@ class PublishGPSPose(object):
 
             except (tf.LookupException, tf.ConnectivityException):
                 rospy.loginfo("GPS node: broadcasting transform %s to %s" % (self.utm_frame, self.map_frame))            
-                transformStamped = TransformStamped()
-                transformStamped.transform.translation.x = utm_sam.easting
-                transformStamped.transform.translation.y = utm_sam.northing
-                transformStamped.transform.translation.z = 0.
-                transformStamped.transform.rotation = Quaternion(*rot)               
-                transformStamped.header.frame_id = self.utm_frame
-                transformStamped.child_frame_id = self.map_frame
-                transformStamped.header.stamp = rospy.Time.now()
-                self.static_tf_bc.sendTransform(transformStamped)
+                self.utm_map_tf.transform.translation.x = utm_sam.easting
+                self.utm_map_tf.transform.translation.y = utm_sam.northing
+                self.utm_map_tf.transform.translation.z = 0.
+                self.utm_map_tf.transform.rotation = Quaternion(*rot)               
+                self.utm_map_tf.header.frame_id = self.utm_frame
+                self.utm_map_tf.child_frame_id = self.map_frame
+                self.utm_map_tf.header.stamp = rospy.Time.now()
+                self.static_tf_bc.sendTransform(self.utm_map_tf)
 
                 # return
 

@@ -73,7 +73,7 @@ int main()
     Point3 scaled = scale * nM;
     Point3 measured = nRb.inverse() * (scale * nM) + bias;
 
-    std::cout << measured << std::endl;
+    std::cout << scaled << std::endl;
 
     Point3 expected(22735.5, 314.502, 44202.5);
     Matrix H;
@@ -85,5 +85,13 @@ int main()
 
     gtsam::MagFactor f(1, measured, s, dir, bias, model);
 
-    // Point3 mag = MagFactor::unrotate(theta, nM, H);
+
+    // // Pose3HeadingFactor
+    // Vector6 pose;
+    // Pose3 pose_origin;
+    // OptionalJacobian<6, 6> Hxi;
+    // Pose3 expmap = Pose3::Expmap(pose, Hxi);
+
+    // Rot3 nRb = Rot3::Yaw(-0.1);
+    
 }

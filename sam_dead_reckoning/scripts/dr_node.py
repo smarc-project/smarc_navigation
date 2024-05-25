@@ -237,24 +237,24 @@ class VehicleDR(object):
 
     def dr_timer(self, event):
 
-        # Uncomment to use UW GPS 
-        try:
-            (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
-                                                                    self.map_frame,
-                                                                    rospy.Time(0))            
-            self.static_tf_bc_utmmap.sendTransform(self.tfUTMMap)
+        # # Uncomment to use UW GPS 
+        # try:
+        #     (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
+        #                                                             self.map_frame,
+        #                                                             rospy.Time(0))            
+        #     self.static_tf_bc_utmmap.sendTransform(self.tfUTMMap)
 
-        except (tf.LookupException, tf.ConnectivityException):
-            pass
+        # except (tf.LookupException, tf.ConnectivityException):
+        #     pass
         
-        try:
-            (world_trans, world_rot) = self.listener.lookupTransform(
-                self.map_frame, self.odom_frame, rospy.Time(0))
+        # try:
+        #     (world_trans, world_rot) = self.listener.lookupTransform(
+        #         self.map_frame, self.odom_frame, rospy.Time(0))
             
-            self.static_tf_bc_mapodom.sendTransform(self.tfMapOdom)
+        #     self.static_tf_bc_mapodom.sendTransform(self.tfMapOdom)
 
-        except (tf.LookupException, tf.ConnectivityException):
-            pass
+        # except (tf.LookupException, tf.ConnectivityException):
+        #     pass
 
         if self.init_stim:
             rospy.loginfo_once("DR node: broadcasting transform %s to %s" % (

@@ -19,19 +19,23 @@
 using namespace std;
 using namespace gtsam;
 
-using symbol_shorthand::B; // Bias  (ax,ay,az,gx,gy,gz)
-using symbol_shorthand::V; // Vel   (xdot,ydot,zdot)
-using symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)
-
+using symbol_shorthand::R;        // Rotation
+using symbol_shorthand::B;        // Bias  (ax,ay,az,gx,gy,gz)
+using symbol_shorthand::V;        // Vel   (xdot,ydot,zdot)
+using symbol_shorthand::X;        // Pose3 (x,y,z,r,p,y)
 // #pragma once
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/base/Matrix.h>
 #include <gtsam/base/Vector.h>
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/linear/NoiseModel.h>
+
+#include <boost/thread.hpp>
+#include <chrono>
+#include <thread>
 
 namespace gtsam
 {
-
     class Pose3DepthFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
     {
 
@@ -40,7 +44,8 @@ namespace gtsam
         double mz_;
 
     public:
-        Pose3DepthFactor(gtsam::Key poseKey, const double &m, gtsam::SharedNoiseModel model) : gtsam::NoiseModelFactor1<gtsam::Pose3>(model, poseKey), mz_(m) {}
+        Pose3DepthFactor(gtsam::Key poseKey, const double &m, gtsam::SharedNoiseModel model) : 
+                        gtsam::NoiseModelFactor1<gtsam::Pose3>(model, poseKey), mz_(m) {}
 
         gtsam::Vector evaluateError(const gtsam::Pose3 &X, boost::optional<gtsam::Matrix &> J1 = boost::none) const
         {
@@ -55,45 +60,51 @@ namespace gtsam
         }
     };
 
-    class Pose3PitchFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
-    {
+    // class Pose3HeadingFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
+    // {
 
-    private:
-        // measurement information
-        double mpitch_;
+    // private:
+    //     // measurement information
+    //     double myaw_;
+
+    // public:
+    //     Pose3HeadingFactor(gtsam::Key poseKey, const double &m, gtsam::SharedNoiseModel model) : gtsam::NoiseModelFactor1<gtsam::Pose3>(model, poseKey), myaw_(m) {}
+
+    //     gtsam::Vector evaluateError(const gtsam::Pose3 &X, boost::optional<gtsam::Matrix &> J1 = boost::none) const
+    //     {
+
+    //         if (J1)
+    //         {
+    //             X.matrix() * Pose3::Expmap()
+    //             Vector3 euler = X.rotation().rpy();
+    //             *J1 = (gtsam::Matrix16() << 0.0, 0.0, 0.0, -sin(euler[1]), cos(euler[1]) * sin(euler[0]), cos(euler[1]) * cos(euler[0])).finished();
+
+    //             // TODO: compute error with quaternions
+    //             return (gtsam::Vector1() << X.rotation().yaw() - myaw_).finished();
+    //         }
+    //     }
+    // };
+
+    class UnaryFactor : public NoiseModelFactor1<Pose2>
+    {
+        double mx_, my_; ///< X and Y measurements
 
     public:
-        Pose3PitchFactor(gtsam::Key poseKey, const double &m, gtsam::SharedNoiseModel model) : gtsam::NoiseModelFactor1<gtsam::Pose3>(model, poseKey), mpitch_(m) {}
+        UnaryFactor(Key j, double x, double y, const SharedNoiseModel &model) : NoiseModelFactor1<Pose2>(model, j), mx_(x), my_(y) {}
 
-        gtsam::Vector evaluateError(const gtsam::Pose3 &X, boost::optional<gtsam::Matrix &> J1 = boost::none) const
+        Vector evaluateError(const Pose2 &q,
+                            boost::optional<Matrix &> H = boost::none) const
         {
-
-            if (J1)
-                *J1 = (gtsam::Matrix16() << 0.0, 1.0, 0.0, 0.0, 0.0, 0.0).finished();
-
-            return (gtsam::Vector1() << X.rotation().rpy()[1] - mpitch_).finished();
+            const Rot2 &R = q.rotation();
+            if (H)
+                (*H) = (gtsam::Matrix(2, 3) << 
+                        R.c(), -R.s(), 0.0,
+                        R.s(), R.c(), 0.0).finished();
+            return (Vector(2) << q.x() - mx_, q.y() - my_).finished();
         }
     };
+
 }
-
-class UnaryFactor : public NoiseModelFactor1<Pose2>
-{
-    double mx_, my_; ///< X and Y measurements
-
-public:
-    UnaryFactor(Key j, double x, double y, const SharedNoiseModel &model) : NoiseModelFactor1<Pose2>(model, j), mx_(x), my_(y) {}
-
-    Vector evaluateError(const Pose2 &q,
-                         boost::optional<Matrix &> H = boost::none) const
-    {
-        const Rot2 &R = q.rotation();
-        if (H)
-            (*H) = (gtsam::Matrix(2, 3) << 
-                    R.c(), -R.s(), 0.0,
-                    R.s(), R.c(), 0.0).finished();
-        return (Vector(2) << q.x() - mx_, q.y() - my_).finished();
-    }
-};
 
 class GraphND
 {
@@ -102,27 +113,41 @@ public:
     ISAM2 *isam2_;
     Values initial_estimate_;
     Values result_;
-    std::vector<Values> path_;
+    // std::vector<Values> path_;
     boost::shared_ptr<PreintegratedCombinedMeasurements::Params> p_;
     std::shared_ptr<PreintegrationType> preintegrated_;
+    Pose3 odom_pose_preint_;
     // NavState *prev_state_;
     NavState prop_state_;
     imuBias::ConstantBias prev_bias_;
     SharedIsotropic bias_noise_model_;
+    std::mutex graph_mux_;
+    std::vector<Pose3DepthFactor> depth_factors_;
+    std::vector<GPSFactor> gps_factors_;
+    std::vector<BetweenFactor<Pose3>> odom_factors_;
+    Values temp_estimate_;
+    std::vector<std::tuple<Vector3, Vector3>> vels_history_;
+    
 
     // T odom_pose_prev_;
 
     GraphND(int &node_cnt);
 
-    virtual void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, double dt, int &node_cnt, double depth) {}
+    GraphND();
 
-    virtual void GpsNode(const std::vector<double> &gps_odom, int &node_cnt){}
+    // virtual void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth) {}
+    virtual void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth) {}
+
+    virtual void GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double depth){}
 
     virtual void Optimize(int cnt){}
 
     virtual std::vector<double> getValue(Values &values, int i){}
 
     virtual void DepthPrior(int cnt, double depth){}
+
+    // virtual bool CopyGraph(GraphND graph_copy) {}
+    // virtual GraphND* Clone() {}
 };
 
 class Graph2D: public GraphND
@@ -133,13 +158,20 @@ public:
 
     Graph2D(int &node_cnt);
 
-    void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, double dt, int &node_cnt, double depth);
+    Graph2D();
 
-    void GpsNode(const std::vector<double> &gps_odom, int &node_cnt);
+    // void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth);
+    void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth);
+
+    void GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double depth);
 
     void Optimize(int cnt);
 
     std::vector<double> getValue(Values &values, int i);
+
+    // bool CopyGraph(Graph2D graph_copy);
+
+    // void CopyGraph();
 };
 
 class Graph3D: public GraphND
@@ -150,13 +182,22 @@ public:
 
     Graph3D(int &node_cnt);
 
-    void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, double dt, int &node_cnt, double depth);
+    Graph3D();
 
-    void GpsNode(const std::vector<double> &gps_odom, int &node_cnt);
+    // void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth);
+    void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth);
+
+    void GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double depth);
 
     void Optimize(int cnt);
 
     void DepthPrior(int cnt, double depth);
 
     std::vector<double> getValue(Values &values, int i);
+
+    void SBGPrior(const Rot3 &sbg_rotation, int cnt);
+
+    // boost::shared_ptr<Graph3D> CopyGraph();
+    // bool CopyGraph(Graph3D graph_copy);
+
 };

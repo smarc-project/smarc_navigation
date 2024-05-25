@@ -1,6 +1,7 @@
 #include "auv_graph_localization/auv_graph_localization.hpp"
 
-GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_stim) : nh_(&nh), nh_stim_(&nh_stim)
+GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_stim, ros::NodeHandle &nh_gps) : 
+                                                            nh_(&nh), nh_stim_(&nh_stim), nh_gps_(&nh_gps)
 {
 
     // Init prior
@@ -15,9 +16,10 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     graph_.reset(new Graph3D(node_cnt_));
 
     tf2_ros::TransformListener tf_listener(tf_buffer_);
-    nh.param<std::string>(("odom_frame"), odom_frame_, "sam/odom");
-    nh.param<std::string>(("map_frame"), map_frame_, "map");
-    nh.param<std::string>(("utm_frame"), utm_frame_, "utm");
+    nh_->param<std::string>(("odom_frame"), odom_frame_, "sam/odom");
+    nh_->param<std::string>(("base_frame"), base_frame_, "sam/base_link");
+    nh_->param<std::string>(("map_frame"), map_frame_, "map");
+    nh_->param<std::string>(("utm_frame"), utm_frame_, "utm");
 
     try
     {
@@ -38,25 +40,34 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     }
 
     std::string odom_top, stim_top, path_top, gps_top, preint_top;
-    nh.param<float>(("vis_rate"), vis_rate_, 1.);
-    nh.param<std::string>(("odom_top"), odom_top, "/sam/dr/odom");
-    odom_sub_ = nh.subscribe(odom_top, 100, &GraphLocalization::OdomCb, this);
 
-    nh.param<std::string>(("stim_top"), stim_top, "/sam/core/imu");
-    // stim_sub_ = nh_stim.subscribe(stim_top, 1, &GraphLocalization::StimCb, this);
+    nh_->param<std::string>(("path_top"), path_top, "/sam/dr/path");
+    path_pub_ = nh_->advertise<nav_msgs::Path>(path_top, 1);
 
-    nh.param<std::string>(("gps_top"), gps_top, "/sam/dr/gps_odom_fake");
-    gps_sub_ = nh.subscribe(gps_top, 1, &GraphLocalization::GpsCb, this);
+    nh_->param<std::string>(("preint_top"), preint_top, "/sam/dr/preint_pose");
+    preint_pub_ = nh_->advertise<nav_msgs::Odometry>(preint_top, 1);
 
-    nh.param<std::string>(("path_top"), path_top, "/sam/dr/path");
-    path_pub_ = nh.advertise<nav_msgs::Path>(path_top, 1);
+    nh_->param<std::string>(("odom_top"), odom_top, "/sam/dr/odom");
+    odom_sub_ = nh_->subscribe(odom_top, 100, &GraphLocalization::OdomCb, this);
 
-    nh.param<std::string>(("preint_top"), preint_top, "/sam/dr/preint_pose");
-    preint_pub_ = nh.advertise<nav_msgs::Odometry>(preint_top, 1);
+    aux_bool_ = false;
+    aux_sub_ = nh_->subscribe("/aux", 1, &GraphLocalization::AuxCb, this);
 
+    nh_->param<std::string>(("stim_top"), stim_top, "/sam/core/imu");
+    // stim_sub_ = nh_stim->subscribe(stim_top, 1, &GraphLocalization::StimCb, this);
+
+    nh_->param<std::string>(("gps_odom_top"), gps_top, "/sam/dr/gps_odom");
+    gps_sub_ = nh_gps_->subscribe(gps_top, 1, &GraphLocalization::GpsCb, this);
+
+    nh_->param<float>(("vis_rate"), vis_rate_, 1.);
     std::thread(&GraphLocalization::Visualize, this).detach();
-
+    
     std::cout << "Graph node ready " << std::endl;
+}
+
+void GraphLocalization::AuxCb(const std_msgs::BoolConstPtr &aux_msg)
+{
+    aux_bool_ = aux_msg->data;
 }
 
 
@@ -73,22 +84,44 @@ void GraphLocalization::OdomCb(const nav_msgs::OdometryConstPtr &odom_msg)
 
     // if (stim_init_)
     // {
-    node_cnt_ = node_cnt_ + 1;
-    std::cout << "Odom cnt " << node_cnt_ << std::endl;
+    // std::cout << "Odom cnt " << node_cnt_ << std::endl;
     depth_t_ = odom_msg->pose.pose.position.z;
 
-    Rot3 odom_rotation = Rot3::Quaternion(odom_msg->pose.pose.orientation.w,
-                                            odom_msg->pose.pose.orientation.x,
-                                            odom_msg->pose.pose.orientation.y,
-                                            odom_msg->pose.pose.orientation.z);
-    Vector3 lin_vel_t(odom_msg->twist.twist.linear.x, odom_msg->twist.twist.linear.y, odom_msg->twist.twist.linear.z);
+    Vector3 ang_vel_t(odom_msg->twist.twist.angular.x,
+                      odom_msg->twist.twist.angular.y,
+                      odom_msg->twist.twist.angular.z);
 
-    graph_->OdomNode(odom_rotation, lin_vel_t, dt, node_cnt_, depth_t_);
+    Vector3 lin_vel_t(odom_msg->twist.twist.linear.x, 
+                      odom_msg->twist.twist.linear.y,
+                      odom_msg->twist.twist.linear.z);
+
+    // Copy node counter locally to fetch latest node
+    Pose3 pose_latest;
+    if (graph_->result_.exists(X(node_cnt_)))
+    {
+        pose_latest = graph_->result_.at<Pose3>(X(node_cnt_));
+        std::cout << "Pre pose from result ===================" << std::endl;
+    }
+    else if (graph_->initial_estimate_.exists(X(node_cnt_)))
+    {
+        pose_latest = graph_->initial_estimate_.at<Pose3>(X(node_cnt_));
+        std::cout << "Prev pose " << pose_latest.translation()[0] << ", " << pose_latest.translation()[1] << ", " << pose_latest.translation()[2] << std::endl;
+
+        std::cout << "Pre pose from init " << std::endl;
+    }
+    else
+    {
+        std::cout << "Pre pose is zero (it should be integrating) " << std::endl;
+    }
+
+    node_cnt_ = node_cnt_ + 1;
+    // std::cout << "Cnt in Odom cb " << node_cnt_ << std::endl;
+    graph_->OdomNode(ang_vel_t, lin_vel_t, pose_latest, dt, node_cnt_, depth_t_);
 
     // Add a depth prior every x nodes. It will not do anything if the graph is 2D
     // if (node_cnt_ % 100 == 0)
     // {
-        graph_->DepthPrior(node_cnt_, depth_t_);
+    graph_->DepthPrior(node_cnt_, depth_t_);
     // }
 
     odom_t_prev_ = odom_t_now_;
@@ -101,7 +134,10 @@ void GraphLocalization::Visualize()
     {
         if(node_cnt_ > 2)
         {
-            std::cout << "Plotting " << std::endl;
+            // Attempt deep copy of graph object for plotting
+            // TODO: define clone() withing the graph class to use mutex while cloning
+            // boost::shared_ptr<GraphND> graph_plot;
+            // graph_plot = boost::make_shared<GraphND>(*graph_);
 
             nav_msgs::Path path;
             path.header.frame_id = odom_frame_;
@@ -109,15 +145,29 @@ void GraphLocalization::Visualize()
             geometry_msgs::PoseStamped pose_msg;
             std::vector<double> pose_i;
 
-            for(int i = 0; i <= node_cnt_; i++)
+            // Node_cnt doesn't not reflect the actual number of nodes in the graph, some of them 
+            // might not have been added already because they mutex is being held 
+            int graph_nodes = graph_->result_.size() + graph_->initial_estimate_.size();
+            // std::cout << "Nodes to be plotted " << graph_nodes -1 << std::endl;
+            // std::cout << "Nodes in cnt " << node_cnt_ + 1 << std::endl;
+
+            // Publish path in rviz
+            for (int i = 0; i < graph_nodes; i++)
             {
                 if (graph_->result_.exists(X(i)))
                 {
                     pose_i = graph_->getValue(graph_->result_, i);
+                    // std::cout << "From result " << pose_i.at(0) << ", " << pose_i.at(1) << ", " << pose_i.at(2) << std::endl;
                 }
                 else if (graph_->initial_estimate_.exists(X(i)))
                 {
                     pose_i = graph_->getValue(graph_->initial_estimate_, i);
+                    // std::cout << "From init " << pose_i.at(0) << ", " << pose_i.at(1) << ", " << pose_i.at(2) << std::endl;
+                }
+                else
+                {
+                    ROS_WARN_STREAM("Graph loc: rviz thread might be out of synch");
+                    continue;
                 }
 
                 pose_msg.pose.position.x = pose_i.at(0);
@@ -125,11 +175,27 @@ void GraphLocalization::Visualize()
                 pose_msg.pose.position.z = 0;
                 pose_msg.pose.position.z = (pose_i.size() > 2)? pose_i.at(2): 0;
 
-                // TODO: add orientation
-                pose_msg.pose.orientation.w = 1;
+                pose_msg.pose.orientation.x = pose_i.at(3);
+                pose_msg.pose.orientation.y = pose_i.at(4);
+                pose_msg.pose.orientation.z = pose_i.at(5);
+                pose_msg.pose.orientation.w = pose_i.at(6);
                 path.poses.push_back(pose_msg);
             }
             path_pub_.publish(path);
+
+            // BR odom-->base at time t with last pose_msg
+            tf_odom_base_.header.frame_id = odom_frame_;
+            tf_odom_base_.child_frame_id = base_frame_;
+            tf_odom_base_.header.stamp = ros::Time::now();
+
+            tf_odom_base_.transform.translation.x = pose_msg.pose.position.x;
+            tf_odom_base_.transform.translation.y = pose_msg.pose.position.y;
+            tf_odom_base_.transform.translation.z = pose_msg.pose.position.z;
+            tf_odom_base_.transform.rotation.x = pose_msg.pose.orientation.x;
+            tf_odom_base_.transform.rotation.y = pose_msg.pose.orientation.y;
+            tf_odom_base_.transform.rotation.z = pose_msg.pose.orientation.z;
+            tf_odom_base_.transform.rotation.w = pose_msg.pose.orientation.w;
+            static_broadcaster_.sendTransform(tf_odom_base_);
         }
 
         // nav_msgs::Odometry preint_odom;
@@ -174,9 +240,10 @@ void GraphLocalization::StimCb(const sensor_msgs::ImuConstPtr &imu_msg)
 
 void GraphLocalization::GpsCb(const nav_msgs::OdometryConstPtr &gps_msg)
 {
-    try
+    if(!aux_bool_)
     {
         int cnt = node_cnt_;
+        std::cout << "Cnt in GPS cb " << node_cnt_ << std::endl;
 
         geometry_msgs::PoseStamped gps_utm, gps_odom;
         gps_utm.header.frame_id = utm_frame_;
@@ -185,20 +252,27 @@ void GraphLocalization::GpsCb(const nav_msgs::OdometryConstPtr &gps_msg)
         gps_utm.pose.position.z = 0.;
         tf2::doTransform(gps_utm, gps_odom, utm_odom_tf_);
         std::cout << "GPS fix " << gps_odom.pose.position.x << ", " << gps_odom.pose.position.y << ", " << gps_odom.pose.position.z << std::endl;
-
         std::vector<double> gps_vec{gps_odom.pose.position.x, gps_odom.pose.position.y};
-        graph_->GpsNode(gps_vec, cnt);
 
-        // // Add depth prior. It will not do anything if graph is 2D
-        // graph_->DepthPrior(node_cnt_, depth_t_);
+        try
+        {
+            graph_->GpsNode(gps_vec, cnt, depth_t_);
+        }
+        catch (const std::exception &e)
+        {
+            ROS_WARN_STREAM("Graph loc node. GPS fix: " << e.what());
+        }
+    }
 
-        // Optimize here
-        graph_->Optimize(cnt);
-    }
-    catch (const std::exception &e)
-    {
-        ROS_WARN_STREAM("Graph loc node: Could not lookup transform from " << utm_frame_ << " to " << odom_frame_);
-    }
+    // try
+    // {
+    //     // Optimize here
+    //     graph_->Optimize(cnt);
+    // }
+    // catch(const std::exception& e)
+    // {
+    //     ROS_WARN_STREAM("Graph loc node. Optimize step: " << e.what());
+    // }
 }
 
 boost::shared_ptr<PreintegratedCombinedMeasurements::Params> GraphLocalization::stimParams()

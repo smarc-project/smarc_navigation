@@ -18,7 +18,10 @@
 #include <geometry_msgs/Point.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
+#include <std_msgs/Bool.h>
 #include <ros/callback_queue.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 #include <auv_graph_localization/graph.hpp>
 
@@ -31,9 +34,10 @@ class GraphLocalization
 public:
     ros::NodeHandle *nh_;
     ros::NodeHandle *nh_stim_;
-    ros::Subscriber odom_sub_, stim_sub_, gps_sub_;
+    ros::NodeHandle *nh_gps_;
+    ros::Subscriber odom_sub_, stim_sub_, gps_sub_, aux_sub_;
     ros::Publisher path_pub_, preint_pub_;
-    std::string odom_frame_, map_frame_, utm_frame_;
+    std::string base_frame_, odom_frame_, map_frame_, utm_frame_;
     boost::shared_ptr<GraphND> graph_;
 
     int node_cnt_;
@@ -45,17 +49,23 @@ public:
     double stim_t_prev_, odom_t_prev_;
     float vis_rate_;
     double depth_t_;
+    bool aux_bool_;
 
     tf2_ros::Buffer tf_buffer_;
     geometry_msgs::TransformStamped utm_odom_tf_;
 
-    GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_stim);
+    GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_stim, ros::NodeHandle &nh_gps);
+
+    tf2_ros::StaticTransformBroadcaster static_broadcaster_;
+    geometry_msgs::TransformStamped tf_odom_base_;
 
     void StimCb(const sensor_msgs::ImuConstPtr& imu_msg);
 
     void OdomCb(const nav_msgs::OdometryConstPtr &odom_msg);
 
     void GpsCb(const nav_msgs::OdometryConstPtr &gps_msg);
+    
+    void AuxCb(const std_msgs::BoolConstPtr &aux_msg);
 
     void Visualize();
 
