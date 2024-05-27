@@ -36,7 +36,7 @@ public:
     ros::NodeHandle *nh_stim_;
     ros::NodeHandle *nh_gps_;
     ros::Subscriber odom_sub_, stim_sub_, gps_sub_, aux_sub_, uwgps_odom_sub_;
-    ros::Publisher path_pub_, preint_pub_;
+    ros::Publisher path_pub_, preint_pub_, loc_pub_;
     std::string base_frame_, odom_frame_, map_frame_, utm_frame_;
     boost::shared_ptr<GraphND> graph_;
 

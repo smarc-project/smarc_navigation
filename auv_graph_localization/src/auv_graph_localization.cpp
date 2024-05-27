@@ -39,10 +39,13 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
         ROS_ERROR("ERROR: Could not lookup transform from utm to odom");
     }
 
-    std::string odom_top, stim_top, path_top, gps_top, preint_top, uwgps_odom_top;
+    std::string odom_top, stim_top, loc_top, path_top, gps_top, preint_top, uwgps_odom_top;
 
     nh_->param<std::string>(("path_top"), path_top, "/sam/dr/path");
     path_pub_ = nh_->advertise<nav_msgs::Path>(path_top, 1);
+
+    nh_->param<std::string>(("localization_top"), loc_top, "/sam/dr/path");
+    loc_pub_ = nh_->advertise<nav_msgs::Odometry>(loc_top, 1);
 
     nh_->param<std::string>(("preint_top"), preint_top, "/sam/dr/preint_pose");
     preint_pub_ = nh_->advertise<nav_msgs::Odometry>(preint_top, 1);
@@ -226,6 +229,17 @@ void GraphLocalization::Visualize()
                 tf_odom_base_.transform.rotation.z = pose_msg.pose.orientation.z;
                 tf_odom_base_.transform.rotation.w = pose_msg.pose.orientation.w;
                 static_broadcaster_.sendTransform(tf_odom_base_);
+
+                nav_msgs::Odometry localization_msg;
+                localization_msg.header.stamp = ros::Time::now();
+                localization_msg.header.frame_id = odom_frame_;
+                localization_msg.child_frame_id = base_frame_;
+                localization_msg.pose.pose.position.x = pose_msg.pose.position.x;
+                localization_msg.pose.pose.position.y = pose_msg.pose.position.y;
+                localization_msg.pose.pose.position.z = pose_msg.pose.position.z;
+                localization_msg.pose.pose.orientation = pose_msg.pose.orientation;
+                loc_pub_.publish(localization_msg);
+                // TODO: publish velocities
             }
             else
             {
