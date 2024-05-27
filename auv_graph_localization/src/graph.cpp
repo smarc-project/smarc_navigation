@@ -39,7 +39,7 @@ Graph3D::Graph3D(int &node_cnt): GraphND(node_cnt)
     Point3 prior_point(0,0,0);
     Pose3 prior_pose(prior_rotation, prior_point);
     initial_estimate_.insert(X(node_cnt), prior_pose);
-    initial_estimate_.insert(R(node_cnt), prior_rotation);
+    //initial_estimate_.insert(R(node_cnt), prior_rotation);
 
     // Vector3 prior_velocity(0,0,0);
     // imuBias::ConstantBias prior_imu_bias; // assume zero initial bias
@@ -177,10 +177,20 @@ void Graph3D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3
         }
         else
         {
+            if(result_.empty())
+            {
+                prev_odom = initial_estimate_.at<Pose3>(X(initial_estimate_.size() - 1));
+
+            }
+            else if (initial_estimate_.empty())
+            {
+                prev_odom = result_.at<Pose3>(X(result_.size() - 1));
+            }
             std::cout << "Odom node cnt " << node_cnt -1 << std::endl;
             std::cout << "results size " << result_.size() << std::endl;
-            std::cout << "init size " << initial_estimate_.size() << std::endl;
-            prev_odom = result_.at<Pose3>(X(result_.size() - 2));
+            std::cout << "initial estimate size " << initial_estimate_.size() << std::endl;
+            //prev_odom = result_.at<Pose3>(X(result_.size() - 2));
+            //prev_odom = initial_estimate_.at<Pose3>(X(initial_estimate_.size() - 2));
 
             // return;
         }
@@ -340,8 +350,9 @@ void Graph3D::Optimize(int cnt)
     }
     catch (const std::exception &e)
     {
-        std::cout << "===========================================================================" << std::endl;
+        std::cout << "===================================================================================================" << std::endl;
         std::cout << "Graph loc node. Optimize step: " << e.what() << std::endl;
+        exit(5);
     }
 
     // Reset the preintegration object.

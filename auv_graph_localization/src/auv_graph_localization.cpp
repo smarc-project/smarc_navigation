@@ -136,6 +136,8 @@ void GraphLocalization::OdomCb(const nav_msgs::OdometryConstPtr &odom_msg)
 
     Pose3 pose_latest;
     node_cnt_ = node_cnt_ + 1;
+    //std::cout << "Cnt in odom cb " << node_cnt_ << std::endl;
+
     // std::cout << "Cnt in Odom cb " << node_cnt_ << std::endl;
     graph_->OdomNode(ang_vel_t, lin_vel_t, pose_latest, dt, node_cnt_, depth_t_);
 
@@ -278,8 +280,8 @@ void GraphLocalization::GpsCb(const nav_msgs::OdometryConstPtr &gps_msg)
 {
     if(!aux_bool_)
     {
-        int cnt = node_cnt_;
-        std::cout << "Cnt in GPS cb " << node_cnt_ << std::endl;
+        int cnt = node_cnt_-1;
+        std::cout << "Cnt in GPS cb " << cnt << std::endl;
 
         geometry_msgs::PoseStamped gps_utm, gps_odom;
         gps_utm.header.frame_id = utm_frame_;
