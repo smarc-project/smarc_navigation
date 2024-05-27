@@ -2,7 +2,7 @@
 
 import rospy
 from geometry_msgs.msg import Quaternion, TransformStamped
-from sensor_msgs.msg import NavSatFix
+from sensor_msgs.msg import NavSatFix, Imu
 from nav_msgs.msg import Odometry
 import tf
 from geodesy import utm
@@ -33,7 +33,9 @@ class PublishGPSPose(object):
         self.utm_map_tf = TransformStamped()
         
         self.heading_sbg = 0.
-        self.sbg_sub = rospy.Subscriber(sbg_euler_top, SbgEkfEuler, self.sbg_cb)
+        #self.sbg_sub = rospy.Subscriber(sbg_euler_top, SbgEkfEuler, self.sbg_cb)
+        self.sbg2_sub = rospy.Subscriber("/sam/core/sbg_imu", Imu, self.sbg2_cb)
+
 
         # Auxiliar ones for floatsam
         self.odom_pub = rospy.Publisher('gps_odom', Odometry, queue_size=10)
@@ -47,6 +49,16 @@ class PublishGPSPose(object):
 
         rospy.Timer(rospy.Duration(1.), self.tf_timer)
 
+
+    def sbg2_cb(self, sbg_msg):
+
+        # Working with Quaternions        
+        self.init_quat = sbg_msg.orientation
+        self.heading_sbg = tf.transformations.euler_from_quaternion(
+                [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])[2] - np.pi/2
+
+        #print("Yaw from quaternions ", self.heading_sbg)
+        self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
 
     def sbg_cb(self, sbg_msg):
 

@@ -463,7 +463,7 @@ class VehicleDR(object):
                         [lin_acc_t[0], -lin_acc_t[1],  0.])
                     
                     self.lin_vel_t = lin_acc_t * dt
-                    print("MM vel ", self.lin_vel_t)
+                    #print("MM vel ", self.lin_vel_t)
 
             self.t_now += dt
 
