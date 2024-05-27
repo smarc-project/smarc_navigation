@@ -59,6 +59,9 @@ Graph3D::Graph3D(int &node_cnt): GraphND(node_cnt)
 
     graph_ = new NonlinearFactorGraph();
     graph_->add(PriorFactor<Pose3>(X(node_cnt), prior_pose, pose_noise_model));
+
+    // Start with a clear 
+    result_.clear();
     // graph_->addPrior(V(node_cnt_), prior_velocity, velocity_noise_model);
     // graph_->addPrior(B(node_cnt_), prior_imu_bias, bias_noise_model_);
 }
@@ -87,119 +90,92 @@ void Graph2D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3
     // odom_pose_prev_ = odom_pose;
 }
 
-// void Graph3D::IntegrateOdom(Pose3 &prev_odom, const Vector3 &ang_vel_t, const Vector3 &lin_vel_t)
-// {
+void Graph2D::IntegrateOdom(Pose2 &prev_odom, const std::vector <int_step>& int_hist)
+{
 
-//     // In Euler
-//     Vector3 rot_prev = prev_odom.rotation().rpy();
-//     Vector3 rot_euler = rot_prev + ang_vel_t * dt;
-//     // Wrap yaw
-//     bool was_neg = rot_euler[2] < 0;
-//     rot_euler[2] = fmod(rot_euler[2], static_cast<double>(2.0 * M_PI));
-//     if (was_neg)
-//         rot_euler[2] += static_cast<double>(2.0 * M_PI);
-//     Rot3 rot_now = Rot3::Ypr(rot_euler[2], rot_euler[1], rot_euler[0]);
+}
 
-//     // TODO: do this in quaternions
-//     // Rot3 rot_prev = odom_pose_prev.rotation();
-//     // Vector3 euler_step = ang_vel_t * dt;
-//     // Rot3 rot_step = Rot3::Ypr(euler_step[2], euler_step[1], euler_step[0]);
-//     // Rot3 rot_now = rot_step * rot_prev;
+void Graph3D::IntegrateOdom(Pose3 &prev_odom, const std::vector <int_step>& int_hist)
+{
+    for(int_step step_i: int_hist)
+    {
+        // In Euler
+        Vector3 rot_prev = prev_odom.rotation().rpy();
+        Vector3 rot_euler = rot_prev + std::get<2>(step_i) * std::get<3>(step_i);
+        // Wrap yaw
+        bool was_neg = rot_euler[2] < 0;
+        rot_euler[2] = fmod(rot_euler[2], static_cast<double>(2.0 * M_PI));
+        if (was_neg)
+            rot_euler[2] += static_cast<double>(2.0 * M_PI);
+        Rot3 rot_now = Rot3::Ypr(rot_euler[2], rot_euler[1], rot_euler[0]);
 
-//     Vector3 pos_step = rot_now.matrix() * lin_vel_t * dt;
-//     Point3 pos_now(prev_odom.translation()[0] + pos_step[0],
-//                    prev_odom.translation()[1] + pos_step[1],
-//                    depth);
-//     Pose3 odom_pose(rot_now, pos_now);
-// }
+        // TODO: do this in quaternions
+        // Rot3 rot_prev = odom_pose_prev.rotation();
+        // Vector3 euler_step = ang_vel_t * dt;
+        // Rot3 rot_step = Rot3::Ypr(euler_step[2], euler_step[1], euler_step[0]);
+        // Rot3 rot_now = rot_step * rot_prev;
+
+        Vector3 pos_step = rot_now.matrix() * std::get<1>(step_i) * std::get<3>(step_i);
+        Point3 pos_now(prev_odom.translation()[0] + pos_step[0],
+                        prev_odom.translation()[1] + pos_step[1],
+                        std::get<4>(step_i));
+        Pose3 odom_pose(rot_now, pos_now);
+        // std::cout << "Odom pose " << odom_pose.translation()[0] << ", " << odom_pose.translation()[1] << ", " << odom_pose.translation()[2] << std::endl;
+
+        // Vector3 odom_velocity(odom_msg->twist.twist.angular.x, odom_msg->twist.twist.angular.y, odom_msg->twist.twist.angular.z);
+        // gtsam::NavState odom_estimate(odom_pose, odom_velocity);
+        // initial_estimate_.insert(V(node_cnt_), odom_estimate.v());
+        // initial_estimate_.insert(B(node_cnt_), prev_bias_);
+
+        // Add odometry factors between consecutive poses
+        // Below is equivalent to odom_pose_prev_.between(odom_pose)
+        // Pose2 odom_step = odom_pose_prev_.inverse().compose(odom_pose);
+        // TODO: extract noise from odom_msg
+        noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Sigmas((Vector(6) << 0.2, 0.2, 0.1, 0.1, 0.1, 0.1).finished());
+        BetweenFactor<Pose3> odom_factor(X(std::get<0>(step_i) - 1), X(std::get<0>(step_i)), prev_odom.between(odom_pose), odometryNoise);
+
+        // std::cout << "Odom cnt " << std::get<0>(step_i) << std::endl;
+
+        graph_->add(odom_factor);
+        initial_estimate_.insert(X(std::get<0>(step_i)), odom_pose);
+
+        prev_odom = odom_pose;
+    }
+}
 
 // void Graph3D::OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth)
 void Graph3D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth)
 {
-    Pose3 prev_odom;
-    if (!temp_estimate_.empty())
-    {
-        // Else: prev_odom from preintegration
-        std::cout << "Odom: temp estimate not empty: integrating from prev " << odom_factors_.at(odom_factors_.size() - 1).key2() << std::endl;
-        prev_odom = temp_estimate_.at<Pose3>(odom_factors_.at(odom_factors_.size() - 1).key2());
-        }
-    // If no preintegrated odom, take prev pose from graph
-    else
-    {
-        // std::cout << "Odom: temp estimate empty" << std::endl;
-        prev_odom = odom_pose_prev;
-    }
+    int_hist_.push_back(int_step(node_cnt, lin_vel_t, ang_vel_t, dt, depth));
 
-    // In Euler
-    Vector3 rot_prev = prev_odom.rotation().rpy();
-    Vector3 rot_euler = rot_prev + ang_vel_t * dt;
-    // Wrap yaw
-    bool was_neg = rot_euler[2] < 0;
-    rot_euler[2] = fmod(rot_euler[2], static_cast<double>(2.0 * M_PI));
-    if (was_neg)
-        rot_euler[2] += static_cast<double>(2.0 * M_PI);
-    Rot3 rot_now = Rot3::Ypr(rot_euler[2], rot_euler[1], rot_euler[0]);
-
-    // TODO: do this in quaternions
-    // Rot3 rot_prev = odom_pose_prev.rotation();
-    // Vector3 euler_step = ang_vel_t * dt;
-    // Rot3 rot_step = Rot3::Ypr(euler_step[2], euler_step[1], euler_step[0]);
-    // Rot3 rot_now = rot_step * rot_prev;
-
-    Vector3 pos_step = rot_now.matrix() * lin_vel_t * dt;
-    Point3 pos_now(prev_odom.translation()[0] + pos_step[0],
-                   prev_odom.translation()[1] + pos_step[1],
-                   depth);
-    Pose3 odom_pose(rot_now, pos_now);
-    // std::cout << "Odom pose " << odom_pose.translation()[0] << ", " << odom_pose.translation()[1] << ", " << odom_pose.translation()[2] << std::endl;
-
-    // Vector3 odom_velocity(odom_msg->twist.twist.angular.x, odom_msg->twist.twist.angular.y, odom_msg->twist.twist.angular.z);
-    // gtsam::NavState odom_estimate(odom_pose, odom_velocity);
-    // initial_estimate_.insert(V(node_cnt_), odom_estimate.v());
-    // initial_estimate_.insert(B(node_cnt_), prev_bias_);
-
-    // Add odometry factors between consecutive poses
-    // Below is equivalent to odom_pose_prev_.between(odom_pose)
-    // Pose2 odom_step = odom_pose_prev_.inverse().compose(odom_pose);
-    // TODO: extract noise from odom_msg
-    noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Sigmas((Vector(6) << 1., 1., 0.1, 0.1, 0.1, 0.1).finished());
-    BetweenFactor<Pose3> odom_factor(X(node_cnt - 1), X(node_cnt), prev_odom.between(odom_pose), odometryNoise);
-    
-    // double meas = odom_factor.measured().translation()[0] + odom_factor.measured().translation()[1] + odom_factor.measured().translation()[0];
-    // std::cout << "Measurement " << meas << std::endl;
-
-    if (!graph_mux_.try_lock())
-    {
-        // std::cout << "Odom: couldn't get lock, saving for later " << odom_factor.key2() << std::endl;
-        odom_factors_.push_back(odom_factor);
-        temp_estimate_.insert(X(node_cnt), odom_pose);
-    }
-    else
+    if (graph_mux_.try_lock())
     {
         // std::cout << "Odom: got lock" << std::endl;
-        if (!odom_factors_.empty())
+        // std::cout << "Node cnt " << node_cnt -1 << std::endl;
+        Pose3 prev_odom;
+        // if (result_.exists(X(node_cnt-1)))
+        if (result_.exists(X(node_cnt-1)))
         {
-            // This happens after the last optimization has finished. Before add the integrated factors to the graph and initial_estimate, 
-            // we need to correct the estimates to use the last result_ as the init of the integration
-            for (int i = 0; i < odom_factors_.size(); i++)
-            {
-                // std::cout << "Odom: adding prev factors " << odom_factors_.at(i).key2() << std::endl;
-                graph_->add(odom_factors_.at(i));
-
-
-                initial_estimate_.insert(odom_factors_.at(i).key2(), temp_estimate_.at<Pose3>(odom_factors_.at(i).key2()));
-            }
-            odom_factors_.clear();
-            temp_estimate_.clear();
+            // std::cout << "Pre pose is from result " << std::endl;
+            prev_odom = result_.at<Pose3>(X(result_.size()- 2));
         }
-        // else
-        // {
-            // std::cout << "Odom: adding new factor " << odom_factor.key2() << std::endl;
-            graph_->add(odom_factor);
-            initial_estimate_.insert(odom_factor.key2(), odom_pose);
-            // graph_->add(boost::make_shared<Pose3DepthFactor>(X(cnt), depth, depthNoise));
-        // }
+        else if (initial_estimate_.exists(X(node_cnt-1)))
+        {
+            // This should be the case always until a first optimiziation round has taken place
+            // std::cout << "Pre pose is from init " << std::endl;
+            prev_odom = initial_estimate_.at<Pose3>(X(node_cnt-1));
+        }
+        else
+        {
+            std::cout << "Odom node cnt " << node_cnt -1 << std::endl;
+            std::cout << "results size " << result_.size() << std::endl;
+            std::cout << "init size " << initial_estimate_.size() << std::endl;
+            prev_odom = result_.at<Pose3>(X(result_.size() - 2));
+            // return;
+        }
+        this->IntegrateOdom(prev_odom, int_hist_);
         graph_mux_.unlock();
+        int_hist_.clear();
     }
 }
 
@@ -259,19 +235,12 @@ void Graph2D::GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double
 void Graph3D::GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double depth)
 {
     // 3D version
-    auto correction_noise = noiseModel::Isotropic::Sigmas((Vector(3) << 10., 10., 0.1).finished());
+    auto correction_noise = noiseModel::Isotropic::Sigmas((Vector(3) << 25., 25., 0.1).finished());
     GPSFactor gps_factor(X(node_cnt),
                          Point3(gps_odom.at(0),
                                 gps_odom.at(1),
                                 depth),
                          correction_noise);
-
-    // while (!graph_mux_.try_lock())
-    // {
-    //     std::cout << "====================GPS trying to lock the mux===================" << std::endl;
-    // }
-    // graph_->add(gps_factor);
-    // graph_mux_.unlock();
 
     if (!graph_mux_.try_lock())
     {
@@ -292,43 +261,8 @@ void Graph3D::GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double
             graph_->add(gps_factor);
             // graph_->add(boost::make_shared<Pose3DepthFactor>(X(cnt), depth, depthNoise));
         }
-
-        // iSAM2
-        // If optimizing, integrate odom in the meantime
-        try
-        {
-            // odom_pose_preint_ = initial_estimate_.at<Pose3>(X(node_cnt));
-
-            std::cout << "----------------- Optimizing --------------------" << std::endl;
-            // writeG2o(*graph_, initial_estimate_, "before.dot");
-            ISAM2Result update_info = isam2_->update(*graph_, initial_estimate_);
-            update_info.print();
-
-            result_ = isam2_->calculateEstimate();
-
-            // Update odom estimate
-            // if (result_.exists(X(cnt)))
-            // {
-            //     odom_pose_prev_ = result_.at<Pose3>(X(cnt));
-            // }
-            // Reset the graph
-            graph_->resize(0);
-            initial_estimate_.clear();
-            graph_mux_.unlock();
-            std::cout << "----------------- Optimizing done --------------------" << std::endl;
-        }
-        catch (const std::exception &e)
-        {
-            std::cout << "===========================================================================" << std::endl;
-            std::cout << "Graph loc node. Optimize step: " << e.what() << std::endl;
-        }
-
         graph_mux_.unlock();
     }
-
-    // noiseModel::Diagonal::shared_ptr depthNoise = noiseModel::Diagonal::Sigmas((Vector(1) << 0.001).finished());
-    // Pose3DepthFactor depth_factor(X(cnt), depth_t_, depthNoise);
-    // graph_->add(depth_factor);
 }
 
 void Graph2D::Optimize(int cnt)
@@ -355,29 +289,38 @@ void Graph2D::Optimize(int cnt)
 
 void Graph3D::Optimize(int cnt)
 {
-    // Optimize
 
     // iSAM2
     // If optimizing, integrate odom in the meantime
-    odom_pose_preint_ = initial_estimate_.at<Pose3>(X(cnt));
+    try
+    {
+        // odom_pose_preint_ = initial_estimate_.at<Pose3>(X(node_cnt));
+        while(!graph_mux_.try_lock())
+        {
+            sleep(0.01);
+            std::cout << "Optimize waiting for the lock" << std::endl;
+        }
 
-    std::cout << "----------------- Optimizing --------------------" << std::endl;
-    // writeG2o(*graph_, initial_estimate_, "before.dot");
-    ISAM2Result update_info = isam2_->update(*graph_, initial_estimate_);
-    update_info.print();
+        std::cout << "----------------- Optimizing --------------------" << std::endl;
+        // writeG2o(*graph_, initial_estimate_, "before.dot");
+        ISAM2Result update_info = isam2_->update(*graph_, initial_estimate_);
+        update_info.print();
 
-    result_ = isam2_->calculateEstimate();
+        result_ = isam2_->calculateEstimate();
+        std::cout << " Estimate calculated " << std::endl;
 
-    // Update odom estimate
-    // if (result_.exists(X(cnt)))
-    // {
-    //     odom_pose_prev_ = result_.at<Pose3>(X(cnt));
-    // }
-    // Reset the graph
-    graph_->resize(0);
-    initial_estimate_.clear();
-    graph_mux_.unlock();
-    std::cout << "----------------- Optimizing done --------------------" << std::endl;
+        graph_->resize(0);
+        initial_estimate_.clear();
+        std::cout << " Graph and estimate reset " << std::endl;
+
+        graph_mux_.unlock();
+        std::cout << "----------------- Optimization done --------------------" << std::endl;
+    }
+    catch (const std::exception &e)
+    {
+        std::cout << "===========================================================================" << std::endl;
+        std::cout << "Graph loc node. Optimize step: " << e.what() << std::endl;
+    }
 
     // Reset the preintegration object.
     // preintegrated_->resetIntegrationAndSetBias(prev_bias_);

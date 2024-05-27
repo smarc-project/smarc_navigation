@@ -95,25 +95,9 @@ void GraphLocalization::OdomCb(const nav_msgs::OdometryConstPtr &odom_msg)
                       odom_msg->twist.twist.linear.y,
                       odom_msg->twist.twist.linear.z);
 
-    // Copy node counter locally to fetch latest node
+    odom_msg_ = *odom_msg;
+
     Pose3 pose_latest;
-    if (graph_->result_.exists(X(node_cnt_)))
-    {
-        pose_latest = graph_->result_.at<Pose3>(X(node_cnt_));
-        std::cout << "Pre pose from result ===================" << std::endl;
-    }
-    else if (graph_->initial_estimate_.exists(X(node_cnt_)))
-    {
-        pose_latest = graph_->initial_estimate_.at<Pose3>(X(node_cnt_));
-        std::cout << "Prev pose " << pose_latest.translation()[0] << ", " << pose_latest.translation()[1] << ", " << pose_latest.translation()[2] << std::endl;
-
-        std::cout << "Pre pose from init " << std::endl;
-    }
-    else
-    {
-        std::cout << "Pre pose is zero (it should be integrating) " << std::endl;
-    }
-
     node_cnt_ = node_cnt_ + 1;
     // std::cout << "Cnt in Odom cb " << node_cnt_ << std::endl;
     graph_->OdomNode(ang_vel_t, lin_vel_t, pose_latest, dt, node_cnt_, depth_t_);
@@ -175,10 +159,12 @@ void GraphLocalization::Visualize()
                 pose_msg.pose.position.z = 0;
                 pose_msg.pose.position.z = (pose_i.size() > 2)? pose_i.at(2): 0;
 
-                pose_msg.pose.orientation.x = pose_i.at(3);
-                pose_msg.pose.orientation.y = pose_i.at(4);
-                pose_msg.pose.orientation.z = pose_i.at(5);
-                pose_msg.pose.orientation.w = pose_i.at(6);
+                // pose_msg.pose.orientation.x = pose_i.at(3);
+                // pose_msg.pose.orientation.y = pose_i.at(4);
+                // pose_msg.pose.orientation.z = pose_i.at(5);
+                // pose_msg.pose.orientation.w = pose_i.at(6);
+
+                pose_msg.pose.orientation = odom_msg_.pose.pose.orientation;
                 path.poses.push_back(pose_msg);
             }
             path_pub_.publish(path);
@@ -262,17 +248,18 @@ void GraphLocalization::GpsCb(const nav_msgs::OdometryConstPtr &gps_msg)
         {
             ROS_WARN_STREAM("Graph loc node. GPS fix: " << e.what());
         }
+
+        // Optimize here
+        try
+        {
+            graph_->Optimize(cnt);
+        }
+        catch(const std::exception& e)
+        {
+            ROS_WARN_STREAM("Graph loc node. Optimize step: " << e.what());
+        }
     }
 
-    // try
-    // {
-    //     // Optimize here
-    //     graph_->Optimize(cnt);
-    // }
-    // catch(const std::exception& e)
-    // {
-    //     ROS_WARN_STREAM("Graph loc node. Optimize step: " << e.what());
-    // }
 }
 
 boost::shared_ptr<PreintegratedCombinedMeasurements::Params> GraphLocalization::stimParams()

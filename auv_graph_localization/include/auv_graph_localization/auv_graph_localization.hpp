@@ -51,6 +51,8 @@ public:
     double depth_t_;
     bool aux_bool_;
 
+    nav_msgs::Odometry odom_msg_;
+
     tf2_ros::Buffer tf_buffer_;
     geometry_msgs::TransformStamped utm_odom_tf_;
 

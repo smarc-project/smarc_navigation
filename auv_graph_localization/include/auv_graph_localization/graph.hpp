@@ -108,6 +108,7 @@ namespace gtsam
 
 class GraphND
 {
+
 public:
     NonlinearFactorGraph *graph_;
     ISAM2 *isam2_;
@@ -126,8 +127,9 @@ public:
     std::vector<GPSFactor> gps_factors_;
     std::vector<BetweenFactor<Pose3>> odom_factors_;
     Values temp_estimate_;
-    std::vector<std::tuple<Vector3, Vector3>> vels_history_;
     
+    typedef std::tuple<int, Vector3, Vector3, double, double> int_step;
+    std::vector<int_step> int_hist_;
 
     // T odom_pose_prev_;
 
@@ -145,6 +147,9 @@ public:
     virtual std::vector<double> getValue(Values &values, int i){}
 
     virtual void DepthPrior(int cnt, double depth){}
+
+    virtual void IntegrateOdom(Pose3 &prev_odom, const std::vector<int_step>& int_hist) {}
+
 
     // virtual bool CopyGraph(GraphND graph_copy) {}
     // virtual GraphND* Clone() {}
@@ -168,6 +173,8 @@ public:
     void Optimize(int cnt);
 
     std::vector<double> getValue(Values &values, int i);
+
+    void IntegrateOdom(Pose2 &prev_odom, const std::vector<int_step>& int_hist);
 
     // bool CopyGraph(Graph2D graph_copy);
 
@@ -196,6 +203,8 @@ public:
     std::vector<double> getValue(Values &values, int i);
 
     void SBGPrior(const Rot3 &sbg_rotation, int cnt);
+
+    void IntegrateOdom(Pose3 &prev_odom, const std::vector<int_step>& int_hist);
 
     // boost::shared_ptr<Graph3D> CopyGraph();
     // bool CopyGraph(Graph3D graph_copy);

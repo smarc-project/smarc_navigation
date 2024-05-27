@@ -138,6 +138,10 @@ add_library(graph
   src/graph.cpp
 )
 
+add_library(gravity_factor
+  src/gravity_factor.cpp
+)
+
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
@@ -153,6 +157,12 @@ target_link_libraries(graph
   ${catkin_LIBRARIES}
   gtsam
 )
+
+target_link_libraries(gravity_factor
+  ${catkin_LIBRARIES}
+  gtsam
+)
+
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
@@ -184,6 +194,7 @@ target_link_libraries(auv_graph_localization_node
   gtsam
   auv_graph_localization
   graph
+  gravity_factor
 )
 
 target_link_libraries(tests_graph
