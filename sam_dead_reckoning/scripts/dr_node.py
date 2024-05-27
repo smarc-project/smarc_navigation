@@ -159,7 +159,10 @@ class VehicleDR(object):
                         # [self.init_quat.y, self.init_quat.x, -self.init_quat.z, self.init_quat.w])
                         [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])
                     # # -0.3 for feb_24 with floatsam
-                    quat = quaternion_from_euler(euler[0],euler[1],euler[2]- np.pi/2)
+                    ## Normal SAM
+                    quat = quaternion_from_euler(0,0,euler[2]- np.pi/2)
+                    ## HW in the loop SAM
+                    # quat = quaternion_from_euler(euler[0]- np.pi,euler[1],euler[2]- np.pi/2)
                     # quat = [0., 0., 0., 1.]
 
                     # -0.3 for feb_24 with floatsam
@@ -174,7 +177,7 @@ class VehicleDR(object):
                     self.tfMapOdom.child_frame_id = self.odom_frame
                     self.tfMapOdom.header.stamp = rospy.Time.now()
                     self.static_tf_bc_mapodom.sendTransform(self.tfMapOdom)
-                    # self.gps_sub.unregister()
+                    self.gps_sub.unregister()
 
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 rospy.logwarn("DR: Transform to utm-->map not available yet")
@@ -238,23 +241,23 @@ class VehicleDR(object):
     def dr_timer(self, event):
 
         # Uncomment to use UW GPS 
-        try:
-            (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
-                                                                    self.map_frame,
-                                                                    rospy.Time(0))            
-            self.static_tf_bc_utmmap.sendTransform(self.tfUTMMap)
+        # try:
+        #     (world_trans, world_rot) = self.listener.lookupTransform(self.utm_frame, 
+        #                                                             self.map_frame,
+        #                                                             rospy.Time(0))            
+        #     self.static_tf_bc_utmmap.sendTransform(self.tfUTMMap)
 
-        except (tf.LookupException, tf.ConnectivityException):
-            pass
+        # except (tf.LookupException, tf.ConnectivityException):
+        #     pass
         
-        try:
-            (world_trans, world_rot) = self.listener.lookupTransform(
-                self.map_frame, self.odom_frame, rospy.Time(0))
+        # try:
+        #     (world_trans, world_rot) = self.listener.lookupTransform(
+        #         self.map_frame, self.odom_frame, rospy.Time(0))
             
-            self.static_tf_bc_mapodom.sendTransform(self.tfMapOdom)
+        #     self.static_tf_bc_mapodom.sendTransform(self.tfMapOdom)
 
-        except (tf.LookupException, tf.ConnectivityException):
-            pass
+        # except (tf.LookupException, tf.ConnectivityException):
+        #     pass
 
         if self.init_stim:
             rospy.loginfo_once("DR node: broadcasting transform %s to %s" % (
@@ -302,7 +305,10 @@ class VehicleDR(object):
             pose_t[2] = self.base_depth
 
             # Publish and broadcast aux frame for testing
-            quat_t = tf.transformations.quaternion_from_euler(pose_t[3],pose_t[4],pose_t[5])
+            ## Normal SAM
+            # quat_t = tf.transformations.quaternion_from_euler(pose_t[3],pose_t[4],pose_t[5])
+            ## HW in the loop SAM
+            quat_t = tf.transformations.quaternion_from_euler(pose_t[3]- np.pi,pose_t[4],pose_t[5])
             odom_msg = Odometry()
             odom_msg.header.frame_id = self.odom_frame
             odom_msg.header.stamp = rospy.Time.now()
@@ -348,7 +354,6 @@ class VehicleDR(object):
 
 
     def depth_cb(self, depth_msg):
-
         if self.depth_meas:
             self.base_depth = depth_msg.pose.pose.position.z - \
                 np.abs(self.b2d_tf.transform.translation.x) * np.sin(self.rot_t[1])
