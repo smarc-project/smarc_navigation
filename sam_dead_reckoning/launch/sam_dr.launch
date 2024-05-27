@@ -93,7 +93,7 @@
             <param name="map_frame" value="map" />
             <param name="utm_frame" value="utm" />
             <param name="odom_topic" value="$(arg odom_topic)" />
-            <param name="localization_top" value="$(arg namespace)/dr/localization" />
+            <param name="localization_top" value="/$(arg namespace)/dr/localization" />
             <param name="stim_topic" value="/$(arg namespace)/core/imu" />
             <param name="gps_odom_topic" value="/$(arg namespace)/dr/gps_odom" />
             <param name="path_topic" value="/$(arg namespace)/dr/path" />
