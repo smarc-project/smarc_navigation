@@ -35,7 +35,7 @@ public:
     ros::NodeHandle *nh_;
     ros::NodeHandle *nh_stim_;
     ros::NodeHandle *nh_gps_;
-    ros::Subscriber odom_sub_, stim_sub_, gps_sub_, aux_sub_;
+    ros::Subscriber odom_sub_, stim_sub_, gps_sub_, aux_sub_, uwgps_odom_sub_;
     ros::Publisher path_pub_, preint_pub_;
     std::string base_frame_, odom_frame_, map_frame_, utm_frame_;
     boost::shared_ptr<GraphND> graph_;
@@ -62,6 +62,8 @@ public:
     geometry_msgs::TransformStamped tf_odom_base_;
 
     void StimCb(const sensor_msgs::ImuConstPtr& imu_msg);
+
+    void UWGPSOdomCb(const nav_msgs::OdometryConstPtr &uwgps_odom);
 
     void OdomCb(const nav_msgs::OdometryConstPtr &odom_msg);
 

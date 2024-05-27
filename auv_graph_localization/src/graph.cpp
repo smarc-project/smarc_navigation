@@ -131,13 +131,23 @@ void Graph3D::IntegrateOdom(Pose3 &prev_odom, const std::vector <int_step>& int_
         // Below is equivalent to odom_pose_prev_.between(odom_pose)
         // Pose2 odom_step = odom_pose_prev_.inverse().compose(odom_pose);
         // TODO: extract noise from odom_msg
-        noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Sigmas((Vector(6) << 0.2, 0.2, 0.1, 0.1, 0.1, 0.1).finished());
+        noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Sigmas((Vector(6) << 1., 1., 0.1, 0.1, 0.1, 0.3).finished());
         BetweenFactor<Pose3> odom_factor(X(std::get<0>(step_i) - 1), X(std::get<0>(step_i)), prev_odom.between(odom_pose), odometryNoise);
 
         // std::cout << "Odom cnt " << std::get<0>(step_i) << std::endl;
 
         graph_->add(odom_factor);
         initial_estimate_.insert(X(std::get<0>(step_i)), odom_pose);
+
+        // Add prior on roll and pitch
+        // Vector3 r = odom_pose.rotation().xyz();
+        // gtsam::Unit3 nG = gtsam::Rot3::RzRyRx(r.x(), r.y(), 0).rotate(gtsam::Unit3(0, 0, -1));
+        gtsam::Unit3 nG = gtsam::Unit3(0, 0, -1);
+        gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigmas(gtsam::Vector2(0.1, 10));
+        graph_->add(Pose3GravityFactor(X(std::get<0>(step_i) - 1), gtsam::Unit3(0, 0, -1), model, Unit3(0, 0, 1)));
+
+        // graph_->add(PriorFactor<Pose3GravityFactor>(X(std::get<0>(step_i)), Pose3GravityFactor(X(std::get<0>(step_i)), nG, model, Unit3(0, 0, 1)), model));
+        // graph.add(gtsam::PriorFactor<gtsam::Pose2>(rootId, gtsam::Pose2(initialPose.x(), initialPose.y(), initialPose.theta()), priorNoise));
 
         prev_odom = odom_pose;
     }
@@ -171,6 +181,7 @@ void Graph3D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3
             std::cout << "results size " << result_.size() << std::endl;
             std::cout << "init size " << initial_estimate_.size() << std::endl;
             prev_odom = result_.at<Pose3>(X(result_.size() - 2));
+
             // return;
         }
         this->IntegrateOdom(prev_odom, int_hist_);
@@ -267,24 +278,24 @@ void Graph3D::GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double
 
 void Graph2D::Optimize(int cnt)
 {
-    // Optimize
+    // // Optimize
 
-    // iSAM2
-    std::cout << "----------------- Optimizing --------------------" << std::endl;
-    // writeG2o(*graph_, initial_estimate_, "before.dot");
-    ISAM2Result update_info = isam2_->update(*graph_, initial_estimate_);
-    update_info.print();
+    // // iSAM2
+    // std::cout << "----------------- Optimizing --------------------" << std::endl;
+    // // writeG2o(*graph_, initial_estimate_, "before.dot");
+    // ISAM2Result update_info = isam2_->update(*graph_, initial_estimate_);
+    // update_info.print();
 
-    // Update odom estimate
-    result_ = isam2_->calculateEstimate();
-    // odom_pose_prev_ = result_.at<Pose2>(X(cnt));
+    // // Update odom estimate
+    // result_ = isam2_->calculateEstimate();
+    // // odom_pose_prev_ = result_.at<Pose2>(X(cnt));
 
-    // Reset the graph
-    graph_->resize(0);
-    initial_estimate_.clear();
+    // // Reset the graph
+    // graph_->resize(0);
+    // initial_estimate_.clear();
 
-    // Reset the preintegration object.
-    // preintegrated_->resetIntegrationAndSetBias(prev_bias_);
+    // // Reset the preintegration object.
+    // // preintegrated_->resetIntegrationAndSetBias(prev_bias_);
 }
 
 void Graph3D::Optimize(int cnt)
@@ -294,27 +305,38 @@ void Graph3D::Optimize(int cnt)
     // If optimizing, integrate odom in the meantime
     try
     {
+        int it = 0;
         // odom_pose_preint_ = initial_estimate_.at<Pose3>(X(node_cnt));
-        while(!graph_mux_.try_lock())
+        while(!graph_mux_.try_lock() && it < 10 )
         {
-            sleep(0.01);
+            // Dangerous shit
+            sleep(0.05);
+            it++;
             std::cout << "Optimize waiting for the lock" << std::endl;
         }
+        // if(graph_mux_.try_lock())
+        // {
+            std::cout << "----------------- Optimizing --------------------" << std::endl;
+            // writeG2o(*graph_, initial_estimate_, "before.dot");
+            ISAM2Result update_info = isam2_->update(*graph_, initial_estimate_);
+            update_info.print();
 
-        std::cout << "----------------- Optimizing --------------------" << std::endl;
-        // writeG2o(*graph_, initial_estimate_, "before.dot");
-        ISAM2Result update_info = isam2_->update(*graph_, initial_estimate_);
-        update_info.print();
+            // result_ = isam2_->calculateEstimate(X(cnt));
+            result_ = isam2_->calculateEstimate();
+            std::cout << " Estimate calculated " << std::endl;
 
-        result_ = isam2_->calculateEstimate();
-        std::cout << " Estimate calculated " << std::endl;
+            graph_->resize(0);
+            initial_estimate_.clear();
+            std::cout << " Graph and estimate reset " << std::endl;
 
-        graph_->resize(0);
-        initial_estimate_.clear();
-        std::cout << " Graph and estimate reset " << std::endl;
+            graph_mux_.unlock();
+            std::cout << "----------------- Optimization done --------------------" << std::endl;
+        // }
+        // else
+        // {
+        //     std::cout << "----------------- Optimization: Missed lock --------------------" << std::endl;
+        // }
 
-        graph_mux_.unlock();
-        std::cout << "----------------- Optimization done --------------------" << std::endl;
     }
     catch (const std::exception &e)
     {
