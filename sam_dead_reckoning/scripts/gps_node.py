@@ -9,6 +9,8 @@ from geodesy import utm
 import numpy as np
 import tf2_ros
 import message_filters
+from sbg_driver.msg import SbgEkfEuler
+import math
 
 class PublishGPSPose(object):
 
@@ -19,6 +21,7 @@ class PublishGPSPose(object):
         self.utm_frame = rospy.get_param('~utm_frame', 'utm')
         self.gps_frame = rospy.get_param('~gps_frame', 'sam/gps_link')
         self.gps_odom_top = rospy.get_param('~gps_odom_topic', 'gps_odom_sam')
+        sbg_euler_top = rospy.get_param('~sbg_euler_top', '/sam/sbg/ekf_euler')
 
         # GPS odom in UTM frame
         self.gps_sam_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.sam_gps_cb, queue_size=100)
@@ -29,6 +32,9 @@ class PublishGPSPose(object):
         self.static_tf_bc = tf2_ros.StaticTransformBroadcaster()
         self.utm_map_tf = TransformStamped()
         
+        self.heading_sbg = 0.
+        self.sbg_sub = rospy.Subscriber(sbg_euler_top, SbgEkfEuler, self.sbg_cb)
+
         # Auxiliar ones for floatsam
         self.odom_pub = rospy.Publisher('gps_odom', Odometry, queue_size=10)
         self.gps_prt_pub = rospy.Publisher('gps_odom_prt', Odometry, queue_size=10)
@@ -41,6 +47,10 @@ class PublishGPSPose(object):
 
         rospy.Timer(rospy.Duration(1.), self.tf_timer)
 
+
+    def sbg_cb(self, sbg_msg):
+
+        self.heading_sbg = -sbg_msg.angle.z%(2*math.pi)
 
     def tf_timer(self, event):
 
@@ -80,6 +90,8 @@ class PublishGPSPose(object):
                 # return
 
             # For SAM GPS
+            quat = tf.transformations.quaternion_from_euler(0., 0., self.heading_sbg)
+
             odom_msg = Odometry()
             odom_msg.header.stamp = rospy.Time.now()
             odom_msg.header.frame_id = self.utm_frame
@@ -88,7 +100,7 @@ class PublishGPSPose(object):
             odom_msg.pose.pose.position.x = utm_sam.easting
             odom_msg.pose.pose.position.y = utm_sam.northing
             odom_msg.pose.pose.position.z = 0.
-            odom_msg.pose.pose.orientation = Quaternion(*rot)
+            odom_msg.pose.pose.orientation = Quaternion(*quat)
             self.gps_sam_pub.publish(odom_msg)
 
 

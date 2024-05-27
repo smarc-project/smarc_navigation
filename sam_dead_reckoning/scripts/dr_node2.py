@@ -118,7 +118,7 @@ class VehicleDR(object):
         self.sbg_sub = rospy.Subscriber(self.sbg_topic, SbgEkfEuler, self.sbg_cb)
         # self.sbg_sub = rospy.Subscriber("/sam/core/sbg_imu", Imu, self.sbg2_cb,  queue_size=10)
         self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
-        self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb, queue_size=10)
+        self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb, queue_size=200)
         self.depth_sub = rospy.Subscriber(self.depth_top, PoseWithCovarianceStamped, self.depth_cb)
         self.gps_sub = rospy.Subscriber(self.gps_topic, Odometry, self.gps_cb)
         # self.uw_gps_sub = rospy.Subscriber(self.uw_gps_topic, Odometry, self.uw_gps_cb)
@@ -258,8 +258,8 @@ class VehicleDR(object):
             rospy.loginfo_once("DR node: broadcasting transform %s to %s" % (
                 self.odom_frame, self.base_frame))
             
-            # pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate
-            pose_t = np.concatenate([self.pos_t_stim, self.rot_t_stim])    # Catch latest estimate
+            # pose_t = np.concatenate([self.pos_t, self.rot_t])    # From SBG heading
+            pose_t = np.concatenate([self.pos_t_stim, self.rot_t_stim])    # From integrating STIM yaw
 
             vel_t = np.concatenate([self.lin_vel_t, self.vel_rot])    # TODO: rn this keeps the last vels even if the IMU dies
 
@@ -316,17 +316,75 @@ class VehicleDR(object):
                 self.init_depth = self.base_depth
 
 
-    # def sbg2_cb(self, sbg_msg):
+    def sbg2_cb(self, sbg_msg):
 
-    #     # Working with Quaternions        
-    #     self.init_quat = sbg_msg.orientation
-    #     yaw = euler_from_quaternion(
-    #         [self.init_quat.y, self.init_quat.x, -self.init_quat.z, self.init_quat.w])[2]
+        # Working with Quaternions        
+        if not self.init_heading:
+            self.init_quat = sbg_msg.orientation
+            self.init_yaw = euler_from_quaternion(
+                [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])[2] - np.pi/2
 
-    #     print("Yaw from quaternions ", yaw)
-    #     # if not self.init_heading:
-    #     #     self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
-    #     #     self.init_heading = True
+            print("Yaw from quaternions ", self.init_yaw)
+            self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
+            self.init_heading = True
+
+        else:
+
+            if self.init_depth is not None:
+
+                dt = sbg_msg.header.stamp.to_sec() - self.t_sbg_prev
+                self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
+
+                rot_t = euler_from_quaternion([sbg_msg.orientation.y,
+                                                    sbg_msg.orientation.x,
+                                                    sbg_msg.orientation.z,
+                                                    sbg_msg.orientation.w])
+                self.rot_t = np.array([rot_t[0],rot_t[1],rot_t[2]])
+                self.rot_t[2] -= self.init_yaw + np.pi/2
+            
+                pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
+
+                # DVL data coming in
+                if self.dvl_on:
+                    rot_mat_t = self.fullRotation(pose_t[3], pose_t[4], pose_t[5])
+
+                    # Integrate linear velocities from DVL
+                    # If last DVL msg isn't too old
+                    if self.t_now - self.t_dvl_prev < self.dvl_period and \
+                            abs(self.dvl_latest.velocity.y) < 0.2 and \
+                            abs(self.dvl_latest.velocity.x) < 1.5 and \
+                            self.dvl_latest.velocity.x > -1.5:
+                        
+                        self.lin_vel_t = np.array([self.dvl_latest.velocity.x,
+                                                self.dvl_latest.velocity.y,
+                                                self.dvl_latest.velocity.z])
+                        
+                        # print("DVL vel ", self.lin_vel_t)
+                                    
+                    # # Otherwise, integrate motion model estimate
+                    else:
+
+                        # Input x, y, yaw, x_vel, y_vel, yaw_vel
+                        # Output x_vel, y_vel, yaw_vel, x_acc, y_acc, yaw_acc
+                        lin_acc_t = self.sam.motion(self.u)[0:3]
+
+                        lin_acc_t = np.array(
+                            [lin_acc_t[0], -lin_acc_t[1],  0.])
+                        
+                        self.lin_vel_t = lin_acc_t * dt
+                        # print("MM vel ", self.lin_vel_t)
+                        
+                    # Integrate linear vels in x and y                   
+                    step_t = np.matmul(rot_mat_t, self.lin_vel_t * dt)
+                    pose_t[0:2] += step_t[0:2]
+
+                # Measure depth directly
+                pose_t[2] = self.base_depth - self.init_depth
+                
+                # Update global variable
+                self.pos_t = pose_t[0:3]
+
+                self.t_now += dt
 
 
     def sbg_cb(self, sbg_msg):
@@ -336,65 +394,6 @@ class VehicleDR(object):
             self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
             self.init_yaw = -sbg_msg.angle.z%(2*math.pi)
             self.init_heading = True
-
-            
-        # else:
-
-        #     if self.init_depth is not None:
-
-        #         dt = sbg_msg.header.stamp.to_sec() - self.t_sbg_prev
-        #         self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
-
-        #         rot_t = euler_from_quaternion([sbg_msg.orientation.y,
-        #                                             sbg_msg.orientation.x,
-        #                                             sbg_msg.orientation.z,
-        #                                             sbg_msg.orientation.w])
-        #         self.rot_t = np.array([rot_t[0],rot_t[1],rot_t[2]])
-        #         self.rot_t[2] -= self.init_yaw
-            
-        #         pose_t = np.concatenate([self.pos_t, self.rot_t])    # Catch latest estimate from IMU
-
-        #         # DVL data coming in
-        #         if self.dvl_on:
-        #             rot_mat_t = self.fullRotation(pose_t[3], pose_t[4], pose_t[5])
-
-        #             # Integrate linear velocities from DVL
-        #             # If last DVL msg isn't too old
-        #             if self.t_now - self.t_dvl_prev < self.dvl_period and \
-        #                     abs(self.dvl_latest.velocity.y) < 0.2 and \
-        #                     abs(self.dvl_latest.velocity.x) < 1.5 and \
-        #                     self.dvl_latest.velocity.x > -0.1:
-                        
-        #                 self.lin_vel_t = np.array([self.dvl_latest.velocity.x,
-        #                                         self.dvl_latest.velocity.y,
-        #                                         self.dvl_latest.velocity.z])
-                        
-        #                 # print("DVL vel ", self.lin_vel_t)
-                                    
-        #             # # Otherwise, integrate motion model estimate
-        #             else:
-
-        #                 # Input x, y, yaw, x_vel, y_vel, yaw_vel
-        #                 # Output x_vel, y_vel, yaw_vel, x_acc, y_acc, yaw_acc
-        #                 lin_acc_t = self.sam.motion(self.u)[0:3]
-
-        #                 lin_acc_t = np.array(
-        #                     [lin_acc_t[0], -lin_acc_t[1],  0.])
-                        
-        #                 self.lin_vel_t = lin_acc_t * dt
-        #                 # print("MM vel ", self.lin_vel_t)
-                        
-        #             # Integrate linear vels in x and y                   
-        #             step_t = np.matmul(rot_mat_t, self.lin_vel_t * dt)
-        #             pose_t[0:2] += step_t[0:2]
-
-        #         # Measure depth directly
-        #         pose_t[2] = self.base_depth - self.init_depth
-                
-        #         # Update global variable
-        #         self.pos_t = pose_t[0:3]
-
-        #         self.t_now += dt
 
 
     def fullRotation(self, roll, pitch, yaw):
