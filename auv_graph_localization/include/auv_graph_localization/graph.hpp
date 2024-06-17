@@ -143,9 +143,9 @@ namespace gtsam
         GraphND();
 
         // virtual void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth) {}
-        virtual void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth) {}
+        virtual void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int node_cnt, double depth) {}
 
-        virtual void GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double depth) {}
+        virtual void GpsNode(const std::vector<double> &gps_odom, int node_cnt, double depth) {}
 
         virtual void Optimize(int cnt) {}
 
@@ -169,15 +169,15 @@ namespace gtsam
         Graph2D();
 
         // void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth);
-        void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth);
+        void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int node_cnt, double depth);
 
-        void GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double depth);
+        void GpsNode(const std::vector<double> &gps_odom, int node_cnt, double depth);
 
         void Optimize(int cnt);
 
         std::vector<double> getValue(Values &values, int i);
 
-        void IntegrateOdom(Pose2 &prev_odom, const std::vector<int_step> &int_hist);
+        void IntegrateOdom(int &node_cnt);
 
         // bool CopyGraph(Graph2D graph_copy);
 
@@ -194,9 +194,9 @@ namespace gtsam
         Graph3D();
 
         // void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth);
-        void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth);
+        void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int node_cnt, double depth);
 
-        void GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double depth);
+        void GpsNode(const std::vector<double> &gps_odom, int node_cnt, double depth);
 
         void Optimize(int cnt);
 
@@ -206,7 +206,7 @@ namespace gtsam
 
         void SBGPrior(const Rot3 &sbg_rotation, int cnt);
 
-        void IntegrateOdom(Pose3 &prev_odom, const std::vector<int_step> &int_hist);
+        void IntegrateOdom(int &node_cnt);
 
         // boost::shared_ptr<Graph3D> CopyGraph();
         // bool CopyGraph(Graph3D graph_copy);

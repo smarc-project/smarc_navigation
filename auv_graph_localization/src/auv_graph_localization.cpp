@@ -20,6 +20,7 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     nh_->param<std::string>(("base_frame"), base_frame_, "sam/base_link");
     nh_->param<std::string>(("map_frame"), map_frame_, "map");
     nh_->param<std::string>(("utm_frame"), utm_frame_, "utm");
+    nh_->param<bool>(("rviz_vis"), rviz_vis_, false);
 
     try
     {
@@ -48,10 +49,10 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     preint_pub_ = nh_->advertise<nav_msgs::Odometry>(preint_top, 1);
 
     nh_->param<std::string>(("odom_top"), odom_top, "/sam/dr/odom");
-    odom_sub_ = nh_->subscribe(odom_top, 100, &GraphLocalization::OdomCb, this);
+    odom_sub_ = nh_->subscribe(odom_top, 1000, &GraphLocalization::OdomCb, this);
 
     nh_->param<std::string>(("uwgs_odom_top"), uwgps_odom_top, "/sam/dr/odom");
-    uwgps_odom_sub_ = nh_->subscribe(uwgps_odom_top, 100, &GraphLocalization::UWGPSOdomCb, this);
+    uwgps_odom_sub_ = nh_->subscribe(uwgps_odom_top, 1, &GraphLocalization::UWGPSOdomCb, this);
 
     aux_bool_ = false;
     aux_sub_ = nh_->subscribe("/aux", 1, &GraphLocalization::AuxCb, this);
@@ -60,7 +61,7 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     // stim_sub_ = nh_stim->subscribe(stim_top, 1, &GraphLocalization::StimCb, this);
 
     nh_->param<std::string>(("gps_odom_top"), gps_top, "/sam/dr/gps_odom");
-    gps_sub_ = nh_gps_->subscribe(gps_top, 5, &GraphLocalization::GpsCb, this);
+    gps_sub_ = nh_gps_->subscribe(gps_top, 1, &GraphLocalization::GpsCb, this);
 
     nh_->param<float>(("vis_rate"), vis_rate_, 1.);
     std::thread(&GraphLocalization::Visualize, this).detach();
@@ -136,7 +137,6 @@ void GraphLocalization::OdomCb(const nav_msgs::OdometryConstPtr &odom_msg)
 
     Pose3 pose_latest;
     node_cnt_ = node_cnt_ + 1;
-    // std::cout << "Cnt in Odom cb " << node_cnt_ << std::endl;
     graph_->OdomNode(ang_vel_t, lin_vel_t, pose_latest, dt, node_cnt_, depth_t_);
 
     // Add a depth prior every x nodes. It will not do anything if the graph is 2D
@@ -170,65 +170,120 @@ void GraphLocalization::Visualize()
             // might not have been added already because they mutex is being held 
 
             // Copy locally
-            if(graph_->graph_mux_.try_lock())
-            {
-                int graph_nodes = graph_->result_.size() + graph_->initial_estimate_.size();
-                Values result_local = graph_->result_;
-                Values init_local = graph_->initial_estimate_;
-                graph_->graph_mux_.unlock();
-            
                 // Publish path in rviz
-                for (int i = 0; i < graph_nodes - 1; i++)
-                // for (int i = graph_nodes - 2; i < graph_nodes - 1; i++)
+            if (rviz_vis_)
+            {
+                if(graph_->graph_mux_.try_lock())
+                {        
+                    int graph_nodes = graph_->result_.size() + graph_->initial_estimate_.size();
+                    Values result_local = graph_->result_;
+                    Values init_local = graph_->initial_estimate_;
+                    graph_->graph_mux_.unlock();
+
+                    for (int i = 0; i < graph_nodes - 1; i++)
+                    // for (int i = graph_nodes - 2; i < graph_nodes - 1; i++)
+                    {
+                        if (result_local.exists(X(i)))
+                        {
+                            pose_i = graph_->getValue(result_local, i);
+                            // std::cout << "From result " << pose_i.at(0) << ", " << pose_i.at(1) << ", " << pose_i.at(2) << std::endl;
+                        }
+                        else if (init_local.exists(X(i)))
+                        {
+                            pose_i = graph_->getValue(init_local, i);
+                            // std::cout << "From init " << pose_i.at(0) << ", " << pose_i.at(1) << ", " << pose_i.at(2) << std::endl;
+                        }
+                        else
+                        {
+                            ROS_WARN_STREAM("Graph loc: rviz thread might be out of synch");
+                            continue;
+                        }
+
+                        pose_msg.pose.position.x = pose_i.at(0);
+                        pose_msg.pose.position.y = pose_i.at(1);
+                        pose_msg.pose.position.z = 0;
+                        pose_msg.pose.position.z = (pose_i.size() > 2) ? pose_i.at(2) : 0;
+
+                        pose_msg.pose.orientation.x = pose_i.at(3);
+                        pose_msg.pose.orientation.y = pose_i.at(4);
+                        pose_msg.pose.orientation.z = pose_i.at(5);
+                        pose_msg.pose.orientation.w = pose_i.at(6);
+
+                        path.poses.push_back(pose_msg);
+                    }
+                    path_pub_.publish(path);
+                }
+                else
                 {
-                    if (result_local.exists(X(i)))
+                    ROS_WARN_STREAM("Rviz visualizer missed the lock");
+                }
+            }
+
+            // Broadcast latest pose
+            // Catch last value in result and init_estimate
+
+            if(graph_->graph_mux_.try_lock())
+            {        
+                bool result_empty = graph_->result_.empty();
+                bool init_empty = graph_->initial_estimate_.empty();
+
+                // If both result and init are empty, Visualize() has been called before data is being added to the graph
+                // so pose_i will be zero
+                if (result_empty && init_empty)
+                {
+                    pose_i = std::vector<double> {0,0,0,0,0,0,1};
+                }
+                // If only result is empty, catch pose from init
+                else if (result_empty)
+                {
+                    gtsam::Values::iterator last_it = --graph_->initial_estimate_.end();
+                    // std::cout << "Using last init key because result empty " << last_it->key << std::endl;
+                    pose_i = graph_->getValue(graph_->initial_estimate_, last_it->key);
+                }
+                // If only init is empty, catch pose from result
+                else if (init_empty)
+                {
+                    gtsam::Values::iterator last_it = --graph_->result_.end();
+                    // std::cout << "Using last result key because init empty " << last_it->key << std::endl;
+                    pose_i = graph_->getValue(graph_->result_, last_it->key);
+                }
+                // If they both contain poses, check what's the latest one 
+                else 
+                {
+                    gtsam::Values::iterator last_result_it = --graph_->result_.end();
+                    gtsam::Values::iterator last_init_it = --graph_->initial_estimate_.end();
+                    if (last_init_it->key > last_result_it->key)
                     {
-                        pose_i = graph_->getValue(result_local, i);
-                        // std::cout << "From result " << pose_i.at(0) << ", " << pose_i.at(1) << ", " << pose_i.at(2) << std::endl;
-                    }
-                    else if (init_local.exists(X(i)))
-                    {
-                        pose_i = graph_->getValue(init_local, i);
-                        // std::cout << "From init " << pose_i.at(0) << ", " << pose_i.at(1) << ", " << pose_i.at(2) << std::endl;
-                    }
+                        // std::cout << "Using last init key " << last_init_it->key << std::endl;
+                        pose_i = graph_->getValue(graph_->initial_estimate_, last_init_it->key);
+                    } 
                     else
                     {
-                        ROS_WARN_STREAM("Graph loc: rviz thread might be out of synch");
-                        continue;
+                        // std::cout << "Using last result key " << last_result_it->key << std::endl;
+                        pose_i = graph_->getValue(graph_->result_, last_result_it->key);
                     }
-
-                    pose_msg.pose.position.x = pose_i.at(0);
-                    pose_msg.pose.position.y = pose_i.at(1);
-                    pose_msg.pose.position.z = 0;
-                    pose_msg.pose.position.z = (pose_i.size() > 2)? pose_i.at(2): 0;
-
-                    pose_msg.pose.orientation.x = pose_i.at(3);
-                    pose_msg.pose.orientation.y = pose_i.at(4);
-                    pose_msg.pose.orientation.z = pose_i.at(5);
-                    pose_msg.pose.orientation.w = pose_i.at(6);
-
-                    path.poses.push_back(pose_msg);
                 }
-                path_pub_.publish(path);
+                graph_->graph_mux_.unlock();
 
                 // BR odom-->base at time t with last pose_msg
                 tf_odom_base_.header.frame_id = odom_frame_;
                 tf_odom_base_.child_frame_id = base_frame_;
                 tf_odom_base_.header.stamp = ros::Time::now();
 
-                tf_odom_base_.transform.translation.x = pose_msg.pose.position.x;
-                tf_odom_base_.transform.translation.y = pose_msg.pose.position.y;
-                tf_odom_base_.transform.translation.z = pose_msg.pose.position.z;
-                tf_odom_base_.transform.rotation.x = pose_msg.pose.orientation.x;
-                tf_odom_base_.transform.rotation.y = pose_msg.pose.orientation.y;
-                tf_odom_base_.transform.rotation.z = pose_msg.pose.orientation.z;
-                tf_odom_base_.transform.rotation.w = pose_msg.pose.orientation.w;
+                tf_odom_base_.transform.translation.x = pose_i.at(0);;
+                tf_odom_base_.transform.translation.y = pose_i.at(1);;
+                tf_odom_base_.transform.translation.z = pose_i.at(2);;
+                tf_odom_base_.transform.rotation.x = pose_i.at(3);;
+                tf_odom_base_.transform.rotation.y = pose_i.at(4);;
+                tf_odom_base_.transform.rotation.z = pose_i.at(5);;
+                tf_odom_base_.transform.rotation.w = pose_i.at(6);;
                 static_broadcaster_.sendTransform(tf_odom_base_);
             }
             else
             {
-                ROS_WARN_STREAM("Rviz missed the lock");
+                ROS_WARN_STREAM("DR TF broadcaster missed the lock");
             }
+
             // std::cout << "Nodes to be plotted " << graph_nodes -1 << std::endl;
             // std::cout << "Nodes in cnt " << node_cnt_ + 1 << std::endl;
 
@@ -279,7 +334,7 @@ void GraphLocalization::GpsCb(const nav_msgs::OdometryConstPtr &gps_msg)
     if(!aux_bool_)
     {
         int cnt = node_cnt_;
-        std::cout << "Cnt in GPS cb " << node_cnt_ << std::endl;
+        std::cout << "Cnt in GPS cb " << cnt << std::endl;
 
         geometry_msgs::PoseStamped gps_utm, gps_odom;
         gps_utm.header.frame_id = utm_frame_;

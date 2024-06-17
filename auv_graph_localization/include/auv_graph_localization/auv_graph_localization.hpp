@@ -49,7 +49,7 @@ public:
     double stim_t_prev_, odom_t_prev_;
     float vis_rate_;
     double depth_t_;
-    bool aux_bool_;
+    bool aux_bool_, rviz_vis_;
 
     nav_msgs::Odometry odom_msg_;
 

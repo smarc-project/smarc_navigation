@@ -67,7 +67,7 @@ Graph3D::Graph3D(int &node_cnt): GraphND(node_cnt)
 }
 
 // void Graph2D::OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth)
-void Graph2D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth)
+void Graph2D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int node_cnt, double depth)
 {
     // // depth_t_ = odom_msg->pose.pose.position.z;
 
@@ -90,14 +90,51 @@ void Graph2D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3
     // odom_pose_prev_ = odom_pose;
 }
 
-void Graph2D::IntegrateOdom(Pose2 &prev_odom, const std::vector <int_step>& int_hist)
+void Graph2D::IntegrateOdom(int &node_cnt)
 {
 
 }
 
-void Graph3D::IntegrateOdom(Pose3 &prev_odom, const std::vector <int_step>& int_hist)
+void Graph3D::IntegrateOdom(int &node_cnt)
 {
-    for(int_step step_i: int_hist)
+    Pose3 prev_odom;
+    // If result contains the last previous node
+    if (result_.exists(X(node_cnt - 1)))
+    {
+        // std::cout << "Pre pose is from result " << std::endl;
+        prev_odom = result_.at<Pose3>(X(result_.size() - 2));
+    }
+    // If not, check if it is in the initial estimate.
+    // This should be the case until a first optimiziation round has taken place
+    else if (initial_estimate_.exists(X(node_cnt - 1)))
+    {
+        prev_odom = initial_estimate_.at<Pose3>(X(node_cnt - 1));
+    }
+    // If the last previous node isn't already in results or initial_estimate is because node_cnt-1 is in int_hist.
+    // In that case, take the latest initial_estimate node and integrate from there
+    else
+    {
+        // prev_odom = result_.at<Pose3>(X(result_.size() - 2));
+        if (!initial_estimate_.empty())
+        {
+            gtsam::Values::iterator last_it = --initial_estimate_.end();
+            // std::cout << "Key from init " << last_it->key << std::endl;
+            prev_odom = initial_estimate_.at<Pose3>(last_it->key);
+        }
+        else
+        {
+            gtsam::Values::iterator last_it = --result_.end();
+            // std::cout << "Key from result " << last_it->key << std::endl;
+            prev_odom = result_.at<Pose3>(last_it->key);
+        }
+    }
+
+    // Copy and reset history immediatly after. Otherwise the int_hist_ might received new info while in the for loop, 
+    // leading to that info being lost in the clear()
+    std::vector<int_step> int_hist_local = int_hist_;
+    int_hist_.clear();
+
+    for(int_step step_i: int_hist_local)
     {
         // In Euler
         Vector3 rot_prev = prev_odom.rotation().rpy();
@@ -137,6 +174,7 @@ void Graph3D::IntegrateOdom(Pose3 &prev_odom, const std::vector <int_step>& int_
         // std::cout << "Odom cnt " << std::get<0>(step_i) << std::endl;
 
         graph_->add(odom_factor);
+        // std::cout << "Adding key to initial_estimate " << std::get<0>(step_i) << std::endl;
         initial_estimate_.insert(X(std::get<0>(step_i)), odom_pose);
 
         // Add prior on roll and pitch
@@ -154,39 +192,15 @@ void Graph3D::IntegrateOdom(Pose3 &prev_odom, const std::vector <int_step>& int_
 }
 
 // void Graph3D::OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth)
-void Graph3D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth)
+void Graph3D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int node_cnt, double depth)
 {
     int_hist_.push_back(int_step(node_cnt, lin_vel_t, ang_vel_t, dt, depth));
 
+    // If we can catch the lock: take the latest odom and integrate the int_hist
     if (graph_mux_.try_lock())
     {
-        // std::cout << "Odom: got lock" << std::endl;
-        // std::cout << "Node cnt " << node_cnt -1 << std::endl;
-        Pose3 prev_odom;
-        // if (result_.exists(X(node_cnt-1)))
-        if (result_.exists(X(node_cnt-1)))
-        {
-            // std::cout << "Pre pose is from result " << std::endl;
-            prev_odom = result_.at<Pose3>(X(result_.size()- 2));
-        }
-        else if (initial_estimate_.exists(X(node_cnt-1)))
-        {
-            // This should be the case always until a first optimiziation round has taken place
-            // std::cout << "Pre pose is from init " << std::endl;
-            prev_odom = initial_estimate_.at<Pose3>(X(node_cnt-1));
-        }
-        else
-        {
-            std::cout << "Odom node cnt " << node_cnt -1 << std::endl;
-            std::cout << "results size " << result_.size() << std::endl;
-            std::cout << "init size " << initial_estimate_.size() << std::endl;
-            prev_odom = result_.at<Pose3>(X(result_.size() - 2));
-
-            // return;
-        }
-        this->IntegrateOdom(prev_odom, int_hist_);
+        this->IntegrateOdom(node_cnt);
         graph_mux_.unlock();
-        int_hist_.clear();
     }
 }
 
@@ -223,7 +237,7 @@ void Graph3D::DepthPrior(int cnt, double depth)
     // graph_->add(depth_factor);
 }
 
-void Graph2D::GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double depth)
+void Graph2D::GpsNode(const std::vector<double> &gps_odom, int node_cnt, double depth)
 {
     // 2D version
     auto unaryNoise = noiseModel::Isotropic::Sigma(2, 10.0);
@@ -243,7 +257,7 @@ void Graph2D::GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double
     // graph_->add(depth_factor);
 }
 
-void Graph3D::GpsNode(const std::vector<double> &gps_odom, int &node_cnt, double depth)
+void Graph3D::GpsNode(const std::vector<double> &gps_odom, int node_cnt, double depth)
 {
     // 3D version
     auto correction_noise = noiseModel::Isotropic::Sigmas((Vector(3) << 25., 25., 0.1).finished());
@@ -305,6 +319,9 @@ void Graph3D::Optimize(int cnt)
     // If optimizing, integrate odom in the meantime
     try
     {
+        std::cout << "Odom node cnt " << cnt << std::endl;
+        std::cout << "Results size " << result_.size() << std::endl;
+        std::cout << "Initial estimate size " << initial_estimate_.size() << std::endl;
         int it = 0;
         // odom_pose_preint_ = initial_estimate_.at<Pose3>(X(node_cnt));
         while(!graph_mux_.try_lock() && it < 10 )
@@ -312,37 +329,50 @@ void Graph3D::Optimize(int cnt)
             // Dangerous shit
             sleep(0.05);
             it++;
-            std::cout << "Optimize waiting for the lock" << std::endl;
+            std::cout << "Optimizer waiting for the lock" << std::endl;
         }
-        // if(graph_mux_.try_lock())
-        // {
+        if(it < 10)
+        {
+
             std::cout << "----------------- Optimizing --------------------" << std::endl;
+
+            this->IntegrateOdom(cnt);
+            std::cout << "DR preintegrated" << std::endl;
+            std::cout << "Odom node cnt " << cnt << std::endl;
+            std::cout << "Results size " << result_.size() << std::endl;
+            std::cout << "Initial estimate size " << initial_estimate_.size() << std::endl;
+
+            // if(graph_mux_.try_lock())
+            // {
             // writeG2o(*graph_, initial_estimate_, "before.dot");
             ISAM2Result update_info = isam2_->update(*graph_, initial_estimate_);
+            isam2_->update();
+            isam2_->update();
+            isam2_->update();
             update_info.print();
 
             // result_ = isam2_->calculateEstimate(X(cnt));
             result_ = isam2_->calculateEstimate();
             std::cout << " Estimate calculated " << std::endl;
-
+            
             graph_->resize(0);
             initial_estimate_.clear();
             std::cout << " Graph and estimate reset " << std::endl;
 
-            graph_mux_.unlock();
-            std::cout << "----------------- Optimization done --------------------" << std::endl;
-        // }
-        // else
-        // {
-        //     std::cout << "----------------- Optimization: Missed lock --------------------" << std::endl;
-        // }
 
+            std::cout << "----------------- Optimization done --------------------" << std::endl;
+        }
+        else
+        {
+            std::cout << "----------------- Optimization: Missed lock --------------------" << std::endl;
+        }
     }
     catch (const std::exception &e)
     {
-        std::cout << "===========================================================================" << std::endl;
         std::cout << "Graph loc node. Optimize step: " << e.what() << std::endl;
+        std::cout << "=========================================================================================" << std::endl;
     }
+    graph_mux_.unlock();
 
     // Reset the preintegration object.
     // preintegrated_->resetIntegrationAndSetBias(prev_bias_);

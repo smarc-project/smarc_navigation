@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     ros::CallbackQueue gps_queue;
     nh_stim.setCallbackQueue(&stim_queue);
     nh.setCallbackQueue(&general_queue);
-    nh_gps.setCallbackQueue(&general_queue);
+    nh_gps.setCallbackQueue(&gps_queue);
 
     boost::shared_ptr<GraphLocalization> graph_loc(new GraphLocalization(nh, nh_stim, nh_gps));
 
