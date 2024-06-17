@@ -39,7 +39,7 @@ Graph3D::Graph3D(int &node_cnt): GraphND(node_cnt)
     Point3 prior_point(0,0,0);
     Pose3 prior_pose(prior_rotation, prior_point);
     initial_estimate_.insert(X(node_cnt), prior_pose);
-    initial_estimate_.insert(R(node_cnt), prior_rotation);
+    //initial_estimate_.insert(R(node_cnt), prior_rotation);
 
     // Vector3 prior_velocity(0,0,0);
     // imuBias::ConstantBias prior_imu_bias; // assume zero initial bias
