@@ -41,7 +41,7 @@ class SAM(object):
 
         ## TANK PARAMETERS
         # Potentially we need to adjust these. They differ from Joris model
-        rpm_scale = 1 #0.15
+        rpm_scale = 0.65 #0.15
         # d_scale = -2.5
 
         # let's change it again, seems different in real life now :)

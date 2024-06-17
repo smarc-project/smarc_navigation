@@ -50,7 +50,7 @@ class PublishGPSPose(object):
 
     def sbg_cb(self, sbg_msg):
 
-        self.heading_sbg = -sbg_msg.angle.z%(2*math.pi)
+        self.heading_sbg = -sbg_msg.angle.z%(2*math.pi) #+ math.pi/2.
 
     def tf_timer(self, event):
 

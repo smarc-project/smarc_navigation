@@ -120,8 +120,11 @@ class VehicleDR(object):
         self.dvl_sub = rospy.Subscriber(self.dvl_topic, DVL, self.dvl_cb)
         self.stim_sub = rospy.Subscriber(self.stim_topic, Imu, self.stim_cb, queue_size=200)
         self.depth_sub = rospy.Subscriber(self.depth_top, PoseWithCovarianceStamped, self.depth_cb)
-        self.gps_sub = rospy.Subscriber(self.gps_topic, Odometry, self.gps_cb)
+        self.gps_sub = rospy.Subscriber(self.gps_topic, Odometry, self.gps_cb, queue_size=100)
         # self.uw_gps_sub = rospy.Subscriber(self.uw_gps_topic, Odometry, self.uw_gps_cb)
+
+        self.sbg_cnt = 0
+        self.init_yaw = 0
 
         self.thrust_cmd_sub = rospy.Subscriber(self.thrust_topic, ThrusterAngles, self.thrust_cmd_cb)
         self.thrust1_sub = message_filters.Subscriber(self.rpm1_topic, ThrusterFeedback)
@@ -320,13 +323,14 @@ class VehicleDR(object):
 
         # Working with Quaternions        
         if not self.init_heading:
-            self.init_quat = sbg_msg.orientation
-            self.init_yaw = euler_from_quaternion(
-                [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])[2] - np.pi/2
+            if self.sbg_cnt < 10:
+                self.init_quat = sbg_msg.orientation
+                self.init_yaw += euler_from_quaternion(
+                    [self.init_quat.x, self.init_quat.y, self.init_quat.z, self.init_quat.w])[2] - np.pi/2
 
-            print("Yaw from quaternions ", self.init_yaw)
-            self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
-            self.init_heading = True
+                print("Yaw from quaternions ", self.init_yaw)
+                self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
+                self.init_heading = True
 
         else:
 
@@ -389,11 +393,27 @@ class VehicleDR(object):
 
     def sbg_cb(self, sbg_msg):
 
-        # Working with SbgEkfEuler
+        # # Working with SbgEkfEuler
+        # if not self.init_heading:
+        #     self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
+        #     self.init_yaw = -sbg_msg.angle.z%(2*math.pi)
+        #     self.init_heading = True
+
+        
+        # Working with SbgEkfEuler        
         if not self.init_heading:
-            self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
-            self.init_yaw = -sbg_msg.angle.z%(2*math.pi)
-            self.init_heading = True
+            if self.sbg_cnt < 10:
+                # self.init_quat = sbg_msg.orientation
+                self.init_yaw += -sbg_msg.angle.z%(2*math.pi) # + math.pi/2.
+
+            if self.sbg_cnt == 10:
+                self.init_yaw /= 10.
+                self.init_yaw = (self.init_yaw + np.pi) % (2 * np.pi) - np.pi
+                # print("++++++++++++++++++ Init Yaw  ++++++++++++++++++ ", self.init_yaw)
+                self.t_sbg_prev = sbg_msg.header.stamp.to_sec()
+                self.init_heading = True
+            
+            self.sbg_cnt += 1
 
 
     def fullRotation(self, roll, pitch, yaw):
@@ -463,7 +483,7 @@ class VehicleDR(object):
                         [lin_acc_t[0], -lin_acc_t[1],  0.])
                     
                     self.lin_vel_t = lin_acc_t * dt
-                    print("MM vel ", self.lin_vel_t)
+                    # print("MM vel ", self.lin_vel_t)
 
             self.t_now += dt
 
