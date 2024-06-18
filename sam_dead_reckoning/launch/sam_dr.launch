@@ -100,6 +100,10 @@
             <param name="vis_rate" value="2" />
             <param name="uwgs_odom_top" value="/$(arg namespace)/uwgps/odom"/> <!--  UW GPS fixes -->
             <param name="rviz_vis" value="True"/> <!--  UW GPS fixes -->
+            <rosparam param="init_std">[1., 1., 0.01, 0.001, 0.001, 0.01]</rosparam>
+            <rosparam param="motion_std">[1.0, 1.0, 0.1, 0.01, 0.01, 0.3]</rosparam>
+            <rosparam param="gps_std">[10.0]</rosparam>
+            <rosparam param="depth_std">[0.01]</rosparam>
         </node>
      
         <!--<include file="$(find auv_particle_filter)/launch/auv_pf.launch">
