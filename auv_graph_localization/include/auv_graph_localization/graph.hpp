@@ -132,11 +132,10 @@ namespace gtsam
         std::vector<GPSFactor> gps_factors_;
         std::vector<BetweenFactor<Pose3>> odom_factors_;
         Values temp_estimate_;
+        std::vector<float> motion_std_, gps_std_, depth_std_;
 
         typedef std::tuple<int, Vector3, Vector3, double, double> int_step;
         std::vector<int_step> int_hist_;
-
-        // T odom_pose_prev_;
 
         GraphND(int &node_cnt);
 
@@ -164,7 +163,8 @@ namespace gtsam
     public:
         Pose2 odom_pose_prev_;
 
-        Graph2D(int &node_cnt);
+        Graph2D(int &node_cnt, std::vector<float> init_std, std::vector<float> &motion_std,
+                std::vector<float> gps_std, std::vector<float> depth_std);
 
         Graph2D();
 
@@ -189,7 +189,8 @@ namespace gtsam
     public:
         Pose3 odom_pose_prev_;
 
-        Graph3D(int &node_cnt);
+        Graph3D(int &node_cnt, std::vector<float> init_std, std::vector<float> &motion_std,
+                std::vector<float> gps_std, std::vector<float> depth_std);
 
         Graph3D();
 

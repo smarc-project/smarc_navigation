@@ -12,8 +12,7 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     stim_init_ = false;
     odom_init_ = false;
     depth_t_ = 0.;
-
-    graph_.reset(new Graph3D(node_cnt_));
+    std::vector<float> init_std, motion_std, gps_std, depth_std;
 
     tf2_ros::TransformListener tf_listener(tf_buffer_);
     nh_->param<std::string>(("odom_frame"), odom_frame_, "sam/odom");
@@ -21,6 +20,12 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
     nh_->param<std::string>(("map_frame"), map_frame_, "map");
     nh_->param<std::string>(("utm_frame"), utm_frame_, "utm");
     nh_->param<bool>(("rviz_vis"), rviz_vis_, false);
+    nh_->param("init_std", init_std, vector<float>());
+    nh_->param("motion_std", motion_std, std::vector<float>());
+    nh_->param("gps_std", gps_std, std::vector<float>());
+    nh_->param("depth_std", depth_std, std::vector<float>());
+
+    graph_.reset(new Graph3D(node_cnt_, init_std, motion_std, gps_std, depth_std));
 
     try
     {
@@ -158,6 +163,7 @@ void GraphLocalization::Visualize()
     {
         if(node_cnt_ > 2)
         {
+            ROS_INFO_STREAM_THROTTLE(5, "Nodes in graph: " << graph_->result_.size() + graph_->initial_estimate_.size());
             // Attempt deep copy of graph object for plotting
             // TODO: define clone() withing the graph class to use mutex while cloning
             // boost::shared_ptr<GraphND> graph_plot;
@@ -348,7 +354,7 @@ void GraphLocalization::GpsCb(const nav_msgs::OdometryConstPtr &gps_msg)
     if(!aux_bool_)
     {
         int cnt = node_cnt_;
-        std::cout << "Cnt in GPS cb " << cnt << std::endl;
+        // std::cout << "Cnt in GPS cb " << cnt << std::endl;
 
         geometry_msgs::PoseStamped gps_utm, gps_odom;
         gps_utm.header.frame_id = utm_frame_;
@@ -356,7 +362,8 @@ void GraphLocalization::GpsCb(const nav_msgs::OdometryConstPtr &gps_msg)
         gps_utm.pose.position.y = gps_msg->pose.pose.position.y;
         gps_utm.pose.position.z = 0.;
         tf2::doTransform(gps_utm, gps_odom, utm_odom_tf_);
-        std::cout << "GPS fix " << gps_odom.pose.position.x << ", " << gps_odom.pose.position.y << ", " << gps_odom.pose.position.z << std::endl;
+        
+        // std::cout << "GPS fix " << gps_odom.pose.position.x << ", " << gps_odom.pose.position.y << ", " << gps_odom.pose.position.z << std::endl;
         std::vector<double> gps_vec{gps_odom.pose.position.x, gps_odom.pose.position.y};
 
         try

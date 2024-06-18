@@ -8,21 +8,27 @@ GraphND::GraphND(int &node_cnt)
     parameters.relinearizeThreshold = 0.01;
     parameters.relinearizeSkip = 1;
     isam2_ = new ISAM2(parameters);
-    odom_pose_preint_ = Pose3();
+    // odom_pose_preint_ = Pose3();
     std::cout << "Graph object constructed" << std::endl;
 }
 
 Graph2D::Graph2D() : GraphND() {}
 
-Graph2D::Graph2D(int& node_cnt): GraphND(node_cnt)
+Graph2D::Graph2D(int &node_cnt, std::vector<float> init_std, std::vector<float> &motion_std,
+                 std::vector<float> gps_std, std::vector<float> depth_std) : GraphND(node_cnt)
 {
     // 2D prior
     Pose2 prior_pose(0.0, 0.0, 0.0); // prior at origin
     initial_estimate_.insert(X(node_cnt), prior_pose);
 
+    // Store noise models
+    motion_std_ = motion_std;
+    gps_std_ = gps_std;
+    depth_std_ = depth_std;
+
     // Assemble prior noise model and add it the graph.`
     auto pose_noise_model = noiseModel::Diagonal::Sigmas(
-        (Vector(3) << 0.01, 0.01, 0.01)
+        (Vector(3) << init_std.at(0), init_std.at(1), init_std.at(2))
             .finished()); // rad,rad,rad,m, m, m
 
     graph_ = new NonlinearFactorGraph();
@@ -31,14 +37,20 @@ Graph2D::Graph2D(int& node_cnt): GraphND(node_cnt)
 
 Graph3D::Graph3D() : GraphND(){}
 
-
-Graph3D::Graph3D(int &node_cnt): GraphND(node_cnt)
+Graph3D::Graph3D(int &node_cnt, std::vector<float> init_std, std::vector<float> &motion_std,
+                 std::vector<float> gps_std, std::vector<float> depth_std) : GraphND(node_cnt)
 {
     // 3D prior
     Rot3 prior_rotation = Rot3::Quaternion(1, 0,0,0);
     Point3 prior_point(0,0,0);
     Pose3 prior_pose(prior_rotation, prior_point);
     initial_estimate_.insert(X(node_cnt), prior_pose);
+    
+    // Store noise models
+    motion_std_ = motion_std;
+    gps_std_ = gps_std;
+    depth_std_ = depth_std;
+
     //initial_estimate_.insert(R(node_cnt), prior_rotation);
 
     // Vector3 prior_velocity(0,0,0);
@@ -54,11 +66,13 @@ Graph3D::Graph3D(int &node_cnt): GraphND(node_cnt)
 
     // Assemble prior noise model and add it the graph.`
     auto pose_noise_model = noiseModel::Diagonal::Sigmas(
-        (Vector(6) << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01)
+        (Vector(6) << init_std.at(0), init_std.at(1), init_std.at(2), init_std.at(3), init_std.at(4), init_std.at(5))
             .finished()); // rad,rad,rad,m, m, m
 
+    // auto pose_noise_model = noiseModel::Diagonal::Sigmas(noise);
+
     graph_ = new NonlinearFactorGraph();
-    graph_->add(PriorFactor<Pose3>(X(node_cnt), prior_pose, pose_noise_model));
+    // graph_->add(PriorFactor<Pose3>(X(node_cnt), prior_pose, pose_noise_model));
 
     // Start with a clear 
     result_.clear();
@@ -168,7 +182,10 @@ void Graph3D::IntegrateOdom(int &node_cnt)
         // Below is equivalent to odom_pose_prev_.between(odom_pose)
         // Pose2 odom_step = odom_pose_prev_.inverse().compose(odom_pose);
         // TODO: extract noise from odom_msg
-        noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Sigmas((Vector(6) << 1., 1., 0.1, 0.1, 0.1, 0.3).finished());
+        noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Sigmas((Vector(6) << motion_std_.at(0), motion_std_.at(1),
+                                                                                       motion_std_.at(1), motion_std_.at(2), motion_std_.at(3),
+                                                                                       motion_std_.at(5))
+                                                                                          .finished());
         BetweenFactor<Pose3> odom_factor(X(std::get<0>(step_i) - 1), X(std::get<0>(step_i)), prev_odom.between(odom_pose), odometryNoise);
 
         // std::cout << "Odom cnt " << std::get<0>(step_i) << std::endl;
@@ -208,7 +225,7 @@ void Graph3D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3
 void Graph3D::DepthPrior(int cnt, double depth)
 {
     // Depth constraint for 3D case
-    noiseModel::Diagonal::shared_ptr depthNoise = noiseModel::Diagonal::Sigmas((Vector(1) << 0.01).finished());
+    noiseModel::Diagonal::shared_ptr depthNoise = noiseModel::Diagonal::Sigmas((Vector(1) << depth_std_.at(0)).finished());
     Pose3DepthFactor depth_factor(X(cnt), depth, depthNoise);
 
     if (!graph_mux_.try_lock())
@@ -240,7 +257,7 @@ void Graph3D::DepthPrior(int cnt, double depth)
 void Graph2D::GpsNode(const std::vector<double> &gps_odom, int node_cnt, double depth)
 {
     // 2D version
-    auto unaryNoise = noiseModel::Isotropic::Sigma(2, 10.0);
+    auto unaryNoise = noiseModel::Isotropic::Sigma(2, gps_std_.at(0));
     graph_->add(boost::make_shared<UnaryFactor>(X(node_cnt), gps_odom.at(0), gps_odom.at(1), unaryNoise));
 
     // 3D version
@@ -269,10 +286,12 @@ void Graph3D::GpsNode(const std::vector<double> &gps_odom, int node_cnt, double 
 
     if (!graph_mux_.try_lock())
     {
+        std::cout << "Saving GPS meas for later " << std::endl;
         gps_factors_.push_back(gps_factor);
     }
     else
     {
+        std::cout << "Adding GPS meas" << std::endl;
         if (!gps_factors_.empty())
         {
             for (auto gps_fact : gps_factors_)
