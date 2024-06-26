@@ -47,7 +47,7 @@ public:
     bool optimized_;
     double stim_t_now_, odom_t_now_;
     double stim_t_prev_, odom_t_prev_;
-    float vis_rate_;
+    float vis_rate_, pub_rate_;
     double depth_t_;
     bool aux_bool_, rviz_vis_;
 
@@ -72,6 +72,8 @@ public:
     void AuxCb(const std_msgs::BoolConstPtr &aux_msg);
 
     void Visualize();
+
+    void PubOdom();
 
     void Optimize(int cnt);
 

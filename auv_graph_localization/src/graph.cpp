@@ -79,7 +79,7 @@ Graph3D::Graph3D(int &node_cnt, std::vector<float> init_std, std::vector<float> 
 }
 
 // void Graph2D::OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth)
-void Graph2D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int node_cnt, double depth)
+void Graph2D::OdomNode(const nav_msgs::Odometry odom_msg, double dt, int node_cnt)
 {
     // // depth_t_ = odom_msg->pose.pose.position.z;
 
@@ -151,12 +151,7 @@ void Graph3D::IntegrateOdom(int &node_cnt)
         // In Euler
         Vector3 rot_prev = prev_odom.rotation().rpy();
         Vector3 rot_euler = rot_prev + std::get<2>(step_i) * std::get<3>(step_i);
-        // Wrap yaw
-        bool was_neg = rot_euler[2] < 0;
-        rot_euler[2] = fmod(rot_euler[2], static_cast<double>(2.0 * M_PI));
-        if (was_neg)
-            rot_euler[2] += static_cast<double>(2.0 * M_PI);
-        Rot3 rot_now = Rot3::Ypr(rot_euler[2], rot_euler[1], rot_euler[0]);
+        this->WrapAngles(rot_euler);
 
         // TODO: do this in quaternions
         // Rot3 rot_prev = odom_pose_prev.rotation();
@@ -164,6 +159,8 @@ void Graph3D::IntegrateOdom(int &node_cnt)
         // Rot3 rot_step = Rot3::Ypr(euler_step[2], euler_step[1], euler_step[0]);
         // Rot3 rot_now = rot_step * rot_prev;
 
+        // We're reading directly roll, pitch and depth
+        Rot3 rot_now = Rot3::Ypr(rot_euler[2], std::get<6>(step_i), std::get<5>(step_i));
         Vector3 pos_step = rot_now.matrix() * std::get<1>(step_i) * std::get<3>(step_i);
         Point3 pos_now(prev_odom.translation()[0] + pos_step[0],
                         prev_odom.translation()[1] + pos_step[1],
@@ -208,9 +205,24 @@ void Graph3D::IntegrateOdom(int &node_cnt)
 }
 
 // void Graph3D::OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth)
-void Graph3D::OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int node_cnt, double depth)
+void Graph3D::OdomNode(const nav_msgs::Odometry odom_msg, double dt, int node_cnt)
 {
-    int_hist_.push_back(int_step(node_cnt, lin_vel_t, ang_vel_t, dt, depth));
+    double depth = odom_msg.pose.pose.position.z;
+    Rot3 rot_t = Rot3::Quaternion(odom_msg.pose.pose.orientation.w,
+                                  odom_msg.pose.pose.orientation.x,
+                                  odom_msg.pose.pose.orientation.y,
+                                  odom_msg.pose.pose.orientation.z);
+    Vector3 euler_t = rot_t.rpy();
+
+    Vector3 ang_vel_t(odom_msg.twist.twist.angular.x,
+                      odom_msg.twist.twist.angular.y,
+                      odom_msg.twist.twist.angular.z);
+
+    Vector3 lin_vel_t(odom_msg.twist.twist.linear.x,
+                      odom_msg.twist.twist.linear.y,
+                      odom_msg.twist.twist.linear.z);
+
+    int_hist_.push_back(int_step(node_cnt, lin_vel_t, ang_vel_t, dt, depth, euler_t[0], euler_t[1]));
 
     // If we can catch the lock: take the latest odom and integrate the int_hist
     if (graph_mux_.try_lock())
@@ -420,6 +432,17 @@ void Graph3D::SBGPrior(const Rot3& sbg_rotation, int cnt)
     initial_estimate_.insert(R(cnt), r_estimate);
     // graph_->add(PriorFactor<Pose3>(X(node_cnt), prior_pose, pose_noise_model));
 }
+
+// void WrapAngles(Vector3 &euler)
+// {
+//     for (auto angle : euler)
+//     {
+//         bool was_neg = angle < 0;
+//         angle = fmod(angle, static_cast<double>(2.0 * M_PI));
+//         if (was_neg)
+//             angle += static_cast<double>(2.0 * M_PI);
+//     }
+// }
 
 // bool Graph3D::CopyGraph(Graph3D graph_copy)
 // {

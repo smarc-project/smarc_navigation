@@ -36,6 +36,7 @@ using symbol_shorthand::X;        // Pose3 (x,y,z,r,p,y)
 #include <boost/thread.hpp>
 #include <chrono>
 #include <thread>
+#include <nav_msgs/Odometry.h>
 
 namespace gtsam
 {
@@ -134,7 +135,7 @@ namespace gtsam
         Values temp_estimate_;
         std::vector<float> motion_std_, gps_std_, depth_std_;
 
-        typedef std::tuple<int, Vector3, Vector3, double, double> int_step;
+        typedef std::tuple<int, Vector3, Vector3, double, double, double, double> int_step;
         std::vector<int_step> int_hist_;
 
         GraphND(int &node_cnt);
@@ -142,7 +143,7 @@ namespace gtsam
         GraphND();
 
         // virtual void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth) {}
-        virtual void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int node_cnt, double depth) {}
+        virtual void OdomNode(const nav_msgs::Odometry odom_msg, double dt, int node_cnt) {}
 
         virtual void GpsNode(const std::vector<double> &gps_odom, int node_cnt, double depth) {}
 
@@ -153,6 +154,17 @@ namespace gtsam
         virtual void DepthPrior(int cnt, double depth) {}
 
         virtual void IntegrateOdom(Pose3 &prev_odom, const std::vector<int_step> &int_hist) {}
+
+        virtual void WrapAngles(Vector3& euler)
+        {
+            for (int i=0; i< euler.size(); i++)
+            {
+                bool was_neg = euler(i) < 0;
+                euler(i) = fmod(euler(i), static_cast<double>(2.0 * M_PI));
+                if (was_neg)
+                    euler(i) += static_cast<double>(2.0 * M_PI);
+            }
+        }
 
         // virtual bool CopyGraph(GraphND graph_copy) {}
         // virtual GraphND* Clone() {}
@@ -169,7 +181,7 @@ namespace gtsam
         Graph2D();
 
         // void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth);
-        void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int node_cnt, double depth);
+        void OdomNode(const nav_msgs::Odometry odom_msg, double dt, int node_cnt);
 
         void GpsNode(const std::vector<double> &gps_odom, int node_cnt, double depth);
 
@@ -178,6 +190,8 @@ namespace gtsam
         std::vector<double> getValue(Values &values, int i);
 
         void IntegrateOdom(int &node_cnt);
+
+        // void WrapAngles(Vector3 &euler);
 
         // bool CopyGraph(Graph2D graph_copy);
 
@@ -195,7 +209,7 @@ namespace gtsam
         Graph3D();
 
         // void OdomNode(const Rot3 &odom_rotation, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int &node_cnt, double depth);
-        void OdomNode(const Vector3 &ang_vel_t, const Vector3 &lin_vel_t, Pose3 odom_pose_prev, double dt, int node_cnt, double depth);
+        void OdomNode(const nav_msgs::Odometry odom_msg, double dt, int node_cnt);
 
         void GpsNode(const std::vector<double> &gps_odom, int node_cnt, double depth);
 
@@ -208,6 +222,8 @@ namespace gtsam
         void SBGPrior(const Rot3 &sbg_rotation, int cnt);
 
         void IntegrateOdom(int &node_cnt);
+
+        // void WrapAngles(Vector3 &euler);
 
         // boost::shared_ptr<Graph3D> CopyGraph();
         // bool CopyGraph(Graph3D graph_copy);

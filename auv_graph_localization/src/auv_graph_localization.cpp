@@ -73,7 +73,10 @@ GraphLocalization::GraphLocalization(ros::NodeHandle &nh, ros::NodeHandle &nh_st
 
     nh_->param<float>(("vis_rate"), vis_rate_, 1.);
     std::thread(&GraphLocalization::Visualize, this).detach();
-    
+
+    nh_->param<float>(("odom_rate"), pub_rate_, 1.);
+    std::thread(&GraphLocalization::PubOdom, this).detach();
+
     std::cout << "Graph node ready " << std::endl;
 }
 
@@ -132,20 +135,9 @@ void GraphLocalization::OdomCb(const nav_msgs::OdometryConstPtr &odom_msg)
     // {
     // std::cout << "Odom cnt " << node_cnt_ << std::endl;
     depth_t_ = odom_msg->pose.pose.position.z;
-
-    Vector3 ang_vel_t(odom_msg->twist.twist.angular.x,
-                      odom_msg->twist.twist.angular.y,
-                      odom_msg->twist.twist.angular.z);
-
-    Vector3 lin_vel_t(odom_msg->twist.twist.linear.x, 
-                      odom_msg->twist.twist.linear.y,
-                      odom_msg->twist.twist.linear.z);
-
     odom_msg_ = *odom_msg;
-
-    Pose3 pose_latest;
     node_cnt_ = node_cnt_ + 1;
-    graph_->OdomNode(ang_vel_t, lin_vel_t, pose_latest, dt, node_cnt_, depth_t_);
+    graph_->OdomNode(odom_msg_, dt, node_cnt_);
 
     // Add a depth prior every x nodes. It will not do anything if the graph is 2D
     // if (node_cnt_ % 100 == 0)
@@ -163,7 +155,6 @@ void GraphLocalization::Visualize()
     {
         if(node_cnt_ > 2)
         {
-            ROS_INFO_STREAM_THROTTLE(5, "Nodes in graph: " << graph_->result_.size() + graph_->initial_estimate_.size());
             // Attempt deep copy of graph object for plotting
             // TODO: define clone() withing the graph class to use mutex while cloning
             // boost::shared_ptr<GraphND> graph_plot;
@@ -227,12 +218,37 @@ void GraphLocalization::Visualize()
                     ROS_WARN_STREAM("Rviz visualizer missed the lock");
                 }
             }
+        }
+
+        r.sleep();
+    }
+}
+
+
+void GraphLocalization::PubOdom()
+{
+    ros::Rate r(pub_rate_);
+    while (ros::ok())
+    {
+        if (node_cnt_ > 2)
+        {
+            ROS_INFO_STREAM_THROTTLE(5, "Nodes in graph: " << graph_->result_.size() + graph_->initial_estimate_.size());
+            // Attempt deep copy of graph object for plotting
+            // TODO: define clone() withing the graph class to use mutex while cloning
+            // boost::shared_ptr<GraphND> graph_plot;
+            // graph_plot = boost::make_shared<GraphND>(*graph_);
+
+            nav_msgs::Path path;
+            path.header.frame_id = odom_frame_;
+            path.header.stamp = ros::Time::now();
+            geometry_msgs::PoseStamped pose_msg;
+            std::vector<double> pose_i;
 
             // Broadcast latest pose
             // Catch last value in result and init_estimate
 
-            if(graph_->graph_mux_.try_lock())
-            {        
+            if (graph_->graph_mux_.try_lock())
+            {
                 bool result_empty = graph_->result_.empty();
                 bool init_empty = graph_->initial_estimate_.empty();
 
@@ -240,7 +256,7 @@ void GraphLocalization::Visualize()
                 // so pose_i will be zero
                 if (result_empty && init_empty)
                 {
-                    pose_i = std::vector<double> {0,0,0,0,0,0,1};
+                    pose_i = std::vector<double>{0, 0, 0, 0, 0, 0, 1};
                 }
                 // If only result is empty, catch pose from init
                 else if (result_empty)
@@ -256,8 +272,8 @@ void GraphLocalization::Visualize()
                     // std::cout << "Using last result key because init empty " << last_it->key << std::endl;
                     pose_i = graph_->getValue(graph_->result_, last_it->key);
                 }
-                // If they both contain poses, check what's the latest one 
-                else 
+                // If they both contain poses, check what's the latest one
+                else
                 {
                     gtsam::Values::iterator last_result_it = --graph_->result_.end();
                     gtsam::Values::iterator last_init_it = --graph_->initial_estimate_.end();
@@ -265,7 +281,7 @@ void GraphLocalization::Visualize()
                     {
                         // std::cout << "Using last init key " << last_init_it->key << std::endl;
                         pose_i = graph_->getValue(graph_->initial_estimate_, last_init_it->key);
-                    } 
+                    }
                     else
                     {
                         // std::cout << "Using last result key " << last_result_it->key << std::endl;
@@ -279,23 +295,23 @@ void GraphLocalization::Visualize()
                 tf_odom_base_.child_frame_id = base_frame_;
                 tf_odom_base_.header.stamp = ros::Time::now();
 
-                tf_odom_base_.transform.translation.x = pose_i.at(0);;
-                tf_odom_base_.transform.translation.y = pose_i.at(1);;
-                tf_odom_base_.transform.translation.z = pose_i.at(2);;
-                tf_odom_base_.transform.rotation.x = pose_i.at(3);;
-                tf_odom_base_.transform.rotation.y = pose_i.at(4);;
-                tf_odom_base_.transform.rotation.z = pose_i.at(5);;
-                tf_odom_base_.transform.rotation.w = pose_i.at(6);;
+                tf_odom_base_.transform.translation.x = pose_i.at(0);
+                tf_odom_base_.transform.translation.y = pose_i.at(1);
+                tf_odom_base_.transform.translation.z = pose_i.at(2);
+                tf_odom_base_.transform.rotation.x = pose_i.at(3);
+                tf_odom_base_.transform.rotation.y = pose_i.at(4);
+                tf_odom_base_.transform.rotation.z = pose_i.at(5);
+                tf_odom_base_.transform.rotation.w = pose_i.at(6);
                 static_broadcaster_.sendTransform(tf_odom_base_);
 
                 nav_msgs::Odometry localization_msg;
                 localization_msg.header.stamp = ros::Time::now();
                 localization_msg.header.frame_id = odom_frame_;
                 localization_msg.child_frame_id = base_frame_;
-                localization_msg.pose.pose.position.x = pose_msg.pose.position.x;
-                localization_msg.pose.pose.position.y = pose_msg.pose.position.y;
-                localization_msg.pose.pose.position.z = pose_msg.pose.position.z;
-                localization_msg.pose.pose.orientation = pose_msg.pose.orientation;
+                localization_msg.pose.pose.position.x = pose_i.at(0);
+                localization_msg.pose.pose.position.y = pose_i.at(1);
+                localization_msg.pose.pose.position.z = pose_i.at(2);
+                localization_msg.pose.pose.orientation = tf_odom_base_.transform.rotation;
                 loc_pub_.publish(localization_msg);
                 // TODO: publish velocities
             }
@@ -306,25 +322,10 @@ void GraphLocalization::Visualize()
 
             // std::cout << "Nodes to be plotted " << graph_nodes -1 << std::endl;
             // std::cout << "Nodes in cnt " << node_cnt_ + 1 << std::endl;
-
         }
-
-        // nav_msgs::Odometry preint_odom;
-        // preint_odom.header.frame_id = odom_frame_;
-        // preint_odom.header.stamp = ros::Time::now();
-        // preint_odom.pose.pose.position.x = prop_state_.pose().translation()[0];
-        // preint_odom.pose.pose.position.y = prop_state_.pose().translation()[1];
-        // preint_odom.pose.pose.position.z = prop_state_.pose().translation()[2];
-        // preint_odom.pose.pose.orientation.w = prop_state_.pose().rotation().quaternion()[0];
-        // preint_odom.pose.pose.orientation.x = prop_state_.pose().rotation().quaternion()[1];
-        // preint_odom.pose.pose.orientation.y = prop_state_.pose().rotation().quaternion()[2];
-        // preint_odom.pose.pose.orientation.z = prop_state_.pose().rotation().quaternion()[3];
-        // preint_pub_.publish(preint_odom);
-
         r.sleep();
     }
 }
-
 
 void GraphLocalization::StimCb(const sensor_msgs::ImuConstPtr &imu_msg)
 {
